@@ -1,0 +1,152 @@
+---
+# ==============================================================================
+# Optional VPS host monitoring + host security (roles/monitoring/tasks)
+# ==============================================================================
+# Installs, on a Debian-family host:
+#   * prometheus-node-exporter   — host metrics for central Prometheus/Grafana.
+#   * crowdsec                   — log-based detection (SSH brute force, scans)
+#                                  from the systemd journal (no rsyslog needed).
+#   * crowdsec-firewall-bouncer  — enforces CrowdSec decisions via nftables.
+# and joins the host to the NetBird overlay through the shared agent role
+# (roles/agent) so a central Prometheus/Alloy reaches it with no public port,
+# plus, optionally:
+#   * grafana/alloy              — ships host logs to a central Loki.
+#
+# The Debian packages self-configure: crowdsec enables crowdsecurity/linux +
+# crowdsecurity/sshd and reads `ssh.service` from journald; the firewall bouncer
+# registers its LAPI key against the local LAPI on install.
+#
+# The play sets gather_facts: false and this role gathers facts itself (first
+# task), so hosts that did NOT opt in (monitoring_enabled false) are skipped
+# without any connection being made.
+# ==============================================================================
+
+- name: "[Monitoring] Gather facts"
+  ansible.builtin.setup:
+
+- name: "[Monitoring] Assert a Debian-family host"
+  ansible.builtin.assert:
+    that:
+      - ansible_os_family == 'Debian'
+    fail_msg: >-
+      monitoring is Debian-family only (apt). Set monitoring_enabled: false on
+      unsupported hosts.
+
+- name: "[Monitoring] Select the packages to install"
+  ansible.builtin.set_fact:
+    monitoring_packages: >-
+      {{ ([pkg_node_exporter] if node_exporter_enabled | bool else [])
+         + ([pkg_crowdsec, pkg_crowdsec_firewall_bouncer]
+            if crowdsec_enabled | bool else []) }}
+
+- name: "[Monitoring] Install the monitoring packages"
+  ansible.builtin.apt:
+    name: "{{ monitoring_packages }}"
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+  when: monitoring_packages | length > 0
+
+# ------------------------------------------------------------------------------
+# Overlay agent (mesh join) + optional log shipper (Docker services)
+# ------------------------------------------------------------------------------
+- name: "[Monitoring] Join the host to the overlay"
+  ansible.builtin.include_role:
+    name: agent
+
+- name: "[Monitoring] Assert a central Loki URL when shipping logs"
+  ansible.builtin.assert:
+    that:
+      - (loki_url | default('', true) | length) > 0
+    fail_msg: >-
+      alloy_enabled requires loki_url (logs are pushed to Loki over the overlay).
+  when: alloy_enabled | bool
+
+- name: "[Monitoring] Ensure the monitoring stack directory exists"
+  ansible.builtin.file:
+    path: "{{ monitoring_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+
+- name: "[Monitoring] Render the Alloy configuration"
+  ansible.builtin.template:
+    src: monitoring/config.alloy.j2
+    dest: "{{ monitoring_dir }}/config.alloy"
+    owner: root
+    group: root
+    mode: "0640"
+  when: alloy_enabled | bool
+
+- name: "[Monitoring] Render the monitoring stack"
+  ansible.builtin.template:
+    src: monitoring/docker-compose.yml.j2
+    dest: "{{ monitoring_dir }}/docker-compose.yml"
+    owner: root
+    group: root
+    mode: "0600"
+  no_log: true
+  when: alloy_enabled | bool
+
+- name: "[Monitoring] Deploy the monitoring stack"
+  community.docker.docker_compose_v2:
+    project_src: "{{ monitoring_dir }}"
+    state: present
+    remove_orphans: true
+  when:
+    - alloy_enabled | bool
+    - not ansible_check_mode
+
+# ------------------------------------------------------------------------------
+# Host exporters
+# ------------------------------------------------------------------------------
+- name: "[Monitoring] Build the node_exporter listen arguments"
+  ansible.builtin.set_fact:
+    node_exporter_listen_args: >-
+      {{ ['--web.listen-address=' ~ node_exporter_listen_addr]
+         + (['--web.listen-address=' ~ overlay_ip ~ ':9100']
+            if ((overlay_ip | default('')) | length > 0)
+               and (overlay_ip ~ ':9100' != node_exporter_listen_addr)
+            else []) }}
+  when: node_exporter_enabled | bool
+
+- name: "[Monitoring] Configure the node_exporter listen addresses"
+  ansible.builtin.copy:
+    dest: /etc/default/prometheus-node-exporter
+    content: >-
+      ARGS="{{ node_exporter_listen_args | join(' ') }}"
+    owner: root
+    group: root
+    mode: "0644"
+  when: node_exporter_enabled | bool
+  notify: "[Monitoring] Restart node_exporter"
+
+- name: "[Monitoring] Point the CrowdSec metrics listener at the overlay"
+  ansible.builtin.copy:
+    dest: /etc/crowdsec/config.yaml.local
+    content: |
+      prometheus:
+        listen_addr: "{{ overlay_ip }}"
+        listen_port: 6060
+    owner: root
+    group: root
+    mode: "0640"
+  when:
+    - crowdsec_enabled | bool
+    - (overlay_ip | default('')) | length > 0
+  notify: "[Monitoring] Restart crowdsec"
+
+- name: "[Monitoring] Select the services to manage"
+  ansible.builtin.set_fact:
+    monitoring_services: >-
+      {{ ([svc_node_exporter] if node_exporter_enabled | bool else [])
+         + ([svc_crowdsec, svc_crowdsec_firewall_bouncer]
+            if crowdsec_enabled | bool else []) }}
+
+- name: "[Monitoring] Enable and start the monitoring services"
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+  loop: "{{ monitoring_services }}"

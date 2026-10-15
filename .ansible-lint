@@ -1,0 +1,22 @@
+---
+# Run offline: do not install requirements.yml or create ansible-lint's
+# project-local `.ansible/` isolated dependency cache. Collections are installed
+# project-locally into ./collections by `make install` and resolved via
+# ansible.cfg's collections_path, so no lint-time install is needed.
+offline: true
+exclude_paths:
+  - collections/
+  - .ansible/
+  - .cache/
+
+# ansible-lint configuration.
+#
+# The shared `helpers` role is a library invoked via include_role + tasks_from;
+# its parameters are caller-named by design (secrets_*) because the same
+# task file is reused. ansible-lint's no-role-prefix rule would instead demand
+# a `helpers_` prefix on those interface variables, which would defeat the
+# shared naming. Role-internal constants in vars/main.yml are unprefixed by the
+# same single-role convention. Skip that single sub-rule; all other var-naming
+# checks stay enabled.
+skip_list:
+  - var-naming[no-role-prefix]

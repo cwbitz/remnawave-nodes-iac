@@ -1,0 +1,54 @@
+# ==============================================================================
+# Git Ignore Configuration for the Remnawave nodes IaC project
+# ==============================================================================
+
+# Project-local Ansible runtime/cache root (may contain sensitive host details):
+# home = ./.cache/ansible (temp, ssh control sockets, galaxy cache/token),
+# the jsonfile fact cache (.cache/facts) and generated outputs. Never commit.
+.cache/
+
+# Execution retry files generated upon task failures
+*.retry
+
+# Master Vault password files used for local decryption
+.vault_password*
+*.vault_password
+.vault_ansible_password*
+*.ansible_vault_password
+.vault_pass*
+*.vault_pass
+
+# Never commit a vault*.yml file, even encrypted. The single per-host encrypted
+# vault (vault.yml) holds user secrets and role-generated secrets; the committed
+# schema reference is inventory/host_vars/example/vault.yml.example.
+**/vault.yml
+**/vault_*.yml
+
+# Real per-host inventory is local-only; only the example/ template is committed.
+inventory/host_vars/*
+!inventory/host_vars/example/
+
+# Real inventory (real hostnames) is local-only.
+inventory/hosts.yml
+
+# Project-local Ansible collections (installed by `make install` into
+# collections/). Never commit installed collections or a runtime .ansible/ dir.
+collections/
+.ansible/
+
+# Guard against a stray rendered copy of a config that may hold secrets.
+**/docker-compose.yml
+
+# Ansible Galaxy transient files (downloaded collection tarballs)
+galaxy-install-*.tmp
+
+# Python bytecode caches (from the helper scripts / local tooling)
+__pycache__/
+*.py[cod]
+
+# mise per-machine local overrides (project pin lives in the committed mise.toml)
+mise.local.toml
+
+# Only the shared editor settings are tracked; everything else is local.
+.vscode/*
+!.vscode/settings.json

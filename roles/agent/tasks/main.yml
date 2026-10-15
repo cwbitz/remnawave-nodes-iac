@@ -1,0 +1,106 @@
+---
+# ==============================================================================
+# NetBird agent - mesh join (roles/agent/tasks)
+# ==============================================================================
+# Deploys the NetBird agent container so a host joins the overlay. A routing
+# node (netbird_agent_routing: true) additionally enables IP forwarding, the
+# host-side requirement for a routed-network gateway / exit node.
+# ==============================================================================
+
+- name: "[Agent] Assert the overlay join credentials"
+  ansible.builtin.assert:
+    that:
+      - (netbird_management_url | default('', true) | length) > 0
+      - (peer_setup_key | default('', true) | length) > 0
+    fail_msg: >-
+      The overlay agent requires the management URL and a setup key so it joins
+      the mesh. Set vault_netbird_management_url and vault_netbird_setup_key in
+      inventory/host_vars/<host>/vault.yml (both are inputs owned by THIS
+      project; the management server itself lives in the sibling netbird-iac).
+
+- name: "[Agent] Ensure Docker Engine and the Compose v2 plugin are present"
+  ansible.builtin.include_role:
+    name: helpers
+    tasks_from: install_docker
+
+- name: "[Agent] Enable IP forwarding on a routing node"
+  ansible.posix.sysctl:
+    name: "{{ item }}"
+    value: "1"
+    sysctl_set: true
+    reload: true
+    state: present
+  loop:
+    - net.ipv4.ip_forward
+    - net.ipv6.conf.all.forwarding
+  when: netbird_agent_routing | bool
+
+- name: "[Agent] Ensure the agent stack directory exists"
+  ansible.builtin.file:
+    path: "{{ agent_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+
+# Migration: the overlay agent used to live inside the monitoring stack's compose
+# project. Move it to this role's project by removing an existing `netbird`
+# container owned by a DIFFERENT compose project (idempotent: ours is left alone).
+- name: "[Agent] Inspect any existing overlay container"
+  community.docker.docker_container_info:
+    name: netbird
+  register: agent_existing_container
+  failed_when: false
+
+- name: "[Agent] Remove a legacy overlay container owned by another compose project"
+  community.docker.docker_container:
+    name: netbird
+    state: absent
+  when:
+    - agent_existing_container.container is defined
+    - agent_existing_container.container is not none
+    - (agent_existing_container.container.Config.Labels | default({})).get('com.docker.compose.project', '')
+      not in ['', agent_dir | basename]
+
+- name: "[Agent] Render the agent stack"
+  ansible.builtin.template:
+    src: agent/docker-compose.yml.j2
+    dest: "{{ agent_dir }}/docker-compose.yml"
+    owner: root
+    group: root
+    mode: "0600"
+  no_log: true
+
+- name: "[Agent] Deploy the agent"
+  community.docker.docker_compose_v2:
+    project_src: "{{ agent_dir }}"
+    state: present
+    remove_orphans: true
+  when: not ansible_check_mode
+
+- name: "[Agent] Wait for the overlay interface (wt0)"
+  ansible.builtin.command: "ip -4 -o addr show wt0"
+  register: agent_wt0_addr
+  until: >-
+    agent_wt0_addr.rc == 0
+    and (agent_wt0_addr.stdout | regex_findall('inet [0-9.]+/') | length > 0)
+  retries: 30
+  delay: 5
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: "[Agent] Record the overlay address"
+  ansible.builtin.set_fact:
+    overlay_ip: >-
+      {{ (agent_wt0_addr.stdout | default('') | regex_findall('inet ([0-9.]+)/') | first)
+         | default('', true) }}
+
+- name: "[Agent] Fail when the overlay peer did not come up"
+  ansible.builtin.assert:
+    that:
+      - (overlay_ip | default('')) | length > 0
+    fail_msg: >-
+      The NetBird overlay agent did not obtain an address on wt0 within the
+      timeout. Check the setup key (vault_netbird_setup_key), the management URL
+      (vault_netbird_management_url), and `docker logs netbird`.

@@ -1,0 +1,60 @@
+---
+# ==============================================================================
+# Remnawave node (roles/remnanode/tasks)
+# ==============================================================================
+# Deploys the Remnawave Node container. The Panel pushes the Xray config to the
+# node; the node listens on NODE_PORT (host network) for the Panel's internal API
+# requests. NODE_PORT/SECRET_KEY are copied from the Panel's generated compose
+# file into this project's vault.
+# ==============================================================================
+
+- name: "[Remnanode] Assert the node join credentials"
+  ansible.builtin.assert:
+    that:
+      - (remnanode_node_port | string | trim) is match('^[0-9]{1,5}$')
+      - (remnanode_node_port | int) >= 1
+      - (remnanode_node_port | int) <= 65535
+      - (remnanode_secret_key | default('', true) | length) > 0
+    fail_msg: >-
+      A Remnawave node requires NODE_PORT and SECRET_KEY. Create the Node in the
+      Panel (Nodes -> Management), then write NODE_PORT and SECRET_KEY from its
+      generated docker-compose.yml into
+      inventory/host_vars/<host>/vault.yml as vault_remnanode_node_port and
+      vault_remnanode_secret_key.
+
+- name: "[Remnanode] Ensure Docker Engine and the Compose v2 plugin are present"
+  ansible.builtin.include_role:
+    name: helpers
+    tasks_from: install_docker
+
+- name: "[Remnanode] Ensure the node stack directory exists"
+  ansible.builtin.file:
+    path: "{{ remnanode_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+
+- name: "[Remnanode] Render the node stack"
+  ansible.builtin.template:
+    src: remnanode/docker-compose.yml.j2
+    dest: "{{ remnanode_dir }}/docker-compose.yml"
+    owner: root
+    group: root
+    mode: "0600"
+  no_log: true
+
+- name: "[Remnanode] Deploy the node"
+  community.docker.docker_compose_v2:
+    project_src: "{{ remnanode_dir }}"
+    state: present
+    remove_orphans: true
+  when: not ansible_check_mode
+
+- name: "[Remnanode] Wait for the node to listen on NODE_PORT"
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: "{{ remnanode_node_port | int }}"
+    state: started
+    timeout: 60
+  when: not ansible_check_mode

@@ -1,0 +1,31 @@
+---
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    env:
+      ANSIBLE_CONFIG: ci/ansible-ci.cfg
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+      - name: Install the pinned toolchain (.tool-versions)
+        uses: jdx/mise-action@v4
+      - name: Install Galaxy collections (make install)
+        run: make install
+      - name: Verify the pinned Keychain asset (SHA256)
+        run: make verify-keychain-pin
+      - name: Show the running ansible-core version
+        run: ansible --version
+      - name: Show the running ansible-lint version
+        run: ansible-lint --version
+      - name: Lint (syntax check + ansible-lint)
+        run: make lint

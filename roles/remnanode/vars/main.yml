@@ -1,0 +1,7 @@
+---
+# ==============================================================================
+# Role-owned constants (roles/remnanode/vars/main.yml)
+# ==============================================================================
+# Container image repository (tag is remnanode_version in defaults/,
+# Renovate-tracked).
+remnanode_image: "remnawave/node"

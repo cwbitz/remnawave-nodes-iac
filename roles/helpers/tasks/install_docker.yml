@@ -1,0 +1,80 @@
+---
+# ==============================================================================
+# Install Docker Engine + the Compose v2 plugin when missing
+# (roles/helpers/tasks/install_docker.yml)
+#
+# No-op when `docker compose version` already succeeds; otherwise installs Docker
+# CE via Docker's official install script (https://get.docker.com, Debian-family).
+# Safe to include from several components.
+#
+# Parameter (via include vars):
+#   install_docker  bool, default true. When false, missing Docker is fatal.
+# ==============================================================================
+
+- name: "[Docker] Detect Docker Engine + the Compose v2 plugin"
+  ansible.builtin.command: docker compose version
+  register: install_docker_probe
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: "[Docker] Refuse to run without Docker when installation is disabled"
+  ansible.builtin.assert:
+    that:
+      - install_docker_probe.rc == 0
+    fail_msg: >-
+      Docker Engine with the Compose v2 plugin is required on
+      {{ inventory_hostname }} but is missing and automatic installation is
+      disabled (install_docker=false). Install it from
+      https://docs.docker.com/engine/install/ and re-run.
+  when:
+    - install_docker_probe.rc != 0
+    - not (install_docker | default(true) | bool)
+    - not ansible_check_mode
+
+- name: "[Docker] Install Docker CE from the official install script"
+  when:
+    - install_docker_probe.rc != 0
+    - install_docker | default(true) | bool
+    - not ansible_check_mode
+  block:
+    - name: "[Docker] Assert a Debian-family host"
+      ansible.builtin.assert:
+        that:
+          - ansible_os_family == 'Debian'
+        fail_msg: >-
+          Automatic Docker installation is only supported on Debian-family
+          hosts. Install Docker on {{ inventory_hostname }} manually and
+          re-run, or set install_docker=false to require it preinstalled.
+
+    - name: "[Docker] Ensure curl and CA certificates are present"
+      ansible.builtin.apt:
+        name:
+          - ca-certificates
+          - curl
+        state: present
+        update_cache: true
+
+    - name: "[Docker] Download the official Docker install script"
+      ansible.builtin.get_url:
+        url: https://get.docker.com
+        dest: /tmp/get-docker.sh
+        owner: root
+        group: root
+        mode: "0700"
+
+    - name: "[Docker] Install Docker Engine, CLI, containerd and Compose v2"
+      ansible.builtin.command:
+        cmd: sh /tmp/get-docker.sh
+        creates: /usr/bin/docker
+
+    - name: "[Docker] Remove the downloaded install script"
+      ansible.builtin.file:
+        path: /tmp/get-docker.sh
+        state: absent
+
+    - name: "[Docker] Enable and start the Docker service"
+      ansible.builtin.systemd_service:
+        name: docker
+        enabled: true
+        state: started

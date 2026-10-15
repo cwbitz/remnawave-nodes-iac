@@ -1,0 +1,31 @@
+// ==============================================================================
+// Alloy log shipper: host SSH auth events -> central Loki over the overlay.
+// Managed by Ansible - do not edit on the target host.
+// ==============================================================================
+
+loki.relabel "journal" {
+  forward_to = []
+
+  rule {
+    source_labels = ["__journal__hostname"]
+    target_label  = "host"
+  }
+
+  rule {
+    source_labels = ["__journal__systemd_unit"]
+    target_label  = "unit"
+  }
+}
+
+loki.source.journal "ssh" {
+  path          = "/var/log/journal"
+  matches       = "_SYSTEMD_UNIT=ssh.service"
+  relabel_rules = loki.relabel.journal.rules
+  forward_to    = [loki.write.central.receiver]
+}
+
+loki.write "central" {
+  endpoint {
+    url = "{{ loki_url }}/loki/api/v1/push"
+  }
+}

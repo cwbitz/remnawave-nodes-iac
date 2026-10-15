@@ -1,0 +1,11 @@
+---
+# ==============================================================================
+# Group defaults for the Remnawave proxy Nodes
+# (inventory/group_vars/remnawave_nodes/main.yml)
+# ==============================================================================
+# Applies to every node in the `remnawave_nodes` group. A Remnawave Node also
+# joins the NetBird overlay and is observed/hardened, so host monitoring and
+# security are on by default here (roles/monitoring installs node_exporter +
+# CrowdSec + the nftables firewall bouncer and joins the overlay through
+# roles/agent). Set `monitoring_enabled: false` per host to opt out.
+monitoring_enabled: true

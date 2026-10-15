@@ -1,0 +1,56 @@
+---
+# ==============================================================================
+# Deploy a Remnawave proxy Node.
+#
+#   make deploy
+#
+# A Remnawave Node is a lightweight container that embeds Xray-core; it is
+# managed by the Remnawave Panel (which lives in the sibling docker-stack-iac
+# project) and dialable by it on NODE_PORT. Each node also joins the NetBird
+# overlay and carries host monitoring/security (roles/monitoring, which includes
+# roles/agent) before the Remnawave Node container is deployed (roles/remnanode).
+#
+# Driven from the control node over SSH. See AGENTS.md and README.md.
+# ==============================================================================
+
+- name: Preflight
+  hosts: remnawave_nodes
+  gather_facts: false
+  run_once: true
+  tasks:
+    - name: "[Preflight] Assert a supported ansible-core engine on the control node"
+      ansible.builtin.assert:
+        that:
+          - ansible_version.full is version(ansible_core_min_version | default('2.19.0'), '>=')
+          - (ansible_version.full is version(ansible_core_max_version | default('2.20.0'), '<')) or (ansible_core_allow_untested | default(false) | bool)
+        fail_msg: >-
+          ansible-core {{ ansible_version.full }} is outside the supported range
+          [{{ ansible_core_min_version | default('2.19.0') }},
+          {{ ansible_core_max_version | default('2.20.0') }}). Install the pinned
+          toolchain (mise install / make install) or, if you knowingly
+          accept an untested newer engine, set ansible_core_allow_untested=true.
+      delegate_to: localhost
+      become: false
+
+    - name: "[Preflight] Require the service account (not root) for the deploy"
+      ansible.builtin.assert:
+        that:
+          - (host_ssh_user | default('root')) != 'root' or (host_allow_root_login | default(false) | bool)
+        fail_msg: >-
+          The deploy must run as the non-root service account, not root. Run
+          `make host-bootstrap` once as root to create it, then set
+          vault_host_ansible_user (and its key/password) in
+          inventory/host_vars/<host>/vault.yml. Override deliberately with
+          host_allow_root_login=true if you accept running as root.
+
+- name: Deploy the Remnawave node stack
+  hosts: remnawave_nodes
+  gather_facts: true
+  roles:
+    # Host monitoring + security; includes the NetBird overlay agent.
+    - role: monitoring
+      tags: [monitoring]
+      when: monitoring_enabled | default(false) | bool
+    # The Remnawave Node container itself.
+    - role: remnanode
+      tags: [remnanode]

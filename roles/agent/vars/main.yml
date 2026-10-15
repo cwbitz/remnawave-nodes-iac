@@ -1,0 +1,7 @@
+---
+# ==============================================================================
+# Role-owned constants (roles/agent/vars/main.yml)
+# ==============================================================================
+# Container image repository (tag is netbird_agent_version in defaults/,
+# Renovate-tracked).
+netbird_agent_image: "ghcr.io/netbirdio/netbird"

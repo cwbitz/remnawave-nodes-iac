@@ -1,0 +1,19 @@
+# ==============================================================================
+# Monitoring log shipper (Alloy) - the overlay agent is deployed by roles/agent.
+# Managed by Ansible - do not edit on the target host.
+# ==============================================================================
+services:
+  alloy:
+    image: "{{ alloy_image }}:{{ alloy_version }}"
+    container_name: alloy
+    restart: unless-stopped
+    user: "0:0"
+    command:
+      - run
+      - /etc/alloy/config.alloy
+      - --server.http.listen-addr=0.0.0.0:12345
+    volumes:
+      - ./config.alloy:/etc/alloy/config.alloy:ro
+      - /var/log/journal:/var/log/journal:ro
+      - /run/log/journal:/run/log/journal:ro
+      - /etc/machine-id:/etc/machine-id:ro

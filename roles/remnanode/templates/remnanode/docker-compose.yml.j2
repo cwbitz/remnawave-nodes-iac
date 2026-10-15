@@ -1,0 +1,24 @@
+# ==============================================================================
+# Remnawave node (Xray-core proxy node)
+# Managed by Ansible - do not edit on the target host.
+#
+# SECRET_KEY is a live credential: the Panel authenticates the node with it.
+# NODE_PORT is what the Panel dials in on; restrict it in the host firewall to
+# the Panel's address only.
+# ==============================================================================
+services:
+  remnanode:
+    container_name: remnanode
+    hostname: remnanode
+    image: "{{ remnanode_image }}:{{ remnanode_version }}"
+    network_mode: host
+    restart: always
+    cap_add:
+      - NET_ADMIN
+    ulimits:
+      nofile:
+        soft: 1048576
+        hard: 1048576
+    environment:
+      - NODE_PORT={{ remnanode_node_port }}
+      - SECRET_KEY="{{ remnanode_secret_key }}"

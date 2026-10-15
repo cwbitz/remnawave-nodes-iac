@@ -1,0 +1,447 @@
+---
+# ==============================================================================
+# Host bootstrap (`make host-bootstrap`; never part of playbooks/site.yml).
+#
+# Optional, opt-in host tuning. Probes the SSH identities in order
+# [ansible, admin, root] and uses the first that works; if that is not `ansible`,
+# it (re)creates the least-privilege `ansible` service account. Can also set
+# package/registry mirrors and authorize configured SSH public keys.
+#
+# Per identity (root/admin/ansible), vault.yml may set a password and/or a
+# private key file (SSH tries the key first). vault_<id>_ssh_pubkey_file is an
+# optional control-node path to the matching public key; when set it is
+# authorized for that account. Unset is ignored (keys are never generated).
+#
+# The `ansible` account uses key auth when vault_host_ansible_ssh_pubkey_file is set;
+# otherwise a password is set (host_bootstrap_password, else generated into
+# vault_host_ansible_password). Passwords are hashed with a per-account random salt
+# and applied with update_password=on_create, so re-runs are idempotent and a
+# host-side password rotation is preserved. If sshd disables password auth,
+# login fails (sshd config is out of scope).
+#
+# Mirrors (each a no-op unless set):
+#   host_apt_mirror / host_apt_security_mirror (derived) / docker_registry_mirrors
+#
+# Debian-family only for the APT-mirror and Docker-install parts.
+# ==============================================================================
+
+- name: Probe the SSH identities (ansible -> admin -> root)
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    # The host to bootstrap: the Makefile passes HOST= as -e bootstrap_host.
+    # Defaults to the first remnawave_nodes host; pass it explicitly when several
+    # nodes exist.
+    bootstrap_host: "{{ bootstrap_host | default(groups['remnawave_nodes'] | default([]) | first | default('', true)) }}"
+    remnawave_target: "{{ hostvars[bootstrap_host] | default({}) }}"
+    probe_host: "{{ remnawave_target.ansible_host | default('') }}"
+    probe_port: "{{ remnawave_target.ansible_port | default(22) }}"
+  tasks:
+    - name: "[Probe] Assert a bootstrap target was resolved"
+      ansible.builtin.assert:
+        that:
+          - bootstrap_host | default('', true) | length > 0
+          - probe_host | default('', true) | length > 0
+        fail_msg: >-
+          No bootstrap target resolved. Pass one explicitly with
+          `make host-bootstrap HOST=<inventory name>` (or -e bootstrap_host=...);
+          it defaults to the first remnawave_nodes host.
+
+    - name: "[Probe] Try each identity over SSH"
+      ansible.builtin.shell: |
+        set -u
+        HOST="{{ probe_host }}"; PORT="{{ probe_port }}"
+        # Hard per-attempt cap: ConnectTimeout only bounds the TCP connect, not
+        # the auth exchange, so a stalled link can otherwise hang the probe.
+        CMD_TIMEOUT=20
+        try_identity() {
+          id="$1"
+          user=$(eval echo "\$PROBE_${id}_USER")
+          pw=$(eval echo "\$PROBE_${id}_PW")
+          key=$(eval echo "\$PROBE_${id}_KEY")
+          [ -z "$user" ] && return 1
+          kopt=""; [ -n "$key" ] && kopt="-i $key"
+          base="-o StrictHostKeyChecking=accept-new -o ConnectTimeout=8 -o Port=$PORT"
+          base="$base -o PreferredAuthentications=publickey,password -o NumberOfPasswordPrompts=1"
+          if [ -n "$pw" ]; then
+            SSHPASS="$pw" timeout "$CMD_TIMEOUT" sshpass -e ssh $base $kopt "$user@$HOST" true >/dev/null 2>&1 && return 0
+          else
+            timeout "$CMD_TIMEOUT" ssh $base -o BatchMode=yes $kopt "$user@$HOST" true >/dev/null 2>&1 && return 0
+          fi
+          return 1
+        }
+        for id in ANSIBLE ADMIN ROOT; do
+          if try_identity "$id"; then echo "$id"; exit 0; fi
+        done
+        exit 1
+      args:
+        executable: /bin/bash
+      environment:
+        PROBE_ANSIBLE_USER: "{{ remnawave_target.host_ssh_identities.ansible.user }}"
+        PROBE_ANSIBLE_PW: "{{ remnawave_target.host_ssh_identities.ansible.password }}"
+        PROBE_ANSIBLE_KEY: "{{ remnawave_target.host_ssh_identities.ansible.privkey }}"
+        PROBE_ADMIN_USER: "{{ remnawave_target.host_ssh_identities.admin.user }}"
+        PROBE_ADMIN_PW: "{{ remnawave_target.host_ssh_identities.admin.password }}"
+        PROBE_ADMIN_KEY: "{{ remnawave_target.host_ssh_identities.admin.privkey }}"
+        PROBE_ROOT_USER: "{{ remnawave_target.host_ssh_identities.root.user }}"
+        PROBE_ROOT_PW: "{{ remnawave_target.host_ssh_identities.root.password }}"
+        PROBE_ROOT_KEY: "{{ remnawave_target.host_ssh_identities.root.privkey }}"
+      register: probe
+      changed_when: false
+      no_log: true
+      failed_when: false
+
+    - name: "[Probe] Fail if no identity can connect"
+      ansible.builtin.assert:
+        that:
+          - probe.rc == 0
+        fail_msg: >-
+          Could not log in as ansible, admin or root with the configured
+          credentials. Check inventory/host_vars/<host>/vault.yml
+          (vault_{ansible,admin,root}_password / _ssh_privkey_file) and the host.
+
+    - name: "[Probe] Record the working identity"
+      ansible.builtin.set_fact:
+        probe_identity: "{{ probe.stdout | trim }}"
+    - name: "[Probe] Resolve the chosen connection settings"
+      ansible.builtin.set_fact:
+        probe_chosen: "{{ remnawave_target.host_ssh_identities[probe_identity | lower] }}"
+
+    - name: "[Probe] Register the probed identity on the target host"
+      ansible.builtin.add_host:
+        name: "{{ bootstrap_host }}"
+        probe_identity: "{{ probe.stdout | trim }}"
+
+    - name: "[Probe] Report the working identity"
+      ansible.builtin.debug:
+        msg: "Connected as '{{ probe_identity }}' ({{ probe_chosen.user }})."
+
+- name: Bootstrap host system tuning
+  # Target the probed host by name (the bootstrap playbook manages one host at a
+  # time). Using the inventory host avoids a dynamic-only group that
+  # --syntax-check on a static inventory would warn about ("could not match
+  # supplied host pattern").
+  hosts: "{{ bootstrap_host | default(groups['remnawave_nodes'] | default([]) | first | default('', true)) }}"
+  gather_facts: true
+  # add_host vars rank below inventory host_vars; apply the probed identity as
+  # play vars so it takes effect.
+  vars:
+    ansible_user: "{{ hostvars['localhost'].probe_chosen.user }}"
+    ansible_password: "{{ hostvars['localhost'].probe_chosen.password }}"
+    # The probed identity may be a password-sudo account (e.g. the `admin`
+    # account when root SSH is disabled); use its password for sudo. The
+    # `ansible` service account is NOPASSWD, so an empty value is harmless.
+    ansible_become_password: "{{ hostvars['localhost'].probe_chosen.password }}"
+    ansible_ssh_private_key_file: "{{ hostvars['localhost'].probe_chosen.privkey }}"
+    ansible_become: "{{ hostvars['localhost'].probe_chosen.become }}"
+  handlers:
+    - name: Restart docker
+      ansible.builtin.systemd_service:
+        name: docker
+        state: restarted
+
+  tasks:
+    # --------------------------------------------------------------------------
+    # APT mirror (Debian-family)
+    # --------------------------------------------------------------------------
+    - name: "[Bootstrap] Validate the APT mirror settings"
+      ansible.builtin.assert:
+        that:
+          - ansible_os_family == 'Debian'
+        fail_msg: >-
+          host_apt_mirror is set, but the host is not Debian-family.
+          Example: host_apt_mirror: https://mirrors.tuna.tsinghua.edu.cn/debian
+      when: host_apt_mirror | default('', true) | length > 0
+
+    - name: "[Bootstrap] Back up the current APT sources (once)"
+      ansible.builtin.copy:
+        src: /etc/apt/sources.list
+        dest: /etc/apt/sources.list.bak.bootstrap
+        remote_src: true
+        force: false
+        mode: "0644"
+      when: host_apt_mirror | default('', true) | length > 0
+
+    - name: "[Bootstrap] Render the APT sources from the mirror"
+      ansible.builtin.template:
+        src: templates/apt_sources.list.j2
+        dest: /etc/apt/sources.list
+        owner: root
+        group: root
+        mode: "0644"
+      register: apt_sources
+      when: host_apt_mirror | default('', true) | length > 0
+
+    - name: "[Bootstrap] Refresh the APT cache"
+      ansible.builtin.apt:
+        update_cache: true
+      when:
+        - host_apt_mirror | default('', true) | length > 0
+        - apt_sources.changed | default(false)
+
+    # --------------------------------------------------------------------------
+    # Docker Engine (auto-install when missing)
+    # --------------------------------------------------------------------------
+    - name: "[Bootstrap] Ensure Docker Engine and the Compose v2 plugin are present"
+      ansible.builtin.include_role:
+        name: helpers
+        tasks_from: install_docker
+
+    # --------------------------------------------------------------------------
+    # Docker Hub registry mirrors
+    # --------------------------------------------------------------------------
+    - name: "[Bootstrap] Check that Docker is installed"
+      ansible.builtin.command: docker --version
+      register: bootstrap_docker
+      changed_when: false
+      failed_when: false
+      when: docker_registry_mirrors | default([]) | length > 0
+
+    - name: "[Bootstrap] Assert Docker is installed for registry mirrors"
+      ansible.builtin.assert:
+        that:
+          - bootstrap_docker.rc | default(1) == 0
+        fail_msg: >-
+          docker_registry_mirrors is set but Docker is not installed on
+          {{ inventory_hostname }}; install Docker first.
+      when: docker_registry_mirrors | default([]) | length > 0
+
+    - name: "[Bootstrap] Read the existing Docker daemon.json (if any)"
+      ansible.builtin.slurp:
+        src: /etc/docker/daemon.json
+      register: bootstrap_daemon
+      failed_when: false
+      when: docker_registry_mirrors | default([]) | length > 0
+
+    - name: "[Bootstrap] Merge registry mirrors into daemon.json"
+      ansible.builtin.copy:
+        content: >-
+          {{ (bootstrap_daemon.content | default('e30=') | b64decode | from_json)
+             | combine({'registry-mirrors': docker_registry_mirrors}) | to_nice_json }}
+        dest: /etc/docker/daemon.json
+        owner: root
+        group: root
+        mode: "0644"
+      when: docker_registry_mirrors | default([]) | length > 0
+      notify: Restart docker
+
+    # --------------------------------------------------------------------------
+    # Service account: create/repair only when not already connected as ansible.
+    # --------------------------------------------------------------------------
+    # Key mode is decided by the PUBLIC key path: that is the key bootstrap
+    # installs, so it is what actually keeps the account reachable. A
+    # private-key-only config is NOT treated as key mode (the key may not be
+    # authorized yet), so a password is still provisioned as a lockout-safe
+    # fallback.
+    - name: "[Bootstrap] Resolve the service account settings"
+      ansible.builtin.set_fact:
+        bootstrap_service_user: "{{ host_bootstrap_user | default('ansible') }}"
+        bootstrap_use_key: "{{ vault_host_ansible_ssh_pubkey_file | default('', true) | length > 0 }}"
+
+    - name: "[Bootstrap] Provision a service-account password (no key supplied)"
+      ansible.builtin.include_role:
+        name: helpers
+        tasks_from: dispatch_secrets
+      vars:
+        secrets_component: "remnawave_bootstrap"
+        secrets_vault_file: "vault.yml"
+        secrets_list:
+          - var: "vault_host_ansible_password"
+            type: "base64"
+            length: 18
+      when:
+        - not (bootstrap_use_key | bool)
+        - (host_bootstrap_password | default('', true) | length) == 0
+
+    - name: "[Bootstrap] Resolve the effective service-account password"
+      ansible.builtin.set_fact:
+        host_bootstrap_password_final: >-
+          {{ host_bootstrap_password
+             if (host_bootstrap_password | default('', true) | length > 0)
+             else (vault_host_ansible_password | default('', true)) }}
+      when: not (bootstrap_use_key | bool)
+
+    # Password mode only (no key supplied): hash with a per-account RANDOM salt
+    # and update_password=on_create, so re-runs are idempotent and a password
+    # rotated on the host is not silently reverted. Key mode omits the password
+    # entirely — the account is reached by its authorized key.
+    - name: "[Bootstrap] Create/repair the service account"
+      ansible.builtin.user:
+        name: "{{ bootstrap_service_user }}"
+        groups: "{{ 'sudo' if ansible_os_family == 'Debian' else 'wheel' }}"
+        append: true
+        shell: /bin/bash
+        create_home: true
+        state: present
+        password: >-
+          {{ (host_bootstrap_password_final | password_hash('sha512'))
+             if not (bootstrap_use_key | bool) else omit }}
+        update_password: on_create
+      no_log: true
+      when: probe_identity | lower != 'ansible'
+
+    # --------------------------------------------------------------------------
+    # Admin identity (optional, opt-in via host_admin_enabled). This is a HUMAN
+    # operator account, so it always gets a password (generated into vault.yml
+    # when left empty) for console login and sudo; a configured public key is
+    # installed additionally. Root is never created; the service account is
+    # handled above.
+    # --------------------------------------------------------------------------
+    - name: "[Bootstrap] Resolve the admin identity settings"
+      ansible.builtin.set_fact:
+        bootstrap_admin: "{{ host_ssh_identities.admin }}"
+        bootstrap_admin_defined: "{{ host_admin_enabled | default(false) | bool }}"
+
+    - name: "[Bootstrap] Provision the admin password (enabled, none supplied)"
+      ansible.builtin.include_role:
+        name: helpers
+        tasks_from: dispatch_secrets
+      vars:
+        secrets_component: "remnawave_admin"
+        secrets_vault_file: "vault.yml"
+        secrets_list:
+          - var: "vault_host_admin_password"
+            type: "base64"
+            length: 18
+      when: bootstrap_admin_defined | bool
+
+    - name: "[Bootstrap] Create/repair the admin account"
+      ansible.builtin.user:
+        name: "{{ bootstrap_admin.user }}"
+        groups: "{{ 'sudo' if ansible_os_family == 'Debian' else 'wheel' }}"
+        append: true
+        shell: /bin/bash
+        create_home: true
+        state: present
+        password: "{{ vault_host_admin_password | password_hash('sha512') }}"
+        update_password: on_create
+      no_log: true
+      when:
+        - bootstrap_admin_defined | bool
+        - bootstrap_admin.user != 'root'
+        - bootstrap_admin.user != bootstrap_service_user
+
+    # --------------------------------------------------------------------------
+    # SSH public keys: authorize each supplied vault_<id>_ssh_pubkey_file for its
+    # account. Empty/unset is ignored (never generated).
+    # --------------------------------------------------------------------------
+    - name: "[Bootstrap] Resolve the explicitly supplied public keys"
+      ansible.builtin.set_fact:
+        bootstrap_pubkey_specs: >-
+          {%- set ns = namespace(specs=[]) -%}
+          {%- for id, ident in host_ssh_identities.items() -%}
+          {%-   if (id != 'admin' or (bootstrap_admin_defined | default(false) | bool))
+                 and (ident.pubkey | default('', true) | string | trim) | length > 0 -%}
+          {%-     set ns.specs = ns.specs + [{'id': id, 'user': ident.user, 'path': ident.pubkey}] -%}
+          {%-   endif -%}
+          {%- endfor -%}
+          {{ ns.specs }}
+
+    - name: "[Bootstrap] Read the supplied public key files"
+      ansible.builtin.slurp:
+        src: "{{ pubkey_spec.path }}"
+      register: bootstrap_pubkey_files
+      delegate_to: localhost
+      become: false
+      loop: "{{ bootstrap_pubkey_specs }}"
+      loop_control:
+        loop_var: pubkey_spec
+        label: "{{ pubkey_spec.id }}"
+
+    - name: "[Bootstrap] Check that each public-key account exists"
+      ansible.builtin.getent:
+        database: passwd
+        key: "{{ pubkey_spec.user }}"
+      register: bootstrap_pubkey_users
+      failed_when: false
+      loop: "{{ bootstrap_pubkey_specs }}"
+      loop_control:
+        loop_var: pubkey_spec
+        label: "{{ pubkey_spec.id }}"
+
+    - name: "[Bootstrap] Fail if a public key targets a missing account"
+      ansible.builtin.assert:
+        that:
+          - bootstrap_pubkey_users.results | default([])
+            | selectattr('msg', 'defined') | selectattr('msg', 'ne', '') | list | length == 0
+        fail_msg: >-
+          vault_<id>_ssh_pubkey_file is set for account(s) that are not managed
+          by this bootstrap and do not exist on {{ inventory_hostname }}:
+          {{ bootstrap_pubkey_users.results | default([])
+             | selectattr('msg', 'defined') | selectattr('msg', 'ne', '')
+             | map(attribute='pubkey_spec.user') | join(', ') }}.
+          Only the root, service (ansible) and explicitly configured admin
+          accounts are provisioned; clear the pubkey path(s) or create the
+          account(s) first.
+      when: bootstrap_pubkey_specs | length > 0
+
+    - name: "[Bootstrap] Ensure each account's .ssh directory exists"
+      ansible.builtin.file:
+        path: "{{ ('/root' if pubkey_file.pubkey_spec.user == 'root' else '/home/' ~ pubkey_file.pubkey_spec.user) }}/.ssh"
+        state: directory
+        owner: "{{ pubkey_file.pubkey_spec.user }}"
+        group: "{{ pubkey_file.pubkey_spec.user }}"
+        mode: "0700"
+      loop: "{{ bootstrap_pubkey_files.results | default([]) }}"
+      loop_control:
+        loop_var: pubkey_file
+        label: "{{ pubkey_file.pubkey_spec.id }}"
+
+    - name: "[Bootstrap] Authorize each supplied public key for its account"
+      ansible.builtin.lineinfile:
+        path: "{{ ('/root' if pubkey_file.pubkey_spec.user == 'root' else '/home/' ~ pubkey_file.pubkey_spec.user) }}/.ssh/authorized_keys"
+        line: "{{ pubkey_file.content | b64decode | trim }}"
+        create: true
+        owner: "{{ pubkey_file.pubkey_spec.user }}"
+        group: "{{ pubkey_file.pubkey_spec.user }}"
+        mode: "0600"
+      loop: "{{ bootstrap_pubkey_files.results | default([]) }}"
+      loop_control:
+        loop_var: pubkey_file
+        label: "{{ pubkey_file.pubkey_spec.id }}"
+
+    - name: "[Bootstrap] Resolve the sudo accounts"
+      ansible.builtin.set_fact:
+        # The `default()` guards make the template resolvable by static analysis
+        # (ansible-lint) before the earlier set_fact tasks have run; at runtime
+        # the real values are always defined.
+        bootstrap_sudo_nopasswd_users: >-
+          {{ [bootstrap_service_user | default('ansible')] }}
+        bootstrap_sudo_password_users: >-
+          {{ [((bootstrap_admin | default({})).user | default('admin'))]
+             if (bootstrap_admin_defined | default(false) | bool
+                 and (bootstrap_admin | default({})).user | default('', true) != 'root'
+                 and (bootstrap_admin | default({})).user | default('', true)
+                     != (bootstrap_service_user | default('ansible')))
+             else [] }}
+
+    - name: "[Bootstrap] Grant the automation account passwordless sudo"
+      ansible.builtin.copy:
+        content: "{{ item }} ALL=(ALL) NOPASSWD:ALL\n"
+        dest: "/etc/sudoers.d/90-remnawave-{{ item }}"
+        owner: root
+        group: root
+        mode: "0440"
+        validate: "visudo -cf %s"
+      loop: "{{ bootstrap_sudo_nopasswd_users }}"
+      when: host_bootstrap_sudo_nopasswd | default(true) | bool
+
+    - name: "[Bootstrap] Grant the admin account password sudo"
+      ansible.builtin.copy:
+        content: "{{ item }} ALL=(ALL) ALL\n"
+        dest: "/etc/sudoers.d/90-remnawave-{{ item }}"
+        owner: root
+        group: root
+        mode: "0440"
+        validate: "visudo -cf %s"
+      loop: "{{ bootstrap_sudo_password_users }}"
+
+    - name: "[Bootstrap] Report the outcome"
+      ansible.builtin.debug:
+        msg: >-
+          Probed as '{{ probe_identity }}'. Service account
+          '{{ bootstrap_service_user }}'{{ " and admin account '" ~ bootstrap_admin.user ~ "'"
+          if bootstrap_admin_defined | bool else "" }} should exist; subsequent
+          runs connect via vault_{ansible,root}_* / vault_host_admin_* in
+          inventory/host_vars/{{ inventory_hostname }}/vault.yml.

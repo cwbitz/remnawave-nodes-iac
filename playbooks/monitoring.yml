@@ -1,0 +1,25 @@
+---
+# ==============================================================================
+# Optional VPS host monitoring + host security.
+#
+#   make monitoring
+#
+# Installs prometheus-node-exporter + CrowdSec (+ the nftables firewall bouncer)
+# and joins the host to the overlay through the shared agent role, so the central
+# Prometheus/Alloy (sibling docker-stack-iac) can reach it over the overlay.
+# Enabled by default on `remnawave_nodes` (see group_vars); set
+# `monitoring_enabled: false` per host to skip WITHOUT connecting to the host
+# (the play does not gather facts).
+#
+# Metrics and CrowdSec events are visualized from the sibling docker-stack-iac
+# central stack (Prometheus/Grafana/Loki), which discovers the peers' :9100 and
+# :6060 endpoints from the NetBird API; this playbook only installs the host-side
+# agents. See roles/monitoring and roles/agent.
+# ==============================================================================
+
+- name: Optional host monitoring and host security
+  hosts: remnawave_nodes
+  gather_facts: false
+  roles:
+    - role: monitoring
+      when: monitoring_enabled | default(false) | bool

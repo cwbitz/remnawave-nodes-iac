@@ -1,0 +1,11 @@
+# Pinned control-node toolchain (asdf format; mise reads it natively).
+# Install: mise install / asdf install. Do not duplicate these pins elsewhere.
+# `pipx:ansible-lint` uses mise's pipx backend (no asdf equivalent); with asdf
+# install it manually: pipx install ansible-lint==26.6.0
+
+python 3.11.15
+ansible-core 2.19.11
+
+# ansible-lint runs the CI lint gate (`make lint`); pinned here so local and CI
+# use one version.
+pipx:ansible-lint 26.6.0

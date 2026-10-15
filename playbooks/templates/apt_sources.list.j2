@@ -1,0 +1,6 @@
+# Managed by remnawave-nodes-iac (playbooks/bootstrap.yml). Do not edit on the host.
+# Original file backed up at /etc/apt/sources.list.bak.bootstrap
+deb {{ host_apt_mirror }} {{ ansible_distribution_release }} main contrib non-free non-free-firmware
+deb {{ host_apt_mirror }} {{ ansible_distribution_release }}-updates main contrib non-free non-free-firmware
+deb {{ host_apt_mirror }} {{ ansible_distribution_release }}-backports main contrib non-free non-free-firmware
+deb {{ host_apt_security_mirror | default(host_apt_mirror | regex_replace('/debian/?$', '') ~ '/debian-security') }} {{ ansible_distribution_release }}-security main contrib non-free non-free-firmware

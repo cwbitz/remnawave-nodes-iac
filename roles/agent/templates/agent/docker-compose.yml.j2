@@ -1,0 +1,27 @@
+# ==============================================================================
+# NetBird overlay agent (mesh join)
+# Managed by Ansible - do not edit on the target host.
+# ==============================================================================
+services:
+  netbird:
+    image: "{{ netbird_agent_image }}:{{ netbird_agent_version }}"
+    container_name: netbird
+    restart: unless-stopped
+    stop_grace_period: 15s
+    network_mode: host
+    cap_add:
+      - NET_ADMIN
+      - SYS_ADMIN
+      - SYS_RESOURCE
+    devices:
+      - /dev/net/tun
+    environment:
+      NB_SETUP_KEY: "{{ peer_setup_key }}"
+      NB_MANAGEMENT_URL: "{{ netbird_management_url }}"
+      NB_HOSTNAME: "{{ inventory_hostname }}"
+    volumes:
+      - netbird_config:/var/lib/netbird
+
+volumes:
+  netbird_config:
+    name: netbird_config

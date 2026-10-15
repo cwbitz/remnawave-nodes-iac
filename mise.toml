@@ -1,0 +1,21 @@
+# mise project config (https://mise.jdx.dev).
+#
+# Tool VERSIONS live in `.tool-versions` (single source of truth for mise and
+# asdf); this file has no [tools] section. Every task wraps the Makefile, so
+# `make ...` and `mise run ...` do the same thing.
+
+[tasks.lint]
+description = "Syntax check + ansible-lint (make lint)"
+run = "make lint"
+
+[tasks.install]
+description = "Install the pinned toolchain + collections (make install)"
+run = "make install"
+
+[tasks.dry-run]
+description = "Dry-run the site playbook (make dry-run)"
+run = "make dry-run"
+
+[tasks.deploy]
+description = "Deploy the Remnawave node stack (make deploy)"
+run = "make deploy"

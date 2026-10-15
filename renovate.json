@@ -1,0 +1,145 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":dependencyDashboard",
+    ":semanticCommits"
+  ],
+  "labels": [
+    "dependencies"
+  ],
+  "osvVulnerabilityAlerts": true,
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Image tags flow through role-default *_version vars (see the # renovate: annotation above each var)",
+      "managerFilePatterns": [
+        "/^roles\\/[^/]+\\/defaults\\/main\\.yml$/"
+      ],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)(?: versioning=(?<versioning>\\S+))?\\s+\\w+_version:\\s*\"?(?<currentValue>[^\"\\s]+)\"?"
+      ],
+      "versioningTemplate": "{{#if versioning}}{{{versioning}}}{{else}}docker{{/if}}"
+    },
+    {
+      "customType": "regex",
+      "description": "Control-node toolchain pins in .tool-versions (asdf/mise single source of truth); python is handled by the built-in asdf manager",
+      "managerFilePatterns": [
+        "/(^|/)\\.tool-versions$/"
+      ],
+      "matchStrings": [
+        "ansible-core (?<currentValue>\\S+)"
+      ],
+      "datasourceTemplate": "github-releases",
+      "packageNameTemplate": "ansible/ansible"
+    },
+    {
+      "customType": "regex",
+      "description": "ansible-lint pinned through mise's pipx backend in .tool-versions",
+      "managerFilePatterns": [
+        "/(^|/)\\.tool-versions$/"
+      ],
+      "matchStrings": [
+        "pipx:(?<depName>\\S+) (?<currentValue>\\S+)"
+      ],
+      "datasourceTemplate": "pypi"
+    },
+    {
+      "customType": "regex",
+      "description": "Keychain 3 pin (version + sha256) via GitHub release attachments",
+      "managerFilePatterns": [
+        "/^keychain\\.pin$/"
+      ],
+      "matchStrings": [
+        "(?<currentValue>\\d+\\.\\d+\\.\\d+)\\s+sha256:(?<currentDigest>[a-f0-9]{64})"
+      ],
+      "datasourceTemplate": "github-release-attachments",
+      "packageNameTemplate": "danielrobbins/keychain"
+    }
+  ],
+  "packageRules": [
+    {
+      "description": "Toolchain / CI dependencies: manual review, never automerge",
+      "matchManagers": [
+        "mise",
+        "asdf",
+        "ansible-galaxy",
+        "github-actions"
+      ],
+      "automerge": false,
+      "addLabels": [
+        "review-required"
+      ]
+    },
+    {
+      "description": "ansible-lint (PyPI, via mise's pipx backend): manual review, never automerge",
+      "matchDatasources": [
+        "pypi"
+      ],
+      "matchPackageNames": [
+        "ansible-lint"
+      ],
+      "automerge": false,
+      "addLabels": [
+        "review-required"
+      ]
+    },
+    {
+      "description": "Remnawave node image: proxy node core, always manual review",
+      "matchDatasources": [
+        "docker"
+      ],
+      "matchPackageNames": [
+        "remnawave/node"
+      ],
+      "automerge": false,
+      "addLabels": [
+        "review-required"
+      ]
+    },
+    {
+      "description": "NetBird overlay agent + monitoring images: manual review, never automerge",
+      "matchDatasources": [
+        "docker"
+      ],
+      "matchPackageNames": [
+        "netbirdio/netbird",
+        "grafana/alloy"
+      ],
+      "automerge": false,
+      "addLabels": [
+        "review-required"
+      ]
+    },
+    {
+      "description": "Keychain (credential tool): minor/major require manual review",
+      "matchDatasources": [
+        "github-release-attachments"
+      ],
+      "matchPackageNames": [
+        "danielrobbins/keychain"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "major"
+      ],
+      "automerge": false,
+      "addLabels": [
+        "review-required"
+      ]
+    },
+    {
+      "description": "Keychain: auto-merge patch after the pin-verification CI passes",
+      "matchDatasources": [
+        "github-release-attachments"
+      ],
+      "matchPackageNames": [
+        "danielrobbins/keychain"
+      ],
+      "matchUpdateTypes": [
+        "patch"
+      ],
+      "automerge": true
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+---
+# ==============================================================================
+# Join the Remnawave Nodes to the NetBird overlay (agent only).
+#
+#   make agent
+#
+# Runs the NetBird agent on the `remnawave_nodes` group so each host becomes a
+# mesh peer; a routing node (netbird_agent_routing: true) additionally has IP
+# forwarding enabled. The setup key (peer_setup_key) decides the group a peer
+# auto-joins, hence its role in the mesh; it is an input held in this project's
+# vault (vault_netbird_setup_key), together with the management URL. See
+# roles/agent.
+# ==============================================================================
+
+- name: Join the Remnawave nodes to the NetBird overlay
+  hosts: remnawave_nodes
+  gather_facts: true
+  roles:
+    - role: agent
