@@ -89,8 +89,10 @@ Debian repositories (present in Debian 13 / trixie).
   only when a configured private key has permissions OpenSSH rejects (e.g. WSL
   `/mnt/c`); every SSH-consuming target runs through the shared
   `scripts/run-with-ssh-agent.sh`.
-- `make vault-init` / `vault-view [HOST=]` / `vault-edit HOST=` — manage the vault
-  password file and the per-host encrypted vault.
+- `make vault-init` / `vault-view [HOST=]` / `vault-edit [HOST=]` — manage the vault
+  password file and the per-host encrypted vault; `vault-view` covers every host
+  (or one with HOST), and `vault-edit` targets HOST, or the single host when the
+  inventory holds exactly one.
 - `make host-init HOST=<name>` — scaffold `inventory/hosts.yml` (from the
   committed `example/` when absent) and `inventory/host_vars/<name>/`, encrypt the
   scaffolded `vault.yml`, and **ensure `<name>` exists under

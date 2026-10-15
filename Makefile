@@ -294,10 +294,14 @@ require-inventory:
 	fi
 
 .PHONY: vault-edit
-vault-edit: vault-init require-inventory ## Edit one host's vault (HOST=<name> required; plaintext auto-encrypted first)
+vault-edit: vault-init require-inventory ## Edit one host's vault (HOST=<name>; auto when a single host; plaintext auto-encrypted first)
 	@host="$(HOST)"; \
 	if [ -z "$$host" ]; then \
-		echo "Usage: make vault-edit HOST=<hostname>" >&2; \
+		host="$$(ansible-inventory -i $(INVENTORY) --list 2>/dev/null \
+			| python3 -c 'import json,sys; h=list(json.load(sys.stdin).get("_meta",{}).get("hostvars",{})); print(h[0] if len(h)==1 else "")')"; \
+	fi; \
+	if [ -z "$$host" ]; then \
+		echo "Usage: make vault-edit HOST=<hostname> (required when the inventory has more than one host)" >&2; \
 		echo "Available hosts:" >&2; \
 		ansible-inventory -i $(INVENTORY) --list 2>/dev/null \
 			| python3 -c 'import json,sys; [print("  "+h) for h in sorted(json.load(sys.stdin).get("_meta",{}).get("hostvars",{}))]' >&2; \
