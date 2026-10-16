@@ -1,6 +1,6 @@
-# remnawave-nodes-iac
+<div align="center">
 
-[English](README.md) | [简体中文](README.zh-CN.md)
+# Remnawave Nodes IaC
 
 Ansible IaC that manages the **Remnawave proxy Nodes** — the lightweight
 `remnawave/node` (Xray-core) containers that a Remnawave Panel pushes proxy
@@ -8,11 +8,17 @@ configuration to. It manages each node from the very first boot of a blank
 Debian-family VPS: host bootstrap, NetBird overlay join, host monitoring and
 security, then the Remnawave Node itself.
 
+From a blank VPS to a ready Remnawave node
+
+[![License](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](LICENSE)
+</div>
+
+
 The **Panel** (control plane) and the central observability stack live in the
 sibling `docker-stack-iac` project; the **NetBird management server** lives in
-the sibling `netbird-iac` project. This project owns only the nodes, and consumes
-those control planes exclusively through their public interfaces (`NODE_PORT` /
-`SECRET_KEY` for the Panel, the management URL + a setup key for the overlay).
+`netbird-iac`. This project owns only the nodes and consumes those control planes
+through their public interfaces (`NODE_PORT` / `SECRET_KEY` for the Panel, the
+management URL + a setup key for the overlay).
 
 ## What it manages
 
@@ -20,8 +26,8 @@ those control planes exclusively through their public interfaces (`NODE_PORT` /
 ┌──────────────────────────── Remnawave node VPS ────────────────────────────┐
 │                                                                            │
 │  remnanode (Xray-core)          netbird agent          host security       │
-│   network_mode: host   ───────  joins the overlay  ─── node_exporter        │
-│   listens on NODE_PORT          (wt0)                  CrowdSec + bouncer   │
+│   network_mode: host   ───────  joins the overlay  ─── node_exporter       │
+│   listens on NODE_PORT          (wt0)                  CrowdSec + bouncer  │
 │        ▲                                                                   │
 └────────┼───────────────────────────────────────────────────────────────────┘
          │ Panel -> Node internal API (NODE_PORT, SECRET_KEY)
@@ -64,31 +70,36 @@ services:
       - SECRET_KEY="xxxxxx"
 ```
 
-Write the two environment values into this project's vault (they are the only
-node-specific secrets):
+Only the two environment values are needed: `NODE_PORT` is a plain per-host
+setting and `SECRET_KEY` is the only node-specific secret:
 
 ```yaml
+# inventory/host_vars/<host>/main.yml
+remnanode_node_port: "2222"
+
 # inventory/host_vars/<host>/vault.yml
-vault_remnanode_node_port: "2222"
 vault_remnanode_secret_key: "xxxxxx"
 ```
 
-The remaining, static part of that compose file is the committed template
-`roles/remnanode/templates/remnanode/docker-compose.yml.j2`. Rendering is the
-source of truth — never edit the file on the host.
+The rest of that compose file is the committed template
+`roles/remnanode/templates/remnanode/docker-compose.yml.j2` — rendering is the
+source of truth; never edit the file on the host.
 
-> The node's `NODE_PORT` must be reachable **only from the Panel**. Restrict it in
-> the host firewall / upstream security group to the Panel's address; the
-> CrowdSec firewall bouncer manages nftables decisions but is not a base firewall.
+> Keep the node's `NODE_PORT` **off the public internet**: the Panel is the TLS
+> client and reaches the node over the NetBird overlay. See
+> `docs/components/panel-contract.md`.
 
 ## NetBird overlay inputs
 
-This project does not own the management server, so both inputs are held in this
-project's vault:
+The management server is owned by the sibling `netbird-iac` project; this project
+holds both inputs itself — the non-secret management URL in the host's `main.yml`
+and the enrollment setup key in the vault:
 
 ```yaml
+# inventory/host_vars/<host>/main.yml
+netbird_management_url: "https://netbird.example.com"
+
 # inventory/host_vars/<host>/vault.yml
-vault_netbird_management_url: "https://netbird.example.com"
 vault_netbird_setup_key: "..."   # this node's enrollment key
 ```
 
@@ -115,13 +126,15 @@ network / exit node.
 make install
 
 # 2. Scaffold a host from the committed template (vault.yml is encrypted for you,
-#    the host is added to inventory/hosts.yml automatically, and the generated
-#    files are comment-free; HOST defaults to remnanode-1)
-make host-init HOST=remnawave-node-1
-#    - edit inventory/host_vars/remnawave-node-1/main.yml   (optional, non-secret)
+#    the host is added to inventory/hosts.yml, and the generated files are
+#    comment-free). HOST defaults to remnanode-1; HOST_IP writes ansible_host
+#    (otherwise the entry keeps the CHANGE_ME_HOST_IP placeholder the site
+#    preflight rejects), HOST_PORT sets ansible_port.
+make host-init HOST=remnanode-1 HOST_IP=203.0.113.10
+#    - edit inventory/host_vars/remnanode-1/main.yml   (non-secret: NODE_PORT, NetBird URL, ...)
 #    - edit the encrypted vault:
-make vault-edit HOST=remnawave-node-1
-#      (IP, SSH creds, netbird URL + setup key, NODE_PORT + SECRET_KEY)
+make vault-edit HOST=remnanode-1
+#      (SSH creds, NetBird setup key, SECRET_KEY)
 
 # 3. Dry-run, deploy
 make dry-run
@@ -132,9 +145,6 @@ make deploy
 the node stack (`playbooks/site.yml`). On a fresh host the `ansible` service
 account does not exist yet, so `deploy` runs the same host bootstrap as
 `make host-bootstrap` first.
-
-`make lint` (syntax check + `ansible-lint`) is an internal check run by CI; it is
-hidden from `make help`.
 
 ## Entry points
 
@@ -147,21 +157,33 @@ hidden from `make help`.
 | `make dry-run` | `site.yml --check --diff` | Safe preview. |
 | `make print [HOST=]` | — | Resolved host vars incl. decrypted vault. |
 
-`make deploy TAGS=remnanode` (or `TAGS=monitoring`) runs only that role.
+`make deploy TAGS=remnanode` (or `TAGS=monitoring`) runs only that role. The
+internal `make lint` (syntax check + `ansible-lint`) is hidden from `make help`.
 
 ## Secrets
 
 Never commit vaults. The single per-host encrypted vault
-`inventory/host_vars/<host>/vault.yml` holds the SSH identities, the NetBird
-inputs, the Remnawave `NODE_PORT` / `SECRET_KEY`, and the control-generated
-service-account password (when no public key is given). It is gitignored and
-never committed, even encrypted; the committed schema reference is
+`inventory/host_vars/<host>/vault.yml` holds the SSH identity values, the NetBird
+setup key, the Remnawave `SECRET_KEY`, and the control-generated service-account
+password (when no public key is given). It is gitignored and never committed, even
+encrypted; the committed schema reference is
 `inventory/host_vars/example/vault.yml.example`.
+
+## Documentation
+
+- [`AGENTS.md`](AGENTS.md) — conventions, gotchas, and the command reference.
+- [`docs/RUNBOOK.md`](docs/RUNBOOK.md) — operations (deploy, verify, rollback).
+- [`docs/components/`](docs/components/) — component design notes:
+  [`host-bootstrap.md`](docs/components/host-bootstrap.md),
+  [`netbird-overlay.md`](docs/components/netbird-overlay.md),
+  [`monitoring-security.md`](docs/components/monitoring-security.md),
+  [`remnanode.md`](docs/components/remnanode.md),
+  [`panel-contract.md`](docs/components/panel-contract.md).
 
 ## Layout
 
 ```
-inventory/            # hosts.yml(.example), group_vars/{all,remnawave_nodes}, host_vars/example
+inventory/                # hosts.yml(.example), group_vars/remnawave_nodes, host_vars/example
 playbooks/bootstrap.yml   # host init: service account + Docker (+ mirrors)
 playbooks/agent.yml       # join the NetBird overlay (agent role)
 playbooks/monitoring.yml  # host monitoring + security
@@ -170,7 +192,7 @@ roles/agent               # NetBird overlay agent (mesh join)
 roles/monitoring          # node_exporter + CrowdSec + firewall bouncer (+ agent)
 roles/remnanode           # the Remnawave Node container
 roles/helpers/            # shared vault-secret provisioning + Docker install
-docs/RUNBOOK.md           # operations runbook (deploy, verify, rollback)
+docs/                     # this repo's docs (RUNBOOK.md, components/)
 ```
 
 ## License

@@ -1,9 +1,8 @@
 # Runbook
 
-[English](RUNBOOK.md) | [简体中文](RUNBOOK.zh-CN.md)
-
 Operational procedures for the Remnawave proxy Nodes. See `README.md` for the
-overview and `AGENTS.md` for design notes and gotchas.
+overview, `docs/components/` for component design notes, and `AGENTS.md` for
+conventions and gotchas.
 
 ## 0. Prerequisites (once)
 
@@ -11,15 +10,16 @@ overview and `AGENTS.md` for design notes and gotchas.
   start). No Docker and no prior system update required.
 - Control node: ansible-core (pinned), Python 3, `openssl`, and the Galaxy
   collections: `make install`.
-- A host entry: `make host-init HOST=<hostname>` — scaffolds
-  `host_vars/<host>/` (encrypting `vault.yml`) and adds the host to
-  `inventory/hosts.yml`; HOST defaults to `remnanode-1`. Then edit
-  `inventory/host_vars/<host>/main.yml` and the vault
-  (`make vault-edit HOST=<host>`).
-- In the vault, fill in: the IP + SSH creds; the NetBird inputs
-  (`vault_netbird_management_url`, `vault_netbird_setup_key`); and the Remnawave
-  node inputs (`vault_remnanode_node_port`, `vault_remnanode_secret_key`) copied
-  from the Panel's node.
+- A host entry: `make host-init HOST=<hostname> HOST_IP=<management-ip>` —
+  scaffolds `host_vars/<host>/` (encrypting `vault.yml`) and adds the host to
+  `inventory/hosts.yml` as `ansible_host` (`HOST_PORT=` sets `ansible_port`); HOST
+  defaults to `remnanode-1`. Without `HOST_IP` the entry keeps the
+  `CHANGE_ME_HOST_IP` placeholder that the site preflight rejects.
+- Non-secret settings go in `inventory/host_vars/<host>/main.yml`
+  (`remnanode_node_port`, `netbird_management_url`, ...); the vault holds the SSH
+  creds, `vault_netbird_setup_key` and the Remnawave node secret
+  `vault_remnanode_secret_key` (copied from the Panel's node). Edit the vault with
+  `make vault-edit HOST=<host>`.
 - Create the non-root service account (as root, once): `make host-bootstrap`,
   then point the connection at it in `vault.yml`. Deploys refuse root unless
   `host_allow_root_login=true`.
@@ -31,10 +31,11 @@ overview and `AGENTS.md` for design notes and gotchas.
 1. In the Remnawave Panel: **Nodes → Management**, add the node (name, address,
    `Node Port`).
 2. Click **Copy docker-compose.yml**.
-3. Write `NODE_PORT` and `SECRET_KEY` from that file into `vault.yml` as
-   `vault_remnanode_node_port` and `vault_remnanode_secret_key`. The rest of the
+3. Write `NODE_PORT` into `main.yml` as `remnanode_node_port` and `SECRET_KEY`
+   into `vault.yml` as `vault_remnanode_secret_key`. The rest of the
    file is already the committed template.
-4. Open `NODE_PORT` in the host/cloud firewall **only for the Panel's address**.
+4. Keep `NODE_PORT` **off the public internet** — the Panel reaches the node over
+   the NetBird overlay (`docs/components/panel-contract.md`).
 
 ## 2. Deploy
 
@@ -83,11 +84,10 @@ make monitoring   # node_exporter + CrowdSec + firewall bouncer (+ agent)
 
 - The overlay setup key is `vault_netbird_setup_key`; its auto-group decides what
   the central observability stack discovers.
-- node_exporter listens on `127.0.0.1:9100` plus the overlay address; CrowdSec
-  exposes its metrics on `:6060` on the overlay. Both are discovered by the
-  sibling `docker-stack-iac` Prometheus from the NetBird API.
-- CrowdSec ships with `crowdsecurity/linux` + `crowdsecurity/sshd` and reads the
-  SSH unit from the journal; the firewall bouncer enforces decisions via nftables.
+- The exporters bind the overlay address (node_exporter `:9100`, CrowdSec LAPI
+  `:6060`) and are discovered by the sibling `docker-stack-iac` Prometheus.
+- Details: `docs/components/netbird-overlay.md` and
+  `docs/components/monitoring-security.md`.
 
 ## 5. Upgrade and rollback
 
@@ -104,7 +104,7 @@ make monitoring   # node_exporter + CrowdSec + firewall bouncer (+ agent)
 |---|---|
 | Panel shows the node offline | `ss -lntp | grep <NODE_PORT>` on the host; the Panel can reach the node's IP:NODE_PORT; `vault_remnanode_secret_key` matches the Panel's node; `docker logs remnanode`. |
 | Node container restarts | `docker logs remnanode`; confirm `NODE_PORT`/`SECRET_KEY` are correct and unchanged. |
-| Overlay peer has no `wt0` address | Valid `vault_netbird_setup_key` and `vault_netbird_management_url`; `docker logs netbird`. A changed management URL needs a fresh key + reset `netbird_config` volume. |
+| Overlay peer has no `wt0` address | Valid `vault_netbird_setup_key` and `netbird_management_url` (main.yml); `docker logs netbird`. A changed management URL needs a fresh key + reset `netbird_config` volume. |
 | Central Prometheus shows the node down | The peer joined with a group the observability stack discovers (`endpoint`); overlay up; `curl -s <overlay-ip>:9100/metrics` from another peer. |
 | `make deploy` refuses root | Expected: run `make host-bootstrap` first, then connect as the `ansible` account in `vault.yml` (or set `host_allow_root_login=true`). |
 | SSH refuses the private key (`UNPROTECTED PRIVATE KEY FILE`, `are too open`) | The shared `scripts/run-with-ssh-agent.sh` starts the pinned Keychain agent, loads the vault keys and retries once. If it still fails, check the `vault_*_ssh_privkey_file` paths and run `make agent-load`. |
@@ -124,4 +124,5 @@ ssh <host> 'systemctl status crowdsec crowdsec-firewall-bouncer prometheus-node-
 - Never commit `vault.yml` (gitignored, even when encrypted).
 - The vault password file is required to decrypt any vault.
 - `SECRET_KEY` authenticates the node to the Panel — treat `vault.yml` as a live
-  credential store and restrict `NODE_PORT` to the Panel only.
+  credential store and keep `NODE_PORT` off the public internet (the Panel reaches
+  the node over the overlay).
