@@ -14,7 +14,8 @@
       - (peer_setup_key | default('', true) | length) > 0
     fail_msg: >-
       The overlay agent requires the management URL and a setup key so it joins
-      the mesh. Set vault_netbird_management_url and vault_netbird_setup_key in
+      the mesh. Set netbird_management_url (host_vars/<host>/main.yml) and
+      vault_netbird_setup_key in
       inventory/host_vars/<host>/vault.yml (both are inputs owned by THIS
       project; the management server itself lives in the sibling netbird-iac).
 
@@ -43,16 +44,16 @@
     group: root
     mode: "0700"
 
-# Migration: the overlay agent used to live inside the monitoring stack's compose
-# project. Move it to this role's project by removing an existing `netbird`
-# container owned by a DIFFERENT compose project (idempotent: ours is left alone).
+# The agent runs in this role's own compose project: a `netbird` container owned by
+# a DIFFERENT compose project is removed first (ours is left alone), so taking over
+# ownership converges.
 - name: "[Agent] Inspect any existing overlay container"
   community.docker.docker_container_info:
     name: netbird
   register: agent_existing_container
   failed_when: false
 
-- name: "[Agent] Remove a legacy overlay container owned by another compose project"
+- name: "[Agent] Remove an overlay container owned by another compose project"
   community.docker.docker_container:
     name: netbird
     state: absent
@@ -103,4 +104,4 @@
     fail_msg: >-
       The NetBird overlay agent did not obtain an address on wt0 within the
       timeout. Check the setup key (vault_netbird_setup_key), the management URL
-      (vault_netbird_management_url), and `docker logs netbird`.
+      (netbird_management_url), and `docker logs netbird`.

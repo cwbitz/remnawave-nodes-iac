@@ -7,24 +7,20 @@
 # monitoring role (so the central Prometheus/Alloy can reach the host over the
 # overlay with no public port).
 #
-# The management server is owned by the sibling netbird-iac project. This project
-# consumes the mesh ONLY through its public interface, so the management URL and
-# this node's setup key are inputs held in THIS project's vault
-# (vault_netbird_management_url / vault_netbird_setup_key), not read from
-# netbird-iac.
+# The management server is owned by the sibling netbird-iac project; this project
+# consumes the mesh ONLY through its public interface. Both inputs are owned by
+# THIS project (management URL in host_vars main.yml, setup key in the vault).
 
 # Rendered docker-compose project directory for the agent.
 agent_dir: "/opt/netbird-agent"
 
-# Self-hosted NetBird management URL (e.g. "https://netbird.example.com"). Held
-# in this project's vault.
-netbird_management_url: "{{ vault_netbird_management_url | default('', true) }}"
+# Self-hosted NetBird management URL (e.g. "https://netbird.example.com").
+netbird_management_url: ""
 
-# Mesh setup key: decides which NetBird group the peer auto-joins, hence the
-# scope of what the central observability stack discovers. Held in this project's
-# vault. Pick the key whose group is discovered (the route-less `endpoint` key by
-# default, which grants no exit/LAN routes); a routing node uses its routing
-# group's key.
+# Mesh setup key: decides which NetBird group the peer auto-joins, hence what the
+# central observability stack discovers. Pick the key whose group is discovered
+# (the route-less `endpoint` key by default, which grants no exit/LAN routes); a
+# routing node uses its routing group's key.
 peer_setup_key: "{{ vault_netbird_setup_key | default('', true) }}"
 
 # Whether this peer routes traffic for a routed network / exit node. When true

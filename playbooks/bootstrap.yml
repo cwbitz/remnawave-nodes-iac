@@ -4,7 +4,8 @@
 #
 # Optional, opt-in host tuning. Probes the SSH identities in order
 # [ansible, admin, root] and uses the first that works; if that is not `ansible`,
-# it (re)creates the least-privilege `ansible` service account. Can also set
+# it (re)creates the least-privilege `ansible` service account. The alias wiring
+# lives in inventory/group_vars/remnawave_nodes/main.yml. Can also set
 # package/registry mirrors and authorize configured SSH public keys.
 #
 # Per identity (root/admin/ansible), vault.yml may set a password and/or a

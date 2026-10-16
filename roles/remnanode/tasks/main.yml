@@ -4,8 +4,8 @@
 # ==============================================================================
 # Deploys the Remnawave Node container. The Panel pushes the Xray config to the
 # node; the node listens on NODE_PORT (host network) for the Panel's internal API
-# requests. NODE_PORT/SECRET_KEY are copied from the Panel's generated compose
-# file into this project's vault.
+# requests. NODE_PORT (host main.yml) and SECRET_KEY (vault) are copied from the
+# Panel's generated compose file.
 # ==============================================================================
 
 - name: "[Remnanode] Assert the node join credentials"
@@ -19,7 +19,7 @@
       A Remnawave node requires NODE_PORT and SECRET_KEY. Create the Node in the
       Panel (Nodes -> Management), then write NODE_PORT and SECRET_KEY from its
       generated docker-compose.yml into
-      inventory/host_vars/<host>/vault.yml as vault_remnanode_node_port and
+      inventory/host_vars/<host>/main.yml as remnanode_node_port and
       vault_remnanode_secret_key.
 
 - name: "[Remnanode] Ensure Docker Engine and the Compose v2 plugin are present"

@@ -10,8 +10,38 @@
 # overlay and carries host monitoring/security (roles/monitoring, which includes
 # roles/agent) before the Remnawave Node container is deployed (roles/remnanode).
 #
-# Driven from the control node over SSH. See AGENTS.md and README.md.
+# Driven from the control node over SSH. See README.md and docs/components/.
 # ==============================================================================
+
+# Preflight on the control node: every managed host's connection address lives in
+# the gitignored inventory (the committed template carries the CHANGE_ME_HOST_IP
+# placeholder). It is validated here, as an implicit localhost play and before
+# any connection is attempted, so an unfilled entry fails with the command that
+# fixes it instead of an opaque SSH-resolution error. Tagged [always], so focused
+# runs check it too.
+- name: "Preflight: verify the managed hosts are configured"
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags: [always]
+  tasks:
+    - name: "[Preflight] Require a real management address for every host"
+      ansible.builtin.assert:
+        that:
+          - (hostvars[item].ansible_host | default('', true) | string | trim | length) > 0
+          - >-
+            (hostvars[item].ansible_host | default('', true) | string | trim)
+            is not match('(?i)^(change_?me|todo)')
+        fail_msg: |-
+          { item }: ansible_host is
+          '{ hostvars[item].ansible_host | default('<unset>', true) }', which is not a
+          usable management address. Set the real address in the gitignored
+          inventory/hosts.yml, or re-scaffold the host:
+            make host-init HOST={{ item }} HOST_IP=<management-ip>
+        quiet: true
+      loop: "{{ groups['remnawave_nodes'] | default([]) }}"
+      loop_control:
+        label: "{{ item }}"
 
 - name: Preflight
   hosts: remnawave_nodes

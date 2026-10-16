@@ -3,8 +3,8 @@
 # Managed by Ansible - do not edit on the target host.
 #
 # SECRET_KEY is a live credential: the Panel authenticates the node with it.
-# NODE_PORT is what the Panel dials in on; restrict it in the host firewall to
-# the Panel's address only.
+# NODE_PORT is what the Panel dials in on; keep it off the public internet (the
+# Panel reaches the node over the NetBird overlay).
 # ==============================================================================
 services:
   remnanode:

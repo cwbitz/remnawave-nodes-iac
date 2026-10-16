@@ -2,22 +2,16 @@
 # ==============================================================================
 # Ansible Inventory template (inventory/hosts.yml.example)
 # ==============================================================================
-# Copy this to inventory/hosts.yml and edit the host names. The real hosts.yml is
-# gitignored (real hostnames/IPs); only this example is committed.
+# Copy to inventory/hosts.yml and replace the host names and addresses. The real
+# hosts.yml is gitignored (real hostnames/IPs); only this example is committed.
+# Host addresses (ansible_host / ansible_port) live here; per-host settings live
+# in inventory/host_vars/<hostname>/main.yml and the shared SSH connection wiring
+# lives in inventory/group_vars/remnawave_nodes/main.yml.
 #
-# Host values resolve from inventory/host_vars/<hostname>/vault.yml via
-# {{ vault_host.* }}. Inventory names are real hostnames; each real
-# host_vars/<hostname>/ directory is also gitignored.
-#
-# Every managed host is a Remnawave proxy Node: it joins the NetBird overlay as a
-# peer (roles/agent), installs host monitoring + security (roles/monitoring:
-# node_exporter + CrowdSec + the nftables firewall bouncer) and runs the
-# Remnawave Node container (roles/remnanode). The single inventory group
+# Every managed host is a Remnawave proxy Node: it joins the NetBird overlay
+# (roles/agent), installs host monitoring + security (roles/monitoring) and runs
+# the Remnawave Node container (roles/remnanode). The single inventory group
 # `remnawave_nodes` is the play target for every playbook.
-#
-# The project is always driven from the control node (no on-box mode).
-# Connection identity and per-host settings live in
-# inventory/host_vars/<hostname>/main.yml.
 # ==============================================================================
 
 all:
@@ -26,6 +20,11 @@ all:
     # running engine is within [min, max). Set ansible_core_allow_untested=true to
     # bypass for an untested newer engine.
     ansible_core_min_version: "2.19.0"
+
+    # Bootstrap account names (the per-host host_ssh_identities aliases fall
+    # back to these when the vault leaves them empty).
+    ansible_service_user: ansible
+    bootstrap_admin_user: admin
     ansible_core_max_version: "2.20.0"
     ansible_core_allow_untested: false
 
@@ -34,4 +33,4 @@ all:
     remnawave_nodes:
       hosts:
         remnanode-1:
-          ansible_host: "{{ vault_host.ip }}"
+          ansible_host: "CHANGE_ME_HOST_IP"

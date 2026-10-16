@@ -18,6 +18,18 @@ INVENTORY_DIR := inventory
 # Command-line inputs (set at invocation).
 TAGS ?=
 HOST ?=
+
+# Management address / SSH port written into the inventory entry by host-init.
+# Empty address writes the CHANGE_ME_HOST_IP placeholder, which the site preflight
+# rejects until it is replaced with the host's real address; an empty port leaves
+# the default (22).
+HOST_IP ?=
+HOST_PORT ?=
+
+# Operator knobs for the scaffolding target. They are command-line inputs: a
+# value inherited from the environment is called out, because make lets an
+# environment variable win over the file default silently.
+$(foreach v,HOST HOST_IP HOST_PORT,$(if $(filter environment,$(origin $(v))),$(warning $(v) is inherited from the environment; pass $(v)=... explicitly if unintended)))
 # Refresh SSH host keys before connecting (HOST_KEY=1). Useful after a managed
 # host is rebuilt: its new host key would otherwise fail the "host key changed"
 # check. hostkey-init scans every inventory host and (re)writes its key into the
@@ -221,8 +233,8 @@ ensure-keychain: verify-keychain-pin
 	echo "keychain installed: $(KEYCHAIN_BIN) (v$(KEYCHAIN_VERSION))"
 
 .PHONY: host-init
-host-init: vault-init ## Scaffold host_vars/<HOST> from the example and add HOST to hosts.yml (HOST defaults to remnanode-1)
-	@host="$(HOST)"; host="$${host:-remnanode-1}"; \
+host-init: vault-init ## Scaffold host_vars/<HOST> + the inventory entry (HOST default remnanode-1, IP default CHANGE_ME_HOST_IP)
+	@host="$(HOST)"; host="$${host:-remnanode-1}"; ip="$(HOST_IP)"; ip="$${ip:-CHANGE_ME_HOST_IP}"; port="$(HOST_PORT)"; \
 	if [ -e "$(INVENTORY)" ]; then :; else python3 $(CURDIR)/scripts/render_clean_template.py inventory/hosts.yml.example $(INVENTORY); echo "Created $(INVENTORY) from example (comments stripped)"; fi; \
 	install -d -m 0700 $(INVENTORY_DIR)/host_vars/$$host; \
 	if [ ! -e $(INVENTORY_DIR)/host_vars/$$host/main.yml ]; then python3 $(CURDIR)/scripts/render_clean_template.py $(INVENTORY_DIR)/host_vars/example/main.yml $(INVENTORY_DIR)/host_vars/$$host/main.yml; fi; \
@@ -233,8 +245,10 @@ host-init: vault-init ## Scaffold host_vars/<HOST> from the example and add HOST
 		ansible-vault encrypt $(INVENTORY_DIR)/host_vars/$$host/vault.yml; \
 	fi; \
 	chmod 0600 $(INVENTORY_DIR)/host_vars/$$host/vault.yml; \
-	python3 $(CURDIR)/scripts/ensure_inventory_host.py "$(INVENTORY)" "$$host"; \
-	echo "Scaffolded $(INVENTORY_DIR)/host_vars/$$host/ (edit main.yml; use 'make vault-edit HOST=$$host' for the encrypted vault.yml)"
+	python3 $(CURDIR)/scripts/ensure_inventory_host.py "$(INVENTORY)" "$$host" --group remnawave_nodes --ansible-host "$$ip" $(if $(HOST_PORT),--ansible-port "$(HOST_PORT)"); \
+	echo "Scaffolded $(INVENTORY_DIR)/host_vars/$$host/ (ansible_host: $$ip, ansible_port: $${port:-22} in $(INVENTORY))"; \
+	echo "next: make vault-edit HOST=$$host   (fill the CHANGE_ME_* values; generated ones fill themselves)"; \
+	echo "      verify: make print HOST=$$host"
 
 .PHONY: host-bootstrap
 host-bootstrap: vault-init agent-fallback ## Create the ansible service account on one host (HOST=<name>, default the first node); HOST_KEY=1 refreshes host keys first

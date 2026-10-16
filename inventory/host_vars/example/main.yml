@@ -2,71 +2,27 @@
 # ==============================================================================
 # Per-host configuration template (inventory/host_vars/example/main.yml)
 # ==============================================================================
-# Copy to inventory/host_vars/<hostname>/main.yml for each host. Only example/ is
-# committed; real <hostname>/ directories are gitignored.
-#
-# This is the per-host file you maintain. Put secrets/PII in the encrypted
-# vault.yml next to it (user input and control-generated values both live there).
-
-# --- Topology ----------------------------------------------------------------
-# ansible_host comes from hosts.yml; the port from vault_host in vault.yml.
-host_ssh_port: "{{ vault_host.port | default(22) }}"
+# Copy to inventory/host_vars/<hostname>/main.yml for each host (only example/ is
+# committed; real <hostname>/ directories are gitignored). Secrets/PII go in the
+# encrypted vault.yml next to it; the shared SSH connection wiring lives in
+# inventory/group_vars/remnawave_nodes/main.yml.
 
 # --- SSH connection identity -------------------------------------------------
-# `host-bootstrap` probes [ansible, admin, root] and uses the first that works;
-# normal runs always use `ansible`. Each identity may set a password and/or a
-# private key file (SSH tries the key first, then the password).
-#
-# `pubkey` is an optional control-node path to the matching public key; when set,
-# `host-bootstrap` authorizes it for that account. Empty is ignored (keys are
-# never auto-generated). Only paths, never raw strings.
-host_ssh_identities:
-  root:
-    user: "root"
-    password: "{{ vault_host_root_password | default('', true) }}"
-    privkey: "{{ vault_host_root_ssh_privkey_file | default('', true) }}"
-    pubkey: "{{ vault_host_root_ssh_pubkey_file | default('', true) }}"
-    become: false
-  admin:
-    user: "{{ vault_host_admin_user | default('admin') }}"
-    password: "{{ vault_host_admin_password | default('', true) }}"
-    privkey: "{{ vault_host_admin_ssh_privkey_file | default('', true) }}"
-    pubkey: "{{ vault_host_admin_ssh_pubkey_file | default('', true) }}"
-    become: true
-  ansible:
-    user: "{{ vault_host_ansible_user | default('ansible') }}"
-    password: "{{ vault_host_ansible_password | default('', true) }}"
-    privkey: "{{ vault_host_ansible_ssh_privkey_file | default('', true) }}"
-    pubkey: "{{ vault_host_ansible_ssh_pubkey_file | default('', true) }}"
-    become: true
-
-host_ssh_identity: "{{ host_ssh_identities['ansible'] }}"
-host_ssh_user: "{{ host_ssh_identity.user }}"
-host_ssh_password: "{{ host_ssh_identity.password }}"
-host_ssh_privkey_file: "{{ host_ssh_identity.privkey }}"
-host_ssh_become: "{{ host_ssh_identity.become }}"
-# Prefer key, then password, at the SSH layer (single password prompt max).
-host_ssh_common_args: "-o PreferredAuthentications=publickey,password -o NumberOfPasswordPrompts=1"
-
-# Ansible connection-plugin interface (sourced from host_ssh_*).
-ansible_port: "{{ host_ssh_port }}"
-ansible_user: "{{ host_ssh_user }}"
-ansible_password: "{{ host_ssh_password }}"
-ansible_ssh_private_key_file: "{{ host_ssh_privkey_file }}"
-ansible_become: "{{ host_ssh_become }}"
-ansible_ssh_common_args: "{{ host_ssh_common_args }}"
+# The ansible/admin/root aliases are wired in
+# inventory/group_vars/remnawave_nodes/main.yml; the user/password/key paths live
+# in vault.yml (see vault.yml.example). `make host-bootstrap` probes
+# [ansible, admin, root] and uses the first that works; normal runs use `ansible`.
 
 # ==============================================================================
 # NetBird overlay (roles/agent)
 # ==============================================================================
 # The node joins the mesh as a peer. The management server is owned by the
 # sibling netbird-iac project; this project consumes the mesh ONLY through its
-# public interface, so both the management URL and this node's setup key are
-# inputs held in THIS project's vault (they are never read from netbird-iac).
-# The setup key decides which group the peer auto-joins — pick the key whose
-# group the central observability stack discovers (`endpoint` by default, which
-# grants no exit/LAN routes).
-netbird_management_url: "{{ vault_netbird_management_url }}"
+# public interface, so both inputs are owned by THIS project (never read from
+# netbird-iac). The setup key decides which group the peer auto-joins — pick the
+# key whose group the central observability stack discovers (`endpoint` by
+# default, which grants no exit/LAN routes).
+netbird_management_url: "https://netbird.example.com"   # empty = NetBird Cloud
 peer_setup_key: "{{ vault_netbird_setup_key }}"
 # Set true only when this node routes traffic for a routed network / exit node;
 # it enables IPv4/IPv6 forwarding on the host.
@@ -75,18 +31,17 @@ netbird_agent_routing: false
 # ==============================================================================
 # Remnawave Node (roles/remnanode)
 # ==============================================================================
-# In the Remnawave Panel create the Node, then copy the generated
-# docker-compose.yml: write NODE_PORT and SECRET_KEY into vault.yml
-# (vault_remnanode_node_port / vault_remnanode_secret_key). The remaining part of
-# that compose file is the committed template
+# Create the Node in the Remnawave Panel, then copy from its generated
+# docker-compose.yml: NODE_PORT here (not a secret) and SECRET_KEY into the vault
+# (vault_remnanode_secret_key). The rest of that file is the committed template
 # roles/remnanode/templates/remnanode/docker-compose.yml.j2.
-remnanode_node_port: "{{ vault_remnanode_node_port }}"
+remnanode_node_port: ""     # e.g. 2222: the port the Panel dials in on
 remnanode_secret_key: "{{ vault_remnanode_secret_key }}"
 
 # --- Optional host monitoring + host security (make monitoring) --------------
 # Installs prometheus-node-exporter + CrowdSec (+ the nftables firewall bouncer)
-# and runs a NetBird overlay agent, so the central Prometheus/Alloy (sibling
-# docker-stack-iac) scratches the host over the overlay with no public port.
+# and joins the NetBird overlay, so the central Prometheus/Alloy (sibling
+# docker-stack-iac) scrapes the host over the overlay with no public port.
 # Enabled by default for this group; set false to opt out.
 # monitoring_enabled: false
 # node_exporter is localhost-only plus the overlay address; widen the local
@@ -96,23 +51,14 @@ remnanode_secret_key: "{{ vault_remnanode_secret_key }}"
 # alloy_enabled: true
 # loki_url: "http://<loki-overlay-ip>:3100"
 
-# --- Optional host bootstrap (make host-bootstrap) ---------------------------
+# --- Optional host bootstrap (make host-bootstrap; NOT part of make deploy) --
 # Region-specific mirrors for hosts where the defaults are slow/blocked (e.g.
-# China-based VPS). This playbook is opt-in and NOT part of make deploy.
-# Debian-family APT mirror (security mirror derived automatically; override
-# with host_apt_security_mirror if your mirror doesn't follow the pattern):
+# China-based VPS). The security mirror is derived from host_apt_mirror (override
+# with host_apt_security_mirror); Docker Hub registry mirrors are tried in order.
 # host_apt_mirror: "https://mirrors.tuna.tsinghua.edu.cn/debian"
-# Docker Hub registry mirrors (tried in order):
 # docker_registry_mirrors:
 #   - "https://docker.1ms.run"
-# make host-bootstrap probes [ansible, admin, root] and creates the 'ansible'
-# service account when not already connected as it. Each configured
-# vault_<id>_ssh_pubkey_file is authorized for its account; unset is ignored. The
-# ansible pubkey switches the account to key auth, otherwise a password is set
-# (host_bootstrap_password, else generated into the encrypted vault); passwords
-# use a per-account random salt with update_password=on_create. Private key paths
-# go in vault.yml (vault_<id>_ssh_privkey_file).
-#
-# The optional human 'admin' account is created only when enabled here; it always
-# gets a password (generated into vault.yml when empty) and any configured key.
+# The probe, the 'ansible' service account and key/password handling are
+# documented in playbooks/bootstrap.yml and vault.yml.example. Create the
+# optional human 'admin' account with (it always gets a password):
 # host_admin_enabled: true

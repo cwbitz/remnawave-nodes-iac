@@ -1,82 +1,54 @@
 # ==============================================================================
 # Per-host secrets schema (inventory/host_vars/example/vault.yml.example)
 # ==============================================================================
-# Preferred: `make host-init HOST=<hostname>` copies and encrypts this schema
-# into inventory/host_vars/<hostname>/vault.yml, then edit it with
-# `make vault-edit HOST=<hostname>`. To do it by hand instead:
-#
-#   cp inventory/host_vars/example/vault.yml.example \
-#      inventory/host_vars/<hostname>/vault.yml
-#   ansible-vault encrypt inventory/host_vars/<hostname>/vault.yml
-#
-# The real vault.yml is gitignored and NEVER committed (even encrypted). It holds
-# the user-supplied values and the control-generated values (the service-account
-# password, when no public key is given). The vault password is read from
-# ~/.config/projects/remnawave-nodes-iac/ansible_vault_password (see ansible.cfg;
-# `make vault-init` creates one).
-# ==============================================================================
-
-# --- Topology (single host; referenced from inventory/hosts.yml) --------------
-vault_host:
-  ip: "203.0.113.10"
-  port: 22
+# Scaffold a real one with `make host-init HOST=<hostname>`, then edit it with
+# `make vault-edit HOST=<hostname>`. The real vault.yml is gitignored and NEVER
+# committed (even encrypted); the vault password file that decrypts it is created
+# by `make vault-init` (path set in ansible.cfg).
 
 # --- SSH connection identity -------------------------------------------------
-# `make host-bootstrap` probes [ansible, admin, root] and uses the first that
-# works; normal runs always use `ansible`. Each identity may set a password
-# and/or a private key file (SSH prefers the key, then the password). There are
-# no become/sudo-password vars: the ansible account gets NOPASSWD sudo.
+# The ansible/admin/root aliases are wired in
+# inventory/group_vars/remnawave_nodes/main.yml. Each identity's control-node
+# private key, plus an optional control-node path to its matching public key.
+# `make host-bootstrap` probes [ansible, admin, root], uses the first that works,
+# and authorizes each supplied public key for its account (empty is ignored; keys
+# are never generated). Paths only, never raw key strings.
 #
-# vault_*_ssh_privkey_file is the control-node private key for that identity.
-# vault_*_ssh_pubkey_file is an optional control-node path to the matching public
-# key; when set, `make host-bootstrap` authorizes it for that account. Empty is
-# ignored (nothing is generated). Only paths, never raw key strings.
-#
-# Key-first: when vault_host_ansible_ssh_pubkey_file is set the ansible account is
-# key-only (no password). Otherwise a password is set — host_bootstrap_password
-# if given, else generated into this file — hashed with a per-account random
-# salt and applied with update_password=on_create, so a password rotated on the
-# host is preserved.
+# A private-key-only identity is NOT key mode: the account still gets a password
+# (host_bootstrap_password, else generated here) so an unauthorized key cannot
+# lock you out. An identity becomes key-only once its public-key path is set.
 vault_host_root_password: ""
 vault_host_root_ssh_privkey_file: "~/.ssh/id_ed25519"
 vault_host_root_ssh_pubkey_file: ""
-# The optional human 'admin' operator account is created only when
-# `host_admin_enabled: true` is set in main.yml. It always gets a password
-# (generated into this file when left empty) for console login and sudo; a
-# configured public key is installed additionally.
+# The optional human 'admin' operator account (created only when
+# host_admin_enabled: true in main.yml); it always gets a password for console
+# login and sudo, plus any configured public key.
 vault_host_admin_user: "admin"
 vault_host_admin_password: ""
 vault_host_admin_ssh_privkey_file: ""
 vault_host_admin_ssh_pubkey_file: ""
-# The ansible identity is the service account host-bootstrap creates/repairs;
-# its public key (when set) also switches the account to key auth instead of a
-# generated password.
+# The `ansible` service account host-bootstrap creates/repairs; its public key
+# also switches the account to key auth instead of a generated password.
 vault_host_ansible_user: "ansible"
 vault_host_ansible_password: ""
 vault_host_ansible_ssh_privkey_file: "~/.ssh/id_ed25519_ansible"
 vault_host_ansible_ssh_pubkey_file: ""
 
 # --- NetBird overlay (roles/agent) -------------------------------------------
-# Both are inputs held in THIS project's vault; the management server is owned by
-# the sibling netbird-iac project and is consumed only through its API.
-#   vault_netbird_management_url  the self-hosted management URL, e.g.
-#                                 "https://netbird.example.com"
-#   vault_netbird_setup_key       this node's enrollment setup key (its auto-group
-#                                 decides what the central observability stack
-#                                 discovers; `endpoint` grants no exit/LAN routes)
-vault_netbird_management_url: "https://netbird.example.com"
+# This node's enrollment setup key; the management URL is non-secret and lives in
+# main.yml. The key decides which NetBird group the peer auto-joins, hence what
+# the central observability stack discovers (`endpoint` grants no exit/LAN
+# routes).
 vault_netbird_setup_key: ""
 
 # --- Remnawave Node (roles/remnanode) ----------------------------------------
-# From the docker-compose.yml the Panel generates when the Node is created:
-#   vault_remnanode_node_port    the NODE_PORT value (what the Panel dials in on)
-#   vault_remnanode_secret_key   the SECRET_KEY value (node <-> panel secret)
-# SECRET_KEY is a live credential: the Panel authenticates the Node with it.
-vault_remnanode_node_port: ""
+# The Node's SECRET_KEY, copied from the docker-compose.yml the Panel generates
+# when the Node is created. It is a live credential: the Panel authenticates the
+# Node with it. (NODE_PORT is non-secret; set it in main.yml.)
 vault_remnanode_secret_key: ""
 
 # ==============================================================================
-# Control-generated secrets (written to vault.yml when left empty here)
+# Control-generated secrets (written here when left empty)
 # ==============================================================================
 #   vault_host_ansible_password  service-account password (only when no public
 #                                key is given)
