@@ -1,0 +1,17 @@
+---
+# ==============================================================================
+# Project-owned baseline for EVERY managed host
+# (inventory/group_vars/all/main.yml)
+# ==============================================================================
+# Committed, project-owned values that are not operator input. Topology lives in
+# inventory/hosts.yml (local-only), per-host settings in
+# inventory/host_vars/<hostname>/, and the shared connection wiring in the
+# committed inventory/group_vars/remnanodes/main.yml.
+# ==============================================================================
+
+# Supported ansible-core range for the control node; the preflight asserts the
+# running engine is within [min, max). Set ansible_core_allow_untested=true to
+# bypass for an untested newer engine.
+ansible_core_min_version: "2.19.0"
+ansible_core_max_version: "2.20.0"
+ansible_core_allow_untested: false

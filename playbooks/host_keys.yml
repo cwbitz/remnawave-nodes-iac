@@ -21,7 +21,7 @@
                'name': item,
                'host': hostvars[item].ansible_host | default(item),
                'port': hostvars[item].ansible_port | default(22) } ] }}
-      loop: "{{ groups['remnawave_nodes'] | default([]) }}"
+      loop: "{{ groups['remnanodes'] | default([]) }}"
       changed_when: false
 
     - name: "[HostKeys] Write the resolved SSH targets"

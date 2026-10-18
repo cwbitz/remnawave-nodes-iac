@@ -5,11 +5,11 @@
 # Copy to inventory/host_vars/<hostname>/main.yml for each host (only example/ is
 # committed; real <hostname>/ directories are gitignored). Secrets/PII go in the
 # encrypted vault.yml next to it; the shared SSH connection wiring lives in
-# inventory/group_vars/remnawave_nodes/main.yml.
+# inventory/group_vars/remnanodes/main.yml.
 
 # --- SSH connection identity -------------------------------------------------
 # The ansible/admin/root aliases are wired in
-# inventory/group_vars/remnawave_nodes/main.yml; the user/password/key paths live
+# inventory/group_vars/remnanodes/main.yml; the user/password/key paths live
 # in vault.yml (see vault.yml.example). `make host-bootstrap` probes
 # [ansible, admin, root] and uses the first that works; normal runs use `ansible`.
 

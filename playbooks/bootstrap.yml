@@ -4,8 +4,8 @@
 #
 # Optional, opt-in host tuning. Probes the SSH identities in order
 # [ansible, admin, root] and uses the first that works; if that is not `ansible`,
-# it (re)creates the least-privilege `ansible` service account. The alias wiring
-# lives in inventory/group_vars/remnawave_nodes/main.yml. Can also set
+# it (re)creates the least-privilege `ansible` service account. The alias
+# wiring lives in inventory/group_vars/remnanodes/main.yml. Can also set
 # package/registry mirrors and authorize configured SSH public keys.
 #
 # Per identity (root/admin/ansible), vault.yml may set a password and/or a
@@ -32,9 +32,9 @@
   gather_facts: false
   vars:
     # The host to bootstrap: the Makefile passes HOST= as -e bootstrap_host.
-    # Defaults to the first remnawave_nodes host; pass it explicitly when several
+    # Defaults to the first remnanodes host; pass it explicitly when several
     # nodes exist.
-    bootstrap_host: "{{ bootstrap_host | default(groups['remnawave_nodes'] | default([]) | first | default('', true)) }}"
+    bootstrap_host: "{{ bootstrap_host | default(groups['remnanodes'] | default([]) | first | default('', true)) }}"
     remnawave_target: "{{ hostvars[bootstrap_host] | default({}) }}"
     probe_host: "{{ remnawave_target.ansible_host | default('') }}"
     probe_port: "{{ remnawave_target.ansible_port | default(22) }}"
@@ -47,7 +47,7 @@
         fail_msg: >-
           No bootstrap target resolved. Pass one explicitly with
           `make host-bootstrap HOST=<inventory name>` (or -e bootstrap_host=...);
-          it defaults to the first remnawave_nodes host.
+          it defaults to the first remnanodes host.
 
     - name: "[Probe] Try each identity over SSH"
       ansible.builtin.shell: |
@@ -123,7 +123,7 @@
   # time). Using the inventory host avoids a dynamic-only group that
   # --syntax-check on a static inventory would warn about ("could not match
   # supplied host pattern").
-  hosts: "{{ bootstrap_host | default(groups['remnawave_nodes'] | default([]) | first | default('', true)) }}"
+  hosts: "{{ bootstrap_host | default(groups['remnanodes'] | default([]) | first | default('', true)) }}"
   gather_facts: true
   # add_host vars rank below inventory host_vars; apply the probed identity as
   # play vars so it takes effect.
@@ -237,7 +237,7 @@
     # fallback.
     - name: "[Bootstrap] Resolve the service account settings"
       ansible.builtin.set_fact:
-        bootstrap_service_user: "{{ host_bootstrap_user | default('ansible') }}"
+        bootstrap_service_user: "ansible"
         bootstrap_use_key: "{{ vault_host_ansible_ssh_pubkey_file | default('', true) | length > 0 }}"
 
     - name: "[Bootstrap] Provision a service-account password (no key supplied)"

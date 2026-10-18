@@ -55,7 +55,7 @@ Focused tags: `monitoring`, `remnanode` (`make deploy TAGS=remnanode`).
 Verify:
 
 ```bash
-ansible -i inventory/hosts.yml remnawave_nodes -m ansible.builtin.ping
+ansible -i inventory/hosts.yml remnanodes -m ansible.builtin.ping
 ssh <host> 'cd /opt/remnanode && docker compose ps'
 ssh <host> 'docker logs --tail=50 remnanode'
 ssh <host> 'ip -4 -o addr show wt0'          # overlay peer address

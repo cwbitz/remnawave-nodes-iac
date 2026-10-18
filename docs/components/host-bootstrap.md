@@ -24,7 +24,7 @@ host at a time.
 ## Identity wiring
 
 The `ansible` / `admin` / `root` aliases are derived per host in
-`inventory/group_vars/remnawave_nodes/main.yml` from that host's own vault; the
+`inventory/group_vars/remnanodes/main.yml` from that host's own vault; the
 value schema is `inventory/host_vars/example/vault.yml.example`.
 
 A private-key path alone is **not** key mode: the account still gets a password

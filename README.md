@@ -183,7 +183,7 @@ encrypted; the committed schema reference is
 ## Layout
 
 ```
-inventory/                # hosts.yml(.example), group_vars/remnawave_nodes, host_vars/example
+inventory/                # hosts.yml(.example), group_vars/{all,remnanodes}, host_vars/example
 playbooks/bootstrap.yml   # host init: service account + Docker (+ mirrors)
 playbooks/agent.yml       # join the NetBird overlay (agent role)
 playbooks/monitoring.yml  # host monitoring + security

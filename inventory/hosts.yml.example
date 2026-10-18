@@ -4,33 +4,23 @@
 # ==============================================================================
 # Copy to inventory/hosts.yml and replace the host names and addresses. The real
 # hosts.yml is gitignored (real hostnames/IPs); only this example is committed.
-# Host addresses (ansible_host / ansible_port) live here; per-host settings live
-# in inventory/host_vars/<hostname>/main.yml and the shared SSH connection wiring
-# lives in inventory/group_vars/remnawave_nodes/main.yml.
+# This file carries topology ONLY — the project-owned baseline variables live in
+# the committed inventory/group_vars/all/main.yml. Host addresses
+# (ansible_host / ansible_port) live here; per-host settings live in
+# inventory/host_vars/<hostname>/main.yml and the shared SSH connection wiring
+# lives in inventory/group_vars/remnanodes/main.yml.
 #
 # Every managed host is a Remnawave proxy Node: it joins the NetBird overlay
 # (roles/agent), installs host monitoring + security (roles/monitoring) and runs
 # the Remnawave Node container (roles/remnanode). The single inventory group
-# `remnawave_nodes` is the play target for every playbook.
+# `remnanodes` is the play target for every playbook.
 # ==============================================================================
 
-all:
-  vars:
-    # Supported ansible-core range for the control node; the preflight asserts the
-    # running engine is within [min, max). Set ansible_core_allow_untested=true to
-    # bypass for an untested newer engine.
-    ansible_core_min_version: "2.19.0"
-
-    # Bootstrap account names (the per-host host_ssh_identities aliases fall
-    # back to these when the vault leaves them empty).
-    ansible_service_user: ansible
-    bootstrap_admin_user: admin
-    ansible_core_max_version: "2.20.0"
-    ansible_core_allow_untested: false
-
-  children:
-    # The Remnawave proxy Nodes managed by this project.
-    remnawave_nodes:
-      hosts:
-        remnanode-1:
-          ansible_host: "CHANGE_ME_HOST_IP"
+# The Remnawave proxy Nodes managed by this project.
+remnanodes:
+  hosts:
+    # `make host-init HOST=<name> HOST_IP=<addr>` adds the entry; with no
+    # arguments it scaffolds the default Node `remnanode-1` with a placeholder
+    # address. Example entry:
+    #   remnanode-1:
+    #     ansible_host: "203.0.113.57"

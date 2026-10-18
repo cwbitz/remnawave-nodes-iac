@@ -3,7 +3,7 @@
 # NetBird agent - mesh join (roles/agent/defaults/main.yml)
 # ==============================================================================
 # Runs the NetBird agent container so a host joins the overlay. Used by the
-# `remnawave_nodes` group (every Remnawave node is a mesh peer) and by the
+# `remnanodes` group (every Remnawave node is a mesh peer) and by the
 # monitoring role (so the central Prometheus/Alloy can reach the host over the
 # overlay with no public port).
 #

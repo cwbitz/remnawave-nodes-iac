@@ -5,7 +5,7 @@
 # Optional VPS host monitoring + host security (Debian-family, apt-based) plus
 # the NetBird overlay agent (roles/agent, included so the central Prometheus/Alloy
 # can reach the host over the overlay). Opt-in: set `monitoring_enabled: true` in
-# inventory/host_vars/<host>/main.yml (the remnawave_nodes group sets it by
+# inventory/host_vars/<host>/main.yml (the remnanodes group sets it by
 # default). When false the role is skipped.
 
 monitoring_enabled: false

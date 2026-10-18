@@ -12,9 +12,11 @@ management server in `netbird-iac`; both are consumed strictly through their pub
 interfaces. Boundaries and scope are in `docs/components/panel-contract.md`.
 
 Managed hosts live in the gitignored `inventory/hosts.yml` (committed template
-`inventory/hosts.yml.example`) and are never hardcoded into docs, roles, or
-templates. Every host is in the single `remnawave_nodes` group — the play target
-for every playbook — whose `group_vars/remnawave_nodes/main.yml` holds the shared
+`inventory/hosts.yml.example`, topology only) and are never hardcoded into docs,
+roles, or templates; the project-owned baseline for every managed host (engine
+range) is committed in `inventory/group_vars/all/main.yml`. Every host is in the
+single `remnanodes` group — the play target
+for every playbook — whose `group_vars/remnanodes/main.yml` holds the shared
 SSH connection wiring plus `install_docker`, `host_admin_enabled` and
 `monitoring_enabled`; per-host, non-secret settings live in
 `inventory/host_vars/<hostname>/main.yml`.
@@ -55,7 +57,7 @@ SSH connection wiring plus `install_docker`, `host_admin_enabled` and
 - `make host-init HOST=<name> [HOST_IP=] [HOST_PORT=]` — scaffold
   `inventory/hosts.yml` (from the committed `example/` when absent) and
   `inventory/host_vars/<name>/`, encrypt the scaffolded `vault.yml`, and ensure
-  `<name>` exists under `remnawave_nodes.hosts` in `inventory/hosts.yml`
+  `<name>` exists under `remnanodes.hosts` in `inventory/hosts.yml`
   (idempotent; HOST defaults to `remnanode-1`). `HOST_IP`/`HOST_PORT` write that
   entry's `ansible_host`/`ansible_port`; an empty `HOST_IP` leaves the
   `CHANGE_ME_HOST_IP` placeholder the site preflight rejects, and a differing

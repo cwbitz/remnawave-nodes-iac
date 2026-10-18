@@ -245,7 +245,7 @@ host-init: vault-init ## Scaffold host_vars/<HOST> + the inventory entry (HOST d
 		ansible-vault encrypt $(INVENTORY_DIR)/host_vars/$$host/vault.yml; \
 	fi; \
 	chmod 0600 $(INVENTORY_DIR)/host_vars/$$host/vault.yml; \
-	python3 $(CURDIR)/scripts/ensure_inventory_host.py "$(INVENTORY)" "$$host" --group remnawave_nodes --ansible-host "$$ip" $(if $(HOST_PORT),--ansible-port "$(HOST_PORT)"); \
+	python3 $(CURDIR)/scripts/ensure_inventory_host.py "$(INVENTORY)" "$$host" --group remnanodes --ansible-host "$$ip" $(if $(HOST_PORT),--ansible-port "$(HOST_PORT)"); \
 	echo "Scaffolded $(INVENTORY_DIR)/host_vars/$$host/ (ansible_host: $$ip, ansible_port: $${port:-22} in $(INVENTORY))"; \
 	echo "next: make vault-edit HOST=$$host   (fill the CHANGE_ME_* values; generated ones fill themselves)"; \
 	echo "      verify: make print HOST=$$host"

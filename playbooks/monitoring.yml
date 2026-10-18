@@ -7,7 +7,7 @@
 # Installs prometheus-node-exporter + CrowdSec (+ the nftables firewall bouncer)
 # and joins the host to the overlay through the shared agent role, so the central
 # Prometheus/Alloy (sibling docker-stack-iac) can reach it over the overlay.
-# Enabled by default on `remnawave_nodes` (see group_vars); set
+# Enabled by default on `remnanodes` (see group_vars); set
 # `monitoring_enabled: false` per host to skip WITHOUT connecting to the host
 # (the play does not gather facts).
 #
@@ -18,7 +18,7 @@
 # ==============================================================================
 
 - name: Optional host monitoring and host security
-  hosts: remnawave_nodes
+  hosts: remnanodes
   gather_facts: false
   roles:
     - role: monitoring

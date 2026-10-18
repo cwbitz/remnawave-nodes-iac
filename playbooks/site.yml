@@ -39,12 +39,12 @@
           inventory/hosts.yml, or re-scaffold the host:
             make host-init HOST={{ item }} HOST_IP=<management-ip>
         quiet: true
-      loop: "{{ groups['remnawave_nodes'] | default([]) }}"
+      loop: "{{ groups['remnanodes'] | default([]) }}"
       loop_control:
         label: "{{ item }}"
 
 - name: Preflight
-  hosts: remnawave_nodes
+  hosts: remnanodes
   gather_facts: false
   run_once: true
   tasks:
@@ -67,14 +67,14 @@
         that:
           - (host_ssh_user | default('root')) != 'root' or (host_allow_root_login | default(false) | bool)
         fail_msg: >-
-          The deploy must run as the non-root service account, not root. Run
-          `make host-bootstrap` once as root to create it, then set
-          vault_host_ansible_user (and its key/password) in
-          inventory/host_vars/<host>/vault.yml. Override deliberately with
-          host_allow_root_login=true if you accept running as root.
+          The deploy must run as the non-root `ansible` service account, not
+          root. Run `make host-bootstrap` once as root to create it, then set its
+          key/password in inventory/host_vars/<host>/vault.yml. Override
+          deliberately with host_allow_root_login=true if you accept running as
+          root.
 
 - name: Deploy the Remnawave node stack
-  hosts: remnawave_nodes
+  hosts: remnanodes
   gather_facts: true
   roles:
     # Host monitoring + security; includes the NetBird overlay agent.

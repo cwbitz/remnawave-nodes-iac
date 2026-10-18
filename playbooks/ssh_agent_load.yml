@@ -23,7 +23,7 @@
   gather_facts: false
   become: false
   vars:
-    agent_load_hosts: "{{ groups['remnawave_nodes'] | default([]) }}"
+    agent_load_hosts: "{{ groups['remnanodes'] | default([]) }}"
   tasks:
     - name: "[SSHAgent] Assert the Keychain ssh-agent is reachable in this shell"
       ansible.builtin.assert:
