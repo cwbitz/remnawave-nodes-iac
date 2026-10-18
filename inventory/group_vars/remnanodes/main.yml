@@ -35,3 +35,4 @@ ansible_ssh_common_args: "{{ host_ssh_common_args }}"
 monitoring_enabled: true
 install_docker: true
 host_admin_enabled: false
+host_firewall_enabled: true

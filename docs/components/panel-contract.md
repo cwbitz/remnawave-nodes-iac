@@ -15,8 +15,16 @@ the Panel.
 **Keep `NODE_PORT` off the public internet.** The Panel is the TLS client and
 reaches the node over the NetBird overlay, so no public port and no static
 Panel-IP allowlist is needed — and a static allowlist is impractical when the
-Panel sits behind a rotating home-broadband IP. This project does not manage a base
-firewall; the CrowdSec firewall bouncer only enforces CrowdSec decisions.
+Panel sits behind a rotating home-broadband IP. `roles/firewall` enforces this
+with a default-deny inbound base firewall; the CrowdSec firewall bouncer only
+enforces CrowdSec decisions on top of it.
+
+The overlay path also needs the **tenant ACL** to allow it: the NetBird client on
+the node drops everything from `wt0` that the pushed policy does not list, and the
+policy only carries the exporters by default (`tcp/9100`, `tcp/6060`). `NODE_PORT`
+must be allowed to the node's group from the Panel peer's group in the tenant
+config-as-code (`netbird-iac`), or the Panel cannot reach the node once the public
+port is closed.
 
 ## NetBird management server (`netbird-iac`)
 
@@ -30,13 +38,17 @@ the vault; neither is resolved from netbird-iac's vars/vault. See
 Prometheus/Grafana/Loki discovers peers from the NetBird API and scrapes `:9100`
 (node_exporter) and `:6060` (CrowdSec LAPI) over the overlay. Enrolling with the
 `endpoint` setup key (the default) makes a node discoverable with no exit/LAN
-routes. See [`monitoring-security.md`](monitoring-security.md).
+routes. Shipping host logs (`alloy_enabled`, a node-side option) additionally
+needs the central Loki published on the observer host's overlay IP
+(`docker-stack-iac`'s `loki_publish`), because NetBird peer DNS names do not
+resolve on the node. See [`monitoring-security.md`](monitoring-security.md).
 
 ## Scope
 
 - **In scope here**: the Remnawave proxy node container; the NetBird overlay agent;
   host monitoring/security (node_exporter, CrowdSec, nftables firewall bouncer);
-  host bootstrap (service account, Docker, mirrors).
+  the host base firewall (default-deny inbound); host bootstrap (service account,
+  Docker, mirrors).
 - **Out of scope (sibling projects)**: the Remnawave Panel and its database; the
   NetBird management server and tenant config-as-code; the central
-  Prometheus/Grafana/Loki stack; any base firewall management beyond CrowdSec.
+  Prometheus/Grafana/Loki stack.

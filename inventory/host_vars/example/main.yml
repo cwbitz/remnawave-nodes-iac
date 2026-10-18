@@ -51,6 +51,15 @@ remnanode_secret_key: "{{ vault_remnanode_secret_key }}"
 # alloy_enabled: true
 # loki_url: "http://<loki-overlay-ip>:3100"
 
+# --- Optional host firewall (roles/firewall) ---------------------------------
+# Default-deny inbound (enabled by default for this group; set false to opt out).
+# SSH, the NetBird overlay and the WireGuard UDP port stay open; NODE_PORT and
+# everything else are reachable only over the overlay. The Panel owns the Xray
+# inbounds, so declare the ports it pushes here (empty = no proxy service yet):
+# host_firewall_enabled: false
+# host_firewall_public_tcp_ports: [443]
+# host_firewall_public_udp_ports: []
+
 # --- Optional host bootstrap (make host-bootstrap; NOT part of make deploy) --
 # Region-specific mirrors for hosts where the defaults are slow/blocked (e.g.
 # China-based VPS). The security mirror is derived from host_apt_mirror (override

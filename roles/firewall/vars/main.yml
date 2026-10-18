@@ -1,0 +1,13 @@
+---
+# ==============================================================================
+# Role-owned constants (roles/firewall/vars/main.yml)
+# ==============================================================================
+# The dedicated nftables table and the systemd unit that loads it at boot. The
+# table name is a project-internal constant; a separate table (rather than the
+# iptables-nft `ip filter` chain) keeps us out of Docker's and NetBird's way.
+host_firewall_table: "hostfw"
+host_firewall_conf_dir: "/etc/nftables.d"
+host_firewall_conf: "{{ host_firewall_conf_dir }}/90-host-firewall.nft"
+host_firewall_nft: "/usr/sbin/nft"
+host_firewall_service_name: "host-firewall.service"
+host_firewall_service_path: "/etc/systemd/system/host-firewall.service"

@@ -28,6 +28,7 @@ management URL + a setup key for the overlay).
 │  remnanode (Xray-core)          netbird agent          host security       │
 │   network_mode: host   ───────  joins the overlay  ─── node_exporter       │
 │   listens on NODE_PORT          (wt0)                  CrowdSec + bouncer  │
+│   firewall: default-deny inbound (only SSH / wt0 / WireGuard open)         │
 │        ▲                                                                   │
 └────────┼───────────────────────────────────────────────────────────────────┘
          │ Panel -> Node internal API (NODE_PORT, SECRET_KEY)
@@ -43,7 +44,10 @@ management URL + a setup key for the overlay).
    `crowdsec-firewall-bouncer` (nftables), and joins the host to the NetBird
    overlay so the central Prometheus/Alloy reaches the exporters with no public
    port.
-3. **Remnawave Node** (`roles/remnanode`): renders `/opt/remnanode/docker-compose.yml`
+3. **Host firewall** (`roles/firewall`): a default-deny inbound base firewall (a
+   dedicated nftables table), so `NODE_PORT` — and everything else — is reachable
+   only over the overlay. SSH, the overlay and the WireGuard UDP port stay open.
+4. **Remnawave Node** (`roles/remnanode`): renders `/opt/remnanode/docker-compose.yml`
    and runs the `remnawave/node` container with `NODE_PORT` / `SECRET_KEY`.
 
 ## Remnawave Node inputs
@@ -86,8 +90,8 @@ The rest of that compose file is the committed template
 source of truth; never edit the file on the host.
 
 > Keep the node's `NODE_PORT` **off the public internet**: the Panel is the TLS
-> client and reaches the node over the NetBird overlay. See
-> `docs/components/panel-contract.md`.
+> client and reaches the node over the NetBird overlay. `roles/firewall` enforces
+> this (default-deny inbound). See `docs/components/panel-contract.md`.
 
 ## NetBird overlay inputs
 
@@ -157,8 +161,9 @@ account does not exist yet, so `deploy` runs the same host bootstrap as
 | `make dry-run` | `site.yml --check --diff` | Safe preview. |
 | `make print [HOST=]` | — | Resolved host vars incl. decrypted vault. |
 
-`make deploy TAGS=remnanode` (or `TAGS=monitoring`) runs only that role. The
-internal `make lint` (syntax check + `ansible-lint`) is hidden from `make help`.
+`make deploy TAGS=remnanode` (or `TAGS=monitoring`, `TAGS=firewall`) runs only
+that role. The internal `make lint` (syntax check + `ansible-lint`) is hidden from
+`make help`.
 
 ## Secrets
 
@@ -177,6 +182,7 @@ encrypted; the committed schema reference is
   [`host-bootstrap.md`](docs/components/host-bootstrap.md),
   [`netbird-overlay.md`](docs/components/netbird-overlay.md),
   [`monitoring-security.md`](docs/components/monitoring-security.md),
+  [`firewall.md`](docs/components/firewall.md),
   [`remnanode.md`](docs/components/remnanode.md),
   [`panel-contract.md`](docs/components/panel-contract.md).
 
@@ -190,6 +196,7 @@ playbooks/monitoring.yml  # host monitoring + security
 playbooks/site.yml        # full node stack (monitoring/agent + remnanode)
 roles/agent               # NetBird overlay agent (mesh join)
 roles/monitoring          # node_exporter + CrowdSec + firewall bouncer (+ agent)
+roles/firewall            # default-deny inbound base firewall (nftables)
 roles/remnanode           # the Remnawave Node container
 roles/helpers/            # shared vault-secret provisioning + Docker install
 docs/                     # this repo's docs (RUNBOOK.md, components/)

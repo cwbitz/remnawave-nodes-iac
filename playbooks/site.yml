@@ -81,6 +81,11 @@
     - role: monitoring
       tags: [monitoring]
       when: monitoring_enabled | default(false) | bool
+    # Default-deny inbound firewall (a dedicated nftables table): keeps NODE_PORT
+    # and everything else off the public internet while the overlay stays open.
+    - role: firewall
+      tags: [firewall]
+      when: host_firewall_enabled | default(false) | bool
     # The Remnawave Node container itself.
     - role: remnanode
       tags: [remnanode]

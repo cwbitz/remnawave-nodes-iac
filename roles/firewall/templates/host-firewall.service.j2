@@ -1,0 +1,18 @@
+[Unit]
+Description=Host firewall (managed by Ansible)
+Documentation=file://{{ host_firewall_conf }}
+# Load after the network is up; ordering against Docker/NetBird/CrowdSec does not
+# matter, because this unit only manages its own table.
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# Validate before applying: a bad ruleset fails the start and never loads, so a
+# syntax error cannot leave the host without a firewall (or lock anyone out).
+ExecStartPre={{ host_firewall_nft }} -c -f {{ host_firewall_conf }}
+ExecStart={{ host_firewall_nft }} -f {{ host_firewall_conf }}
+
+[Install]
+WantedBy=multi-user.target

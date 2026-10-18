@@ -3,8 +3,8 @@
 Ansible control node that manages the **Remnawave proxy Nodes** — the
 `remnawave/node` containers a Remnawave Panel pushes Xray-core proxy
 configuration to — on Debian-family VPSes, from a blank first boot: host
-bootstrap, NetBird overlay join, host monitoring/security, then the Remnawave
-Node. Idempotent and version-controlled.
+bootstrap, NetBird overlay join, host monitoring/security, the host firewall, then
+the Remnawave Node. Idempotent and version-controlled.
 
 This project owns **only the nodes**. The Remnawave Panel and the central
 observability stack live in the sibling `docker-stack-iac` project and the NetBird
@@ -17,9 +17,9 @@ roles, or templates; the project-owned baseline for every managed host (engine
 range) is committed in `inventory/group_vars/all/main.yml`. Every host is in the
 single `remnanodes` group — the play target
 for every playbook — whose `group_vars/remnanodes/main.yml` holds the shared
-SSH connection wiring plus `install_docker`, `host_admin_enabled` and
-`monitoring_enabled`; per-host, non-secret settings live in
-`inventory/host_vars/<hostname>/main.yml`.
+SSH connection wiring plus `install_docker`, `host_admin_enabled`,
+`monitoring_enabled` and `host_firewall_enabled`; per-host, non-secret settings
+live in `inventory/host_vars/<hostname>/main.yml`.
 
 `make deploy` is the one-shot entry point: it bootstraps the host, then runs
 `playbooks/site.yml` (overlay join + monitoring, then the Remnawave Node).
@@ -67,7 +67,8 @@ SSH connection wiring plus `install_docker`, `host_admin_enabled` and
   comment-preserving (`scripts/ensure_inventory_host.py`).
 - `make host-bootstrap [HOST=]` — bootstrap one host; `make deploy` runs it first.
 - `make agent` / `make monitoring` — the overlay join and the host
-  monitoring/security parts.
+  monitoring/security parts. The host firewall (`roles/firewall`) is part of
+  `site.yml`; `make deploy TAGS=firewall` runs only it.
 - `make dry-run` / `make deploy` — preview / one-shot deploy.
 - The internal `make lint` (`--syntax-check` + `ansible-lint`) is run by CI and
   hidden from `make help`.
@@ -78,7 +79,7 @@ SSH connection wiring plus `install_docker`, `host_admin_enabled` and
 - The deploy **requires the non-root service account**: `playbooks/site.yml`
   asserts `host_ssh_user != root` (override with `host_allow_root_login=true`).
 - Keep a node's `NODE_PORT` off the public internet — the Panel is the TLS client
-  and reaches the node over the NetBird overlay (see
+  and reaches the node over the NetBird overlay (`roles/firewall` enforces it; see
   `docs/components/panel-contract.md`).
 - The Remnawave Node image only publishes moving tags (`latest` / `sha-*`), so
   `remnanode_version` cannot be pinned; Renovate tracks it for manual review.
@@ -131,6 +132,7 @@ Every tag is rendered through role-default vars, each with a
 | [`host-bootstrap.md`](docs/components/host-bootstrap.md) | Probe accounts, the `ansible` service account, Docker, mirrors, SSH wiring |
 | [`netbird-overlay.md`](docs/components/netbird-overlay.md) | Joining the NetBird mesh (the `agent` role) |
 | [`monitoring-security.md`](docs/components/monitoring-security.md) | node_exporter, CrowdSec, the firewall bouncer, optional Alloy |
+| [`firewall.md`](docs/components/firewall.md) | The default-deny inbound base firewall (nftables) |
 | [`remnanode.md`](docs/components/remnanode.md) | The Remnawave Node container |
 | [`panel-contract.md`](docs/components/panel-contract.md) | Panel/NetBird interfaces, project boundaries and scope |
 | [`docs/RUNBOOK.md`](docs/RUNBOOK.md) | Operational procedures (deploy, verify, rollback) |

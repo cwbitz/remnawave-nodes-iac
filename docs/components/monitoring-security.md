@@ -12,7 +12,8 @@
 - `crowdsec` — log-based detection (SSH brute force, scans) from the systemd
   journal (no rsyslog needed); its metrics listen on `:6060` on the overlay.
 - `crowdsec-firewall-bouncer` — enforces CrowdSec decisions via nftables. **Not a
-  base firewall**: it only acts on CrowdSec decisions.
+  base firewall**: it only acts on CrowdSec decisions (the base firewall is
+  `roles/firewall`, see [`firewall.md`](firewall.md)).
 - `grafana/alloy` (optional, `alloy_enabled`) — ships host journal logs to a
   central Loki reachable at `loki_url` over the overlay.
 

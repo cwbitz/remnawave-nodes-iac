@@ -1,0 +1,105 @@
+---
+# ==============================================================================
+# Host firewall (roles/firewall/tasks)
+# ==============================================================================
+# Default-deny inbound for the Node host, applied through a dedicated nftables
+# table and persisted by a oneshot systemd unit that validates before loading.
+# Keeps NODE_PORT (and everything else) off the public internet while the overlay
+# stays fully open. Never flushes the ruleset, so it coexists with Docker,
+# CrowdSec, NetBird and the Node's own table.
+#
+# Safety: SSH is always allowed, the ruleset is validated (`nft -c`) before it is
+# applied, and the connection is re-checked after applying, so a mistake fails
+# the run loudly instead of silently locking the host out.
+# ==============================================================================
+
+- name: "[Firewall] Assert the nft binary is available"
+  ansible.builtin.command: "{{ host_firewall_nft }} --version"
+  register: host_firewall_nft_version
+  changed_when: false
+  check_mode: false
+  failed_when: false
+
+- name: "[Firewall] Fail when nft is missing"
+  ansible.builtin.assert:
+    that:
+      - host_firewall_nft_version.rc | default(1) == 0
+    fail_msg: >-
+      nftables is required by the host firewall but the `nft` binary is missing
+      on {{ inventory_hostname }}. Install the `nftables` package (it also ships
+      CrowdSec's firewall bouncer) and re-run.
+
+- name: "[Firewall] Assert the port knobs are valid ports"
+  ansible.builtin.assert:
+    that:
+      - host_firewall_ssh_port | int >= 1
+      - host_firewall_ssh_port | int <= 65535
+      - host_firewall_netbird_wg_port | int >= 1
+      - host_firewall_netbird_wg_port | int <= 65535
+      - (host_firewall_public_tcp_ports | map('int') | select('lt', 1) | list | length) == 0
+      - (host_firewall_public_tcp_ports | map('int') | select('gt', 65535) | list | length) == 0
+      - (host_firewall_public_udp_ports | map('int') | select('lt', 1) | list | length) == 0
+      - (host_firewall_public_udp_ports | map('int') | select('gt', 65535) | list | length) == 0
+    fail_msg: >-
+      host_firewall_ports must be 1-65535: ssh={{ host_firewall_ssh_port }},
+      netbird_wg={{ host_firewall_netbird_wg_port }},
+      public_tcp={{ host_firewall_public_tcp_ports }},
+      public_udp={{ host_firewall_public_udp_ports }}.
+
+- name: "[Firewall] Ensure the nftables config directory exists"
+  ansible.builtin.file:
+    path: "{{ host_firewall_conf_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: "[Firewall] Render the host firewall ruleset"
+  ansible.builtin.template:
+    src: host-firewall.nft.j2
+    dest: "{{ host_firewall_conf }}"
+    owner: root
+    group: root
+    mode: "0644"
+  register: host_firewall_rules
+
+- name: "[Firewall] Validate the rendered ruleset"
+  ansible.builtin.command: "{{ host_firewall_nft }} -c -f {{ host_firewall_conf }}"
+  changed_when: false
+  when:
+    - host_firewall_rules.changed | bool
+    - not ansible_check_mode
+
+- name: "[Firewall] Install the boot unit"
+  ansible.builtin.template:
+    src: host-firewall.service.j2
+    dest: "{{ host_firewall_service_path }}"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: "[Firewall] Enable the boot unit"
+  ansible.builtin.systemd_service:
+    name: "{{ host_firewall_service_name }}"
+    enabled: true
+    daemon_reload: true
+  when: not ansible_check_mode
+
+- name: "[Firewall] Apply the ruleset when it changed"
+  ansible.builtin.systemd_service:
+    name: "{{ host_firewall_service_name }}"
+    state: restarted
+  when:
+    - host_firewall_rules.changed | bool
+    - not ansible_check_mode
+
+- name: "[Firewall] Ensure the boot unit is running"
+  ansible.builtin.systemd_service:
+    name: "{{ host_firewall_service_name }}"
+    state: started
+  when: not ansible_check_mode
+
+- name: "[Firewall] Confirm the host is still reachable"
+  ansible.builtin.wait_for_connection:
+    timeout: 30
+  when: not ansible_check_mode

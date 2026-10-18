@@ -35,7 +35,9 @@ conventions and gotchas.
    into `vault.yml` as `vault_remnanode_secret_key`. The rest of the
    file is already the committed template.
 4. Keep `NODE_PORT` **off the public internet** — the Panel reaches the node over
-   the NetBird overlay (`docs/components/panel-contract.md`).
+   the NetBird overlay (`docs/components/panel-contract.md`). `roles/firewall`
+   enforces this; declare the Xray inbounds the Panel pushes in
+   `host_firewall_public_tcp_ports` so public proxy ports stay open.
 
 ## 2. Deploy
 
@@ -47,7 +49,8 @@ make deploy      # bootstrap the host, then deploy the node stack
 `make lint` (syntax check + `ansible-lint`) is an internal CI check, hidden from
 `make help`.
 
-Focused tags: `monitoring`, `remnanode` (`make deploy TAGS=remnanode`).
+Focused tags: `monitoring`, `firewall`, `remnanode`
+(`make deploy TAGS=remnanode`).
 
 `make deploy` runs `playbooks/bootstrap.yml` (service account + Docker), then
 `playbooks/site.yml` (overlay join + monitoring, then the Remnawave Node).
@@ -60,6 +63,8 @@ ssh <host> 'cd /opt/remnanode && docker compose ps'
 ssh <host> 'docker logs --tail=50 remnanode'
 ssh <host> 'ip -4 -o addr show wt0'          # overlay peer address
 ssh <host> 'ss -lntp | grep <NODE_PORT>'     # node listening for the Panel
+ssh <host> 'nft list table inet hostfw'      # the base firewall ruleset
+ssh <host> 'systemctl is-active host-firewall'
 ```
 
 In the Panel, the node should turn **healthy/connected** after the first config
@@ -89,6 +94,19 @@ make monitoring   # node_exporter + CrowdSec + firewall bouncer (+ agent)
 - Details: `docs/components/netbird-overlay.md` and
   `docs/components/monitoring-security.md`.
 
+## 4b. Host firewall
+
+```bash
+make deploy TAGS=firewall   # apply the default-deny inbound firewall only
+```
+
+- `roles/firewall` keeps `NODE_PORT` (and everything else) off the public
+  internet: only the overlay, SSH, the WireGuard UDP port and the declared Xray
+  inbounds are reachable. Details: `docs/components/firewall.md`.
+- When the Panel pushes an Xray inbound on a public port, declare it in
+  `host_firewall_public_tcp_ports` (or `..._udp_ports`) in the host's `main.yml`
+  and re-run; otherwise the proxy is unreachable from clients.
+
 ## 5. Upgrade and rollback
 
 - **Node upgrade**: let Renovate bump `/…/remnanode_version` (or edit it), then
@@ -109,6 +127,10 @@ make monitoring   # node_exporter + CrowdSec + firewall bouncer (+ agent)
 | `make deploy` refuses root | Expected: run `make host-bootstrap` first, then connect as the `ansible` account in `vault.yml` (or set `host_allow_root_login=true`). |
 | SSH refuses the private key (`UNPROTECTED PRIVATE KEY FILE`, `are too open`) | The shared `scripts/run-with-ssh-agent.sh` starts the pinned Keychain agent, loads the vault keys and retries once. If it still fails, check the `vault_*_ssh_privkey_file` paths and run `make agent-load`. |
 | A vault file is unreadable | It must be ansible-vault encrypted; the helpers re-encrypt a plaintext file on the next write. |
+| `NODE_PORT` reachable from the internet | The base firewall is missing or disabled: `nft list table inet hostfw` / `systemctl status host-firewall`; re-run `make deploy TAGS=firewall`. |
+| Proxy clients cannot connect after a Panel config push | The pushed Xray inbound port is not open: add it to `host_firewall_public_tcp_ports` in the host's `main.yml` and re-run `make deploy TAGS=firewall`. |
+| SSH/overlay lost after applying the firewall | Recover from the provider console: `systemctl stop host-firewall` (then `nft delete table inet hostfw`), fix the knobs, and re-run. |
+| Panel cannot reach the node after the firewall | Check `wt0` is up (`ip -4 -o addr show wt0`), that the Panel's node address is the node's **overlay** IP, and that the tenant ACL allows `NODE_PORT` (`nft list chain ip netbird netbird-acl-input-rules` on the node shows only `9100`/`6060` by default — the overlay drops the rest). |
 
 Useful commands:
 
@@ -117,6 +139,7 @@ make print [HOST=<host>]                        # resolved vars incl. vault
 ssh <host> 'cd /opt/remnanode && docker compose logs -f'
 ssh <host> 'cd /opt/remnanode && docker compose ps'
 ssh <host> 'systemctl status crowdsec crowdsec-firewall-bouncer prometheus-node-exporter'
+ssh <host> 'systemctl status host-firewall && nft list table inet hostfw'
 ```
 
 ## 7. Secrets and safety

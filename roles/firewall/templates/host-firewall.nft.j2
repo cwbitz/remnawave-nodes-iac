@@ -1,0 +1,59 @@
+#!/usr/sbin/nft -f
+# ==============================================================================
+# Host firewall ruleset (roles/firewall) - MANAGED BY ANSIBLE, DO NOT EDIT.
+# ==============================================================================
+# A dedicated table, so nothing else is flushed or replaced: Docker owns
+# ip/ip6 filter+nat, CrowdSec owns ip crowdsec, NetBird owns ip netbird, and the
+# Node owns ip remnanode. An `inet hostfw` drop is terminal, so the input
+# default-deny holds even though Docker's ip-filter INPUT chain keeps policy
+# accept (and NetBird keeps its `iifname wt0 accept` rule there).
+#
+# Rule ORDER matters: the overlay and the WireGuard port are accepted before any
+# conntrack-state rule. The kernel's WireGuard bypasses the netfilter output hook
+# (the outbound handshake is never tracked), so its return traffic has no prior
+# conntrack entry and can be classified `invalid`; a `ct state invalid drop`
+# above these accepts would break the tunnel.
+#
+# Recreate cleanly: declare-then-delete makes the file idempotent and atomic
+# (nft applies the whole file as one transaction).
+# ==============================================================================
+
+table inet {{ host_firewall_table }} {}
+delete table inet {{ host_firewall_table }}
+
+table inet {{ host_firewall_table }} {
+	chain input {
+		type filter hook input priority filter; policy drop;
+
+		# Loopback.
+		iif lo accept
+
+		# The NetBird overlay (only authenticated mesh peers can appear on it)
+		# and its WireGuard port, before any conntrack-state rule.
+		iifname "{{ host_firewall_overlay_iface }}" accept
+		udp dport {{ host_firewall_netbird_wg_port | int }} accept
+
+		# Replies to connections this host initiated (mesh management, DNS,
+		# image pulls, apt, the Panel's API callbacks).
+		ct state established,related accept
+{% if host_firewall_allow_icmp | bool %}
+
+		# ICMP/ICMPv6: path-MTU discovery and diagnostics.
+		meta l4proto { icmp, ipv6-icmp } accept
+{% endif %}
+
+		# SSH (CrowdSec's firewall bouncer handles the brute force).
+		tcp dport {{ host_firewall_ssh_port | int }} accept
+{% if host_firewall_public_tcp_ports | length > 0 %}
+
+		# Xray inbounds the Panel pushes (operator-declared).
+		tcp dport { {{ host_firewall_public_tcp_ports | map('int') | join(', ') }} } accept
+{% endif %}
+{% if host_firewall_public_udp_ports | length > 0 %}
+		udp dport { {{ host_firewall_public_udp_ports | map('int') | join(', ') }} } accept
+{% endif %}
+
+		# Everything else inbound: dropped (counted, for debugging).
+		counter drop
+	}
+}

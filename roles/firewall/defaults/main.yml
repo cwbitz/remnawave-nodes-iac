@@ -1,0 +1,40 @@
+---
+# ==============================================================================
+# Host firewall - role defaults (roles/firewall/defaults/main.yml)
+# ==============================================================================
+# Default-deny inbound for the Node host: the Remnawave Node publishes NODE_PORT
+# on `network_mode: host` (0.0.0.0), and the Panel dials it over the NetBird
+# overlay, so the port must be reachable on the overlay and nowhere else. The
+# CrowdSec firewall bouncer only enforces CrowdSec decisions, so it is not a base
+# firewall; this role is.
+#
+# Applied through a DEDICATED nftables table (never `flush ruleset`), so it
+# coexists with Docker (ip filter/nat), CrowdSec (ip crowdsec), NetBird
+# (ip netbird) and the Node's own table (ip remnanode). The FORWARD path is left
+# alone (Docker/NetBird own it).
+#
+# Opt-in per host: set `host_firewall_enabled: true` (the remnanodes group does)
+# in inventory/host_vars/<host>/main.yml.
+
+host_firewall_enabled: false
+
+# The NetBird overlay interface; inbound on it is accepted wholesale (only
+# authenticated mesh peers can appear there, so no Panel-IP allowlist is needed).
+host_firewall_overlay_iface: "wt0"
+
+# The SSH port to keep open. Defaults to the inventory's ansible_port, then 22.
+host_firewall_ssh_port: "{{ ansible_port | default(22) | int }}"
+
+# The NetBird WireGuard UDP port. Closing it would not break the mesh, but it
+# would force peer traffic through the relay instead of a direct P2P path.
+host_firewall_netbird_wg_port: 51820
+
+# Public ports the Node must serve beyond the overlay: the Xray inbounds the
+# Panel pushes (it owns them; this project does not know them in advance). List
+# the ones you actually expose, e.g. `[443]` / `[443, 8443]`. Empty = overlay +
+# SSH only (no proxy service yet).
+host_firewall_public_tcp_ports: []
+host_firewall_public_udp_ports: []
+
+# Accept ICMP/ICMPv6 (path-MTU discovery, diagnostics).
+host_firewall_allow_icmp: true
