@@ -131,7 +131,8 @@ make install
 
 # 2. Scaffold a host from the committed template (vault.yml is encrypted for you,
 #    the host is added to inventory/hosts.yml, and the generated files are
-#    comment-free). HOST defaults to remnanode-1; HOST_IP writes ansible_host
+#    comment-free; vault.yml also has its blank lines stripped). HOST defaults to
+#    remnanode-1; HOST_IP writes ansible_host
 #    (otherwise the entry keeps the CHANGE_ME_HOST_IP placeholder the site
 #    preflight rejects), HOST_PORT sets ansible_port.
 make host-init HOST=remnanode-1 HOST_IP=203.0.113.10

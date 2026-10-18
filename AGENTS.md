@@ -63,7 +63,8 @@ live in `inventory/host_vars/<hostname>/main.yml`.
   `CHANGE_ME_HOST_IP` placeholder the site preflight rejects, and a differing
   existing entry is only overwritten with `FORCE_IP=1`. Files are rendered
   comment-free from the committed `example/` templates by
-  `scripts/render_clean_template.py`; the inventory edit is line-based and
+  `scripts/render_clean_template.py` (the scaffolded `vault.yml` also drops every
+  blank line, via `--strip-blank-lines`); the inventory edit is line-based and
   comment-preserving (`scripts/ensure_inventory_host.py`).
 - `make host-bootstrap [HOST=]` — bootstrap one host; `make deploy` runs it first.
 - `make agent` / `make monitoring` — the overlay join and the host

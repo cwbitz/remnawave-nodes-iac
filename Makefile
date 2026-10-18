@@ -30,11 +30,11 @@ HOST_PORT ?=
 # value inherited from the environment is called out, because make lets an
 # environment variable win over the file default silently.
 $(foreach v,HOST HOST_IP HOST_PORT,$(if $(filter environment,$(origin $(v))),$(warning $(v) is inherited from the environment; pass $(v)=... explicitly if unintended)))
-# Refresh SSH host keys before connecting (HOST_KEY=1). Useful after a managed
+# Refresh SSH host keys before connecting (REFRESH=1). Useful after a managed
 # host is rebuilt: its new host key would otherwise fail the "host key changed"
 # check. hostkey-init scans every inventory host and (re)writes its key into the
 # control node's known_hosts; deploy/dry-run/host-bootstrap call it when set.
-HOST_KEY ?=
+REFRESH ?=
 KNOWN_HOSTS ?= $(HOME)/.ssh/known_hosts
 
 # Ansible Vault password file (outside the repo), exported under Ansible's own
@@ -239,7 +239,7 @@ host-init: vault-init ## Scaffold host_vars/<HOST> + the inventory entry (HOST d
 	install -d -m 0700 $(INVENTORY_DIR)/host_vars/$$host; \
 	if [ ! -e $(INVENTORY_DIR)/host_vars/$$host/main.yml ]; then python3 $(CURDIR)/scripts/render_clean_template.py $(INVENTORY_DIR)/host_vars/example/main.yml $(INVENTORY_DIR)/host_vars/$$host/main.yml; fi; \
 	chmod 0644 $(INVENTORY_DIR)/host_vars/$$host/main.yml; \
-	if [ ! -e $(INVENTORY_DIR)/host_vars/$$host/vault.yml ]; then python3 $(CURDIR)/scripts/render_clean_template.py $(INVENTORY_DIR)/host_vars/example/vault.yml.example $(INVENTORY_DIR)/host_vars/$$host/vault.yml; fi; \
+	if [ ! -e $(INVENTORY_DIR)/host_vars/$$host/vault.yml ]; then python3 $(CURDIR)/scripts/render_clean_template.py --strip-blank-lines $(INVENTORY_DIR)/host_vars/example/vault.yml.example $(INVENTORY_DIR)/host_vars/$$host/vault.yml; fi; \
 	if grep -q 'ANSIBLE_VAULT' $(INVENTORY_DIR)/host_vars/$$host/vault.yml; then :; else \
 		echo "Encrypting $(INVENTORY_DIR)/host_vars/$$host/vault.yml..."; \
 		ansible-vault encrypt $(INVENTORY_DIR)/host_vars/$$host/vault.yml; \
@@ -251,15 +251,15 @@ host-init: vault-init ## Scaffold host_vars/<HOST> + the inventory entry (HOST d
 	echo "      verify: make print HOST=$$host"
 
 .PHONY: host-bootstrap
-host-bootstrap: vault-init agent-fallback ## Create the ansible service account on one host (HOST=<name>, default the first node); HOST_KEY=1 refreshes host keys first
-	@if [ -n "$(HOST_KEY)" ]; then $(MAKE) --no-print-directory hostkey-init; fi; \
+host-bootstrap: vault-init agent-fallback ## Create the ansible service account on one host (HOST=<name>, default the first node); REFRESH=1 refreshes host keys first
+	@if [ -n "$(REFRESH)" ]; then $(MAKE) --no-print-directory hostkey-init; fi; \
 	$(SSH_AGENT_RUN) $(ANS_PLAY) -i $(INVENTORY) playbooks/bootstrap.yml $(if $(HOST),-e bootstrap_host=$(HOST),)
 
-# (internal) Scan every inventory host and (re)write its SSH host key into the
-# control node's known_hosts (removing any stale entry first). Invoked by
-# deploy/dry-run/host-bootstrap when HOST_KEY=1, and usable standalone.
+# Refresh every managed host's SSH host key in the control node's known_hosts
+# (removing any stale entry first). Also run automatically when REFRESH=1 is set
+# on deploy / dry-run / host-bootstrap.
 .PHONY: hostkey-init
-hostkey-init: vault-init
+hostkey-init: vault-init ## Refresh every managed host's SSH host key in known_hosts
 	@set -e; \
 	nh="$(KNOWN_HOSTS)"; mkdir -p "$$(dirname "$$nh")"; tmp=$$(mktemp); \
 	$(ANS_PLAY) -i $(INVENTORY) playbooks/host_keys.yml -e host_keys_out="$$tmp" >/dev/null; \
@@ -359,13 +359,13 @@ lint: vault-init
 	ansible-lint playbooks/site.yml playbooks/bootstrap.yml playbooks/agent.yml playbooks/monitoring.yml
 
 .PHONY: dry-run
-dry-run: vault-init agent-fallback ## Dry-run (--check --diff); HOST_KEY=1 refreshes host keys first
-	@if [ -n "$(HOST_KEY)" ]; then $(MAKE) --no-print-directory hostkey-init; fi; \
+dry-run: vault-init agent-fallback ## Dry-run (--check --diff); REFRESH=1 refreshes host keys first
+	@if [ -n "$(REFRESH)" ]; then $(MAKE) --no-print-directory hostkey-init; fi; \
 	$(SSH_AGENT_RUN) $(ANS_PLAY) -i $(INVENTORY) $(PLAYBOOK) --check --diff $(if $(TAGS),--tags $(TAGS),)
 
 .PHONY: deploy
-deploy: vault-init agent-fallback ## One-shot: bootstrap the host, then deploy the Remnawave node stack; TAGS=... runs only tagged roles; HOST_KEY=1 refreshes host keys first
-	@if [ -n "$(HOST_KEY)" ]; then $(MAKE) --no-print-directory hostkey-init; fi
+deploy: vault-init agent-fallback ## One-shot: bootstrap the host, then deploy the Remnawave node stack; TAGS=... runs only tagged roles; REFRESH=1 refreshes host keys first
+	@if [ -n "$(REFRESH)" ]; then $(MAKE) --no-print-directory hostkey-init; fi
 	@echo "==> Bootstrapping the host (playbooks/bootstrap.yml: service account, Docker)..."
 	$(SSH_AGENT_RUN) $(ANS_PLAY) -i $(INVENTORY) playbooks/bootstrap.yml $(if $(HOST),-e bootstrap_host=$(HOST),)
 	@echo "==> Deploying the Remnawave node stack (playbooks/site.yml)..."
