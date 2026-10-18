@@ -3,9 +3,10 @@
 # Host bootstrap (`make host-bootstrap`; never part of playbooks/site.yml).
 #
 # Optional, opt-in host tuning. Probes the SSH identities in order
-# [ansible, admin, root] and uses the first that works; if that is not `ansible`,
-# it (re)creates the least-privilege `ansible` service account. The alias
-# wiring lives in inventory/group_vars/remnanodes/main.yml. Can also set
+# [ansible, admin, root] and uses the first that works and can escalate to root
+# (a login-only half-provisioned service account is skipped); if that is not
+# `ansible`, it (re)creates the least-privilege `ansible` service account. The
+# alias wiring lives in inventory/group_vars/remnanodes/main.yml. Can also set
 # package/registry mirrors and authorize configured SSH public keys.
 #
 # Per identity (root/admin/ansible), vault.yml may set a password and/or a
@@ -31,18 +32,20 @@
   connection: local
   gather_facts: false
   vars:
-    # The host to bootstrap: the Makefile passes HOST= as -e bootstrap_host.
-    # Defaults to the first remnanodes host; pass it explicitly when several
-    # nodes exist.
-    bootstrap_host: "{{ bootstrap_host | default(groups['remnanodes'] | default([]) | first | default('', true)) }}"
-    remnawave_target: "{{ hostvars[bootstrap_host] | default({}) }}"
+    # The resolved host to bootstrap. `-e bootstrap_host=<name>` (what
+    # `make host-bootstrap HOST=<name>` passes) overrides it; otherwise it
+    # defaults to the first remnanodes host. It must NOT be named
+    # `bootstrap_host`: a play var referencing its own name is a self-recursion
+    # (the extra var is only visible through `default()` on `hosts:`, below).
+    bootstrap_target: "{{ bootstrap_host | default(groups['remnanodes'] | default([]) | first | default('', true)) }}"
+    remnawave_target: "{{ hostvars[bootstrap_target] | default({}) }}"
     probe_host: "{{ remnawave_target.ansible_host | default('') }}"
     probe_port: "{{ remnawave_target.ansible_port | default(22) }}"
   tasks:
     - name: "[Probe] Assert a bootstrap target was resolved"
       ansible.builtin.assert:
         that:
-          - bootstrap_host | default('', true) | length > 0
+          - bootstrap_target | default('', true) | length > 0
           - probe_host | default('', true) | length > 0
         fail_msg: >-
           No bootstrap target resolved. Pass one explicitly with
@@ -65,10 +68,18 @@
           kopt=""; [ -n "$key" ] && kopt="-i $key"
           base="-o StrictHostKeyChecking=accept-new -o ConnectTimeout=8 -o Port=$PORT"
           base="$base -o PreferredAuthentications=publickey,password -o NumberOfPasswordPrompts=1"
+          # An identity other than root must also be able to escalate: a
+          # half-provisioned account can log in before its sudo access exists, and
+          # choosing it then blocks the bootstrap from repairing the host. The
+          # NOPASSWD service account is proven with `sudo -n true`; a password-sudo
+          # identity (the `admin` account) proves escalation at deploy time via
+          # ansible_become_password, so login is enough for it.
+          remote="true"
+          if [ "$id" != "ROOT" ] && [ -z "$pw" ]; then remote="sudo -n true"; fi
           if [ -n "$pw" ]; then
-            SSHPASS="$pw" timeout "$CMD_TIMEOUT" sshpass -e ssh $base $kopt "$user@$HOST" true >/dev/null 2>&1 && return 0
+            SSHPASS="$pw" timeout "$CMD_TIMEOUT" sshpass -e ssh $base $kopt "$user@$HOST" "$remote" >/dev/null 2>&1 && return 0
           else
-            timeout "$CMD_TIMEOUT" ssh $base -o BatchMode=yes $kopt "$user@$HOST" true >/dev/null 2>&1 && return 0
+            timeout "$CMD_TIMEOUT" ssh $base -o BatchMode=yes $kopt "$user@$HOST" "$remote" >/dev/null 2>&1 && return 0
           fi
           return 1
         }
@@ -111,7 +122,7 @@
 
     - name: "[Probe] Register the probed identity on the target host"
       ansible.builtin.add_host:
-        name: "{{ bootstrap_host }}"
+        name: "{{ bootstrap_target }}"
         probe_identity: "{{ probe.stdout | trim }}"
 
     - name: "[Probe] Report the working identity"
@@ -416,6 +427,19 @@
                  and (bootstrap_admin | default({})).user | default('', true)
                      != (bootstrap_service_user | default('ansible')))
              else [] }}
+
+    - name: "[Bootstrap] Ensure sudo is installed for the sudoers grants"
+      # Minimal Debian images ship without the sudo package (/etc/sudoers.d may
+      # not exist at all), yet the grants below, and the `become` the deploy
+      # relies on, both need it.
+      ansible.builtin.apt:
+        name: sudo
+        state: present
+        update_cache: true
+      when:
+        - ansible_os_family == 'Debian'
+        - (bootstrap_sudo_nopasswd_users | length
+           + bootstrap_sudo_password_users | length) > 0
 
     - name: "[Bootstrap] Grant the automation account passwordless sudo"
       ansible.builtin.copy:
