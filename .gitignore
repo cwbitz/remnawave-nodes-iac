@@ -25,8 +25,10 @@
 **/vault_*.yml
 
 # Real per-host inventory is local-only; only the example/ template is committed.
+# The negated entry has no trailing slash on purpose: with one, editor gitignore
+# matchers (VS Code) still dim the folder although git tracks its contents.
 inventory/host_vars/*
-!inventory/host_vars/example/
+!inventory/host_vars/example
 
 # Real inventory (real hostnames) is local-only.
 inventory/hosts.yml
