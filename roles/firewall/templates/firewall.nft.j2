@@ -4,7 +4,7 @@
 # ==============================================================================
 # A dedicated table, so nothing else is flushed or replaced: Docker owns
 # ip/ip6 filter+nat, CrowdSec owns ip crowdsec, NetBird owns ip netbird, and the
-# Node owns ip remnanode. An `inet hostfw` drop is terminal, so the input
+# Node owns ip remnanode. An `inet basefw` drop is terminal, so the input
 # default-deny holds even though Docker's ip-filter INPUT chain keeps policy
 # accept (and NetBird keeps its `iifname wt0 accept` rule there).
 #

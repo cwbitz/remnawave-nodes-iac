@@ -5,9 +5,32 @@
 # The dedicated nftables table and the systemd unit that loads it at boot. The
 # table name is a project-internal constant; a separate table (rather than the
 # iptables-nft `ip filter` chain) keeps us out of Docker's and NetBird's way.
-firewall_table: "hostfw"
+firewall_table: "basefw"
 firewall_conf_dir: "/etc/nftables.d"
-firewall_conf: "{{ firewall_conf_dir }}/90-host-firewall.nft"
+firewall_conf: "{{ firewall_conf_dir }}/90-firewall.nft"
 firewall_nft: "/usr/sbin/nft"
-firewall_service_name: "host-firewall.service"
-firewall_service_path: "/etc/systemd/system/host-firewall.service"
+firewall_service_name: "firewall.service"
+firewall_service_path: "/etc/systemd/system/firewall.service"
+
+# The NetBird client's overlay interface and WireGuard port. The agent container
+# runs with the client's own defaults (the agent role passes neither
+# `--interface` nor `--wireguard-port`), so these mirror upstream and are not
+# operator knobs. Inbound on the interface is accepted wholesale (only
+# authenticated mesh peers appear there); the UDP port must be open before any
+# conntrack rule or a direct P2P path degrades to the relay.
+firewall_overlay_iface: "wt0"
+firewall_netbird_wg_port: 51820
+
+# Files installed by earlier releases under a project-named unit/ruleset. They are
+# removed so exactly one firewall unit and one table are ever active (two units
+# would fight over the table and the boot order would decide the policy).
+firewall_legacy_paths:
+  - "/etc/systemd/system/host-firewall.service"
+  - "{{ firewall_conf_dir }}/90-host-firewall.nft"
+
+# The service and table names installed by earlier releases, retired by the role
+# before the current unit is written.
+firewall_legacy_services:
+  - "host-firewall.service"
+firewall_legacy_tables:
+  - "hostfw"

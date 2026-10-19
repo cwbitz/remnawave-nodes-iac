@@ -63,8 +63,8 @@ ssh <host> 'cd /opt/remnanode && docker compose ps'
 ssh <host> 'docker logs --tail=50 remnanode'
 ssh <host> 'ip -4 -o addr show wt0'          # overlay peer address
 ssh <host> 'ss -lntp | grep <NODE_PORT>'     # node listening for the Panel
-ssh <host> 'nft list table inet hostfw'      # the base firewall ruleset
-ssh <host> 'systemctl is-active host-firewall'
+ssh <host> 'nft list table inet basefw'      # the base firewall ruleset
+ssh <host> 'systemctl is-active firewall'
 ```
 
 In the Panel, the node should turn **healthy/connected** after the first config
@@ -144,7 +144,7 @@ make print [HOST=<host>]                        # resolved vars incl. vault
 ssh <host> 'cd /opt/remnanode && docker compose logs -f'
 ssh <host> 'cd /opt/remnanode && docker compose ps'
 ssh <host> 'systemctl status crowdsec crowdsec-firewall-bouncer prometheus-node-exporter'
-ssh <host> 'systemctl status host-firewall && nft list table inet hostfw'
+ssh <host> 'systemctl status firewall && nft list table inet basefw'
 ```
 
 ## 7. Secrets and safety

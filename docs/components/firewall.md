@@ -20,7 +20,7 @@ not list, so `NODE_PORT` must be allowed there from the Panel peer's group.
 
 ## How
 
-A **dedicated nftables table** (`inet hostfw`) with an `input` hook, policy
+A **dedicated nftables table** (`inet basefw`) with an `input` hook, policy
 `drop`, accepting only (in this order):
 
 | Traffic | Why |
@@ -46,6 +46,15 @@ the Node owns `ip remnanode`. An `inet` `drop` is terminal, so the default-deny
 holds even though Docker's `ip`-filter `INPUT` chain keeps policy `accept`. The
 `FORWARD` path is left to Docker/NetBird.
 
+The **NetBird agent also writes one rule into this table**: when the overlay comes
+up it inserts `iifname "wt0" counter … accept` at the top of the `input` chain and
+re-inserts it whenever it is missing (its nftables manager reconciles
+periodically). That rule is redundant with the `wt0` accept in the table above, so
+`nft list table inet basefw` normally shows **one rule more than the rendered
+file** — expected, not drift. Re-applying the role (`make deploy TAGS=firewall`,
+which recreates the table) does not break the overlay: the agent re-adds its rule
+and the table's own `wt0` accept keeps the tunnel up in the meantime.
+
 ## Configuration
 
 Operator knobs live in `inventory/host_vars/<host>/main.yml` (see
@@ -55,13 +64,14 @@ Operator knobs live in `inventory/host_vars/<host>/main.yml` (see
 - `firewall_public_tcp_ports` / `firewall_public_udp_ports` — the Xray
   inbounds the Panel pushes. **The Panel owns these ports**, so this project cannot
   derive them; declare the ones you actually expose (empty = no proxy service yet).
-- `firewall_ssh_port` / `firewall_netbird_wg_port` /
-  `firewall_overlay_iface` / `firewall_allow_icmp` — overrides.
+- `firewall_ssh_port` / `firewall_allow_icmp` — overrides. The overlay interface
+  and WireGuard port mirror the NetBird client's own defaults, so they are role
+  constants (`roles/firewall/vars/main.yml`), not operator knobs.
 
 ## Persistence and safety
 
-- The ruleset is rendered to `/etc/nftables.d/90-host-firewall.nft` and loaded by
-  an Ansible-managed oneshot unit `host-firewall.service`, which validates with
+- The ruleset is rendered to `/etc/nftables.d/90-firewall.nft` and loaded by
+  an Ansible-managed oneshot unit `firewall.service`, which validates with
   `nft -c` *before* applying: a bad ruleset fails the start and never loads, so it
   cannot leave the host unfirewalled. The unit reloads only when the rendered
   ruleset differs.
@@ -70,14 +80,14 @@ Operator knobs live in `inventory/host_vars/<host>/main.yml` (see
 - SSH is always allowed and the role re-checks reachability
   (`wait_for_connection`) after applying, so a mistake fails the run loudly
   instead of silently locking the host out. If a lockout does happen, recover via
-  the provider console: `systemctl stop host-firewall` (or delete the table with
-  `nft delete table inet hostfw`).
+  the provider console: `systemctl stop firewall` (or delete the table with
+  `nft delete table inet basefw`).
 
 ## Rollback
 
 ```bash
 # Revert to no base firewall on the host:
-ssh <host> 'systemctl disable --now host-firewall && nft delete table inet hostfw'
+ssh <host> 'systemctl disable --now firewall && nft delete table inet basefw'
 ```
 
 Then set `firewall_enabled: false` in the host's `main.yml` so a later

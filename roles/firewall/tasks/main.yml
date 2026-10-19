@@ -13,6 +13,35 @@
 # the run loudly instead of silently locking the host out.
 # ==============================================================================
 
+- name: "[Firewall] Stop the previous unit"
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    state: stopped
+    enabled: false
+  loop: "{{ firewall_legacy_services | default([]) }}"
+  failed_when: false
+  when: not ansible_check_mode
+
+- name: "[Firewall] Retire the previous unit file and ruleset"
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop: "{{ firewall_legacy_paths | default([]) }}"
+  when: not ansible_check_mode
+
+- name: "[Firewall] Drop the previous table still loaded in the kernel"
+  ansible.builtin.command:
+    argv:
+      - "{{ firewall_nft }}"
+      - delete
+      - table
+      - inet
+      - "{{ item }}"
+  loop: "{{ firewall_legacy_tables | default([]) }}"
+  changed_when: true
+  failed_when: false
+  when: not ansible_check_mode
+
 - name: "[Firewall] Assert the nft binary is available"
   ansible.builtin.command: "{{ firewall_nft }} --version"
   register: firewall_nft_version
@@ -56,7 +85,7 @@
 
 - name: "[Firewall] Render the host firewall ruleset"
   ansible.builtin.template:
-    src: host-firewall.nft.j2
+    src: firewall.nft.j2
     dest: "{{ firewall_conf }}"
     owner: root
     group: root
@@ -72,7 +101,7 @@
 
 - name: "[Firewall] Install the boot unit"
   ansible.builtin.template:
-    src: host-firewall.service.j2
+    src: firewall.service.j2
     dest: "{{ firewall_service_path }}"
     owner: root
     group: root
