@@ -1,0 +1,22 @@
+# ==============================================================================
+# crowdsec overlay-wait drop-in (roles/monitoring) - MANAGED BY ANSIBLE.
+# ==============================================================================
+# CrowdSec's metrics listener binds the host's overlay address (rendered into
+# /etc/crowdsec/config.yaml.local). That address is created by the NetBird agent
+# container, which Docker restarts at boot — while crowdsec.service only orders
+# itself after network.target. CrowdSec's own startup currently outlasts the
+# overlay creation, so it usually wins the race by luck; this drop-in makes the
+# win deterministic instead of accidental:
+#
+#   * ExecStartPre waits for the address (started ~5-10s at boot);
+#   * Restart=on-failure retries when the boot takes longer, bounded to five
+#     attempts so a permanently missing overlay still fails loudly.
+# ==============================================================================
+[Unit]
+StartLimitIntervalSec=600
+StartLimitBurst=5
+
+[Service]
+ExecStartPre=/bin/sh -c 'i=0; until ip -4 -o addr show | grep -q "{{ overlay_ip }}/"; do i=$((i+1)); [ "$i" -ge 45 ] && exit 1; sleep 2; done'
+Restart=on-failure
+RestartSec=15

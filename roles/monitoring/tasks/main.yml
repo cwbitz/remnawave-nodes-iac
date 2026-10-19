@@ -103,19 +103,38 @@
 # ------------------------------------------------------------------------------
 - name: "[Monitoring] Build the node_exporter listen arguments"
   ansible.builtin.set_fact:
-    node_exporter_listen_args: >-
-      {{ ['--web.listen-address=' ~ node_exporter_listen_addr]
-         + (['--web.listen-address=' ~ overlay_ip ~ ':9100']
-            if ((overlay_ip | default('')) | length > 0)
-               and (overlay_ip ~ ':9100' != node_exporter_listen_addr)
-            else []) }}
+    node_exporter_listen_args:
+      - "--web.listen-address={{ overlay_ip }}:{{ node_exporter_port }}"
   when: node_exporter_enabled | bool
 
-- name: "[Monitoring] Configure the node_exporter listen addresses"
+- name: "[Monitoring] Configure the node_exporter listen address"
   ansible.builtin.copy:
     dest: /etc/default/prometheus-node-exporter
     content: >-
       ARGS="{{ node_exporter_listen_args | join(' ') }}"
+    owner: root
+    group: root
+    mode: "0644"
+  when: node_exporter_enabled | bool
+  notify: "[Monitoring] Restart node_exporter"
+
+# The bound address is created by the NetBird agent container, which Docker
+# restarts at boot AFTER systemd has already tried to start this unit. Without a
+# wait (and a retry) the first start fails with "cannot assign requested address"
+# and Debian's unit does not restart it (see the drop-in template).
+- name: "[Monitoring] Ensure the node_exporter drop-in directory exists"
+  ansible.builtin.file:
+    path: "{{ node_exporter_dropin_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  when: node_exporter_enabled | bool
+
+- name: "[Monitoring] Render the node_exporter overlay-wait drop-in"
+  ansible.builtin.template:
+    src: monitoring/node_exporter-overlay-wait.conf.j2
+    dest: "{{ node_exporter_dropin }}"
     owner: root
     group: root
     mode: "0644"
@@ -132,6 +151,31 @@
     owner: root
     group: root
     mode: "0640"
+  when:
+    - crowdsec_enabled | bool
+    - (overlay_ip | default('')) | length > 0
+  notify: "[Monitoring] Restart crowdsec"
+
+# CrowdSec also binds the overlay address (its metrics listener), so it needs the
+# same boot-race guard as node_exporter (see the drop-in template).
+- name: "[Monitoring] Ensure the crowdsec drop-in directory exists"
+  ansible.builtin.file:
+    path: "{{ crowdsec_dropin_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  when:
+    - crowdsec_enabled | bool
+    - (overlay_ip | default('')) | length > 0
+
+- name: "[Monitoring] Render the crowdsec overlay-wait drop-in"
+  ansible.builtin.template:
+    src: monitoring/crowdsec-overlay-wait.conf.j2
+    dest: "{{ crowdsec_dropin }}"
+    owner: root
+    group: root
+    mode: "0644"
   when:
     - crowdsec_enabled | bool
     - (overlay_ip | default('')) | length > 0

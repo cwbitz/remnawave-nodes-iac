@@ -91,6 +91,11 @@ make monitoring   # node_exporter + CrowdSec + firewall bouncer (+ agent)
   the central observability stack discovers.
 - The exporters bind the overlay address (node_exporter `:9100`, CrowdSec LAPI
   `:6060`) and are discovered by the sibling `docker-stack-iac` Prometheus.
+- node_exporter has no listen knob: the overlay address is the only listener, and
+  a systemd drop-in
+  (`/etc/systemd/system/prometheus-node-exporter.service.d/10-overlay-wait.conf`)
+  waits for the overlay at boot (the agent container creates it after systemd
+  started the unit).
 - Details: `docs/components/netbird-overlay.md` and
   `docs/components/monitoring-security.md`.
 
