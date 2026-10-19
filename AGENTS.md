@@ -144,6 +144,7 @@ Every tag is a role constant in `roles/*/vars/`, each with a
 | [`netbird-overlay.md`](docs/components/netbird-overlay.md) | Joining the NetBird mesh (the `agent` role) |
 | [`monitoring-security.md`](docs/components/monitoring-security.md) | node_exporter, CrowdSec, the firewall bouncer, optional Alloy |
 | [`firewall.md`](docs/components/firewall.md) | The default-deny inbound base firewall (nftables) |
+| [`sshd-hardening.md`](docs/components/sshd-hardening.md) | Key-only SSH (password login closed, configurable root policy, rollback) |
 | [`remnanode.md`](docs/components/remnanode.md) | The Remnawave Node container |
 | [`panel-contract.md`](docs/components/panel-contract.md) | Panel/NetBird interfaces, project boundaries and scope |
 | [`docs/RUNBOOK.md`](docs/RUNBOOK.md) | Operational procedures (deploy, verify, rollback) |
