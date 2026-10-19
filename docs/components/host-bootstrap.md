@@ -17,8 +17,8 @@ host at a time.
    `helpers/install_docker` task (Docker's official install script,
    `https://get.docker.com`). `install_docker: false` skips the install and fails
    with guidance when Docker is missing.
-4. **Optionally sets mirrors** (each a no-op unless set): `host_apt_mirror` /
-   `host_apt_security_mirror` (derived) and `docker_registry_mirrors`.
+4. **Optionally sets mirrors** (each a no-op unless set): `apt_mirror` /
+   `apt_security_mirror` (derived) and `docker_registry_mirrors`.
 5. **Authorizes configured SSH public keys** (`vault_<id>_ssh_pubkey_file`).
 
 ## Identity wiring
@@ -28,10 +28,10 @@ The `ansible` / `admin` / `root` aliases are derived per host in
 value schema is `inventory/host_vars/example/vault.yml.example`.
 
 A private-key path alone is **not** key mode: the account still gets a password
-(unless `host_bootstrap_password` is set) so an unauthorized key cannot lock you
+(unless `bootstrap_password` is set) so an unauthorized key cannot lock you
 out; it becomes key-only once its **public**-key path is set.
 
-`host_admin_enabled: true` additionally creates the optional human `admin` account
+`create_admin_account: true` additionally creates the optional human `admin` account
 (console login + sudo), which always gets a password plus any configured key.
 
 ## Platform

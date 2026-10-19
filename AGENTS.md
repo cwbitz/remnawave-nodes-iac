@@ -17,8 +17,8 @@ roles, or templates; the project-owned baseline for every managed host (engine
 range) is committed in `inventory/group_vars/all/main.yml`. Every host is in the
 single `remnanodes` group — the play target
 for every playbook — whose `group_vars/remnanodes/main.yml` holds the shared
-SSH connection wiring plus `install_docker`, `host_admin_enabled`,
-`monitoring_enabled` and `host_firewall_enabled`; per-host, non-secret settings
+SSH connection wiring plus `install_docker`, `create_admin_account`,
+`monitoring_enabled` and `firewall_enabled`; per-host, non-secret settings
 live in `inventory/host_vars/<hostname>/main.yml`.
 
 `make deploy` is the one-shot entry point: it bootstraps the host, then runs
@@ -32,7 +32,7 @@ live in `inventory/host_vars/<hostname>/main.yml`.
   setup key (`vault_netbird_setup_key`), the Remnawave node secret
   (`vault_remnanode_secret_key`) and the control-generated service-account
   passwords (`vault_host_ansible_password`, and `vault_host_admin_password` only
-  when `host_admin_enabled`). Schema reference:
+  when `create_admin_account`). Schema reference:
   `inventory/host_vars/example/vault.yml.example`.
 - Vault password file:
   `~/.config/projects/remnawave-nodes-iac/ansible_vault_password` (set in
@@ -78,7 +78,7 @@ live in `inventory/host_vars/<hostname>/main.yml`.
 ## Important gotchas
 
 - The deploy **requires the non-root service account**: `playbooks/site.yml`
-  asserts `host_ssh_user != root` (override with `host_allow_root_login=true`).
+  asserts `ssh_user != root` (override with `allow_root_login=true`).
 - Keep a node's `NODE_PORT` off the public internet — the Panel is the TLS client
   and reaches the node over the NetBird overlay (`roles/firewall` enforces it; see
   `docs/components/panel-contract.md`).

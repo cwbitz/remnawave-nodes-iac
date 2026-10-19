@@ -18,10 +18,10 @@
 # (nft applies the whole file as one transaction).
 # ==============================================================================
 
-table inet {{ host_firewall_table }} {}
-delete table inet {{ host_firewall_table }}
+table inet {{ firewall_table }} {}
+delete table inet {{ firewall_table }}
 
-table inet {{ host_firewall_table }} {
+table inet {{ firewall_table }} {
 	chain input {
 		type filter hook input priority filter; policy drop;
 
@@ -30,27 +30,27 @@ table inet {{ host_firewall_table }} {
 
 		# The NetBird overlay (only authenticated mesh peers can appear on it)
 		# and its WireGuard port, before any conntrack-state rule.
-		iifname "{{ host_firewall_overlay_iface }}" accept
-		udp dport {{ host_firewall_netbird_wg_port | int }} accept
+		iifname "{{ firewall_overlay_iface }}" accept
+		udp dport {{ firewall_netbird_wg_port | int }} accept
 
 		# Replies to connections this host initiated (mesh management, DNS,
 		# image pulls, apt, the Panel's API callbacks).
 		ct state established,related accept
-{% if host_firewall_allow_icmp | bool %}
+{% if firewall_allow_icmp | bool %}
 
 		# ICMP/ICMPv6: path-MTU discovery and diagnostics.
 		meta l4proto { icmp, ipv6-icmp } accept
 {% endif %}
 
 		# SSH (CrowdSec's firewall bouncer handles the brute force).
-		tcp dport {{ host_firewall_ssh_port | int }} accept
-{% if host_firewall_public_tcp_ports | length > 0 %}
+		tcp dport {{ firewall_ssh_port | int }} accept
+{% if firewall_public_tcp_ports | length > 0 %}
 
 		# Xray inbounds the Panel pushes (operator-declared).
-		tcp dport { {{ host_firewall_public_tcp_ports | map('int') | join(', ') }} } accept
+		tcp dport { {{ firewall_public_tcp_ports | map('int') | join(', ') }} } accept
 {% endif %}
-{% if host_firewall_public_udp_ports | length > 0 %}
-		udp dport { {{ host_firewall_public_udp_ports | map('int') | join(', ') }} } accept
+{% if firewall_public_udp_ports | length > 0 %}
+		udp dport { {{ firewall_public_udp_ports | map('int') | join(', ') }} } accept
 {% endif %}
 
 		# Everything else inbound: dropped (counted, for debugging).

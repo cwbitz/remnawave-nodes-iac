@@ -23,7 +23,7 @@
 # key whose group the central observability stack discovers (`endpoint` by
 # default, which grants no exit/LAN routes).
 netbird_management_url: "https://netbird.example.com"   # empty = NetBird Cloud
-peer_setup_key: "{{ vault_netbird_setup_key }}"
+netbird_peer_setup_key: "{{ vault_netbird_setup_key }}"
 # Set true only when this node routes traffic for a routed network / exit node;
 # it enables IPv4/IPv6 forwarding on the host.
 netbird_agent_routing: false
@@ -49,25 +49,25 @@ remnanode_secret_key: "{{ vault_remnanode_secret_key }}"
 # node_exporter_listen_addr: "127.0.0.1:9100"
 # Optionally ship host logs to a central Loki reachable over the overlay.
 # alloy_enabled: true
-# loki_url: "http://<loki-overlay-ip>:3100"
+# loki_push_url: "http://<loki-overlay-ip>:3100"
 
 # --- Optional host firewall (roles/firewall) ---------------------------------
 # Default-deny inbound (enabled by default for this group; set false to opt out).
 # SSH, the NetBird overlay and the WireGuard UDP port stay open; NODE_PORT and
 # everything else are reachable only over the overlay. The Panel owns the Xray
 # inbounds, so declare the ports it pushes here (empty = no proxy service yet):
-# host_firewall_enabled: false
-# host_firewall_public_tcp_ports: [443]
-# host_firewall_public_udp_ports: []
+# firewall_enabled: false
+# firewall_public_tcp_ports: [443]
+# firewall_public_udp_ports: []
 
 # --- Optional host bootstrap (make host-bootstrap; NOT part of make deploy) --
 # Region-specific mirrors for hosts where the defaults are slow/blocked (e.g.
-# China-based VPS). The security mirror is derived from host_apt_mirror (override
-# with host_apt_security_mirror); Docker Hub registry mirrors are tried in order.
-# host_apt_mirror: "https://mirrors.tuna.tsinghua.edu.cn/debian"
+# China-based VPS). The security mirror is derived from apt_mirror (override
+# with apt_security_mirror); Docker Hub registry mirrors are tried in order.
+# apt_mirror: "https://mirrors.tuna.tsinghua.edu.cn/debian"
 # docker_registry_mirrors:
 #   - "https://docker.1ms.run"
 # The probe, the 'ansible' service account and key/password handling are
 # documented in playbooks/bootstrap.yml and vault.yml.example. Create the
 # optional human 'admin' account with (it always gets a password):
-# host_admin_enabled: true
+# create_admin_account: true

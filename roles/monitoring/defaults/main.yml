@@ -26,9 +26,9 @@ crowdsec_enabled: true
 node_exporter_listen_addr: "127.0.0.1:9100"
 
 # --- Log shipping to a central Loki over the overlay (optional) ---------------
-# Requires a central Loki reachable at loki_url over the overlay
+# Requires a central Loki reachable at loki_push_url over the overlay
 # (e.g. "http://100.125.0.5:3100").
 alloy_enabled: false
-loki_url: ""
+loki_push_url: ""
 # renovate: datasource=docker depName=grafana/alloy
 alloy_version: "v1.18.1"

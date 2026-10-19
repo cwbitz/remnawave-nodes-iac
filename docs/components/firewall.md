@@ -1,7 +1,7 @@
 # Host firewall
 
 `roles/firewall/` — the host's **base firewall**: default-deny inbound, on by
-default for nodes (`host_firewall_enabled: true` in
+default for nodes (`firewall_enabled: true` in
 `group_vars/remnanodes/main.yml`). Reached via `make deploy` (`TAGS=firewall`) or
 `playbooks/site.yml`. Debian-family only.
 
@@ -27,11 +27,11 @@ A **dedicated nftables table** (`inet hostfw`) with an `input` hook, policy
 |---|---|
 | `iif lo` | loopback |
 | `iifname wt0` | the NetBird overlay: only authenticated mesh peers can inject there, so no Panel-IP allowlist is needed (the Panel sits behind a rotating home-broadband IP) |
-| `udp <netbird_wg>` | the NetBird WireGuard port (`host_firewall_netbird_wg_port`, default 51820) — closing it would not break the mesh but would force relayed instead of direct P2P peers |
+| `udp <netbird_wg>` | the NetBird WireGuard port (`firewall_netbird_wg_port`, default 51820) — closing it would not break the mesh but would force relayed instead of direct P2P peers |
 | `ct state established,related` | replies to host-initiated flows (mesh management, DNS, image pulls, apt) |
-| `icmp`/`ipv6-icmp` | path-MTU discovery, diagnostics (`host_firewall_allow_icmp`) |
-| `tcp <ssh>` | SSH (`host_firewall_ssh_port`, defaults to the inventory `ansible_port`, then 22) |
-| `tcp`/`udp <public_ports>` | the Xray inbounds the Panel pushes (`host_firewall_public_tcp_ports` / `..._udp_ports`) |
+| `icmp`/`ipv6-icmp` | path-MTU discovery, diagnostics (`firewall_allow_icmp`) |
+| `tcp <ssh>` | SSH (`firewall_ssh_port`, defaults to the inventory `ansible_port`, then 22) |
+| `tcp`/`udp <public_ports>` | the Xray inbounds the Panel pushes (`firewall_public_tcp_ports` / `..._udp_ports`) |
 
 The overlay and the WireGuard port are accepted **before** any conntrack-state
 rule, and there is no `ct state invalid drop`: the kernel's WireGuard bypasses the
@@ -51,12 +51,12 @@ holds even though Docker's `ip`-filter `INPUT` chain keeps policy `accept`. The
 Operator knobs live in `inventory/host_vars/<host>/main.yml` (see
 `host_vars/example/main.yml`):
 
-- `host_firewall_enabled` — per-host opt-in (default `false`; the group sets `true`).
-- `host_firewall_public_tcp_ports` / `host_firewall_public_udp_ports` — the Xray
+- `firewall_enabled` — per-host opt-in (default `false`; the group sets `true`).
+- `firewall_public_tcp_ports` / `firewall_public_udp_ports` — the Xray
   inbounds the Panel pushes. **The Panel owns these ports**, so this project cannot
   derive them; declare the ones you actually expose (empty = no proxy service yet).
-- `host_firewall_ssh_port` / `host_firewall_netbird_wg_port` /
-  `host_firewall_overlay_iface` / `host_firewall_allow_icmp` — overrides.
+- `firewall_ssh_port` / `firewall_netbird_wg_port` /
+  `firewall_overlay_iface` / `firewall_allow_icmp` — overrides.
 
 ## Persistence and safety
 
@@ -80,5 +80,5 @@ Operator knobs live in `inventory/host_vars/<host>/main.yml` (see
 ssh <host> 'systemctl disable --now host-firewall && nft delete table inet hostfw'
 ```
 
-Then set `host_firewall_enabled: false` in the host's `main.yml` so a later
+Then set `firewall_enabled: false` in the host's `main.yml` so a later
 deploy does not re-apply it.

@@ -21,7 +21,7 @@ netbird_management_url: ""
 # central observability stack discovers. Pick the key whose group is discovered
 # (the route-less `endpoint` key by default, which grants no exit/LAN routes); a
 # routing node uses its routing group's key.
-peer_setup_key: "{{ vault_netbird_setup_key | default('', true) }}"
+netbird_peer_setup_key: "{{ vault_netbird_setup_key | default('', true) }}"
 
 # Whether this peer routes traffic for a routed network / exit node. When true
 # the host enables IPv4/IPv6 forwarding.

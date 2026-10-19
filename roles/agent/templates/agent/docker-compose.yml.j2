@@ -16,7 +16,7 @@ services:
     devices:
       - /dev/net/tun
     environment:
-      NB_SETUP_KEY: "{{ peer_setup_key }}"
+      NB_SETUP_KEY: "{{ netbird_peer_setup_key }}"
       NB_MANAGEMENT_URL: "{{ netbird_management_url }}"
       NB_HOSTNAME: "{{ inventory_hostname }}"
     volumes:

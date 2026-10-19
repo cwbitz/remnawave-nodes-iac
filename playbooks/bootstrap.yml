@@ -15,14 +15,14 @@
 # authorized for that account. Unset is ignored (keys are never generated).
 #
 # The `ansible` account uses key auth when vault_host_ansible_ssh_pubkey_file is set;
-# otherwise a password is set (host_bootstrap_password, else generated into
+# otherwise a password is set (bootstrap_password, else generated into
 # vault_host_ansible_password). Passwords are hashed with a per-account random salt
 # and applied with update_password=on_create, so re-runs are idempotent and a
 # host-side password rotation is preserved. If sshd disables password auth,
 # login fails (sshd config is out of scope).
 #
 # Mirrors (each a no-op unless set):
-#   host_apt_mirror / host_apt_security_mirror (derived) / docker_registry_mirrors
+#   apt_mirror / apt_security_mirror (derived) / docker_registry_mirrors
 #
 # Debian-family only for the APT-mirror and Docker-install parts.
 # ==============================================================================
@@ -90,15 +90,15 @@
       args:
         executable: /bin/bash
       environment:
-        PROBE_ANSIBLE_USER: "{{ remnawave_target.host_ssh_identities.ansible.user }}"
-        PROBE_ANSIBLE_PW: "{{ remnawave_target.host_ssh_identities.ansible.password }}"
-        PROBE_ANSIBLE_KEY: "{{ remnawave_target.host_ssh_identities.ansible.privkey }}"
-        PROBE_ADMIN_USER: "{{ remnawave_target.host_ssh_identities.admin.user }}"
-        PROBE_ADMIN_PW: "{{ remnawave_target.host_ssh_identities.admin.password }}"
-        PROBE_ADMIN_KEY: "{{ remnawave_target.host_ssh_identities.admin.privkey }}"
-        PROBE_ROOT_USER: "{{ remnawave_target.host_ssh_identities.root.user }}"
-        PROBE_ROOT_PW: "{{ remnawave_target.host_ssh_identities.root.password }}"
-        PROBE_ROOT_KEY: "{{ remnawave_target.host_ssh_identities.root.privkey }}"
+        PROBE_ANSIBLE_USER: "{{ remnawave_target.ssh_identities.ansible.user }}"
+        PROBE_ANSIBLE_PW: "{{ remnawave_target.ssh_identities.ansible.password }}"
+        PROBE_ANSIBLE_KEY: "{{ remnawave_target.ssh_identities.ansible.privkey }}"
+        PROBE_ADMIN_USER: "{{ remnawave_target.ssh_identities.admin.user }}"
+        PROBE_ADMIN_PW: "{{ remnawave_target.ssh_identities.admin.password }}"
+        PROBE_ADMIN_KEY: "{{ remnawave_target.ssh_identities.admin.privkey }}"
+        PROBE_ROOT_USER: "{{ remnawave_target.ssh_identities.root.user }}"
+        PROBE_ROOT_PW: "{{ remnawave_target.ssh_identities.root.password }}"
+        PROBE_ROOT_KEY: "{{ remnawave_target.ssh_identities.root.privkey }}"
       register: probe
       changed_when: false
       no_log: true
@@ -118,7 +118,7 @@
         probe_identity: "{{ probe.stdout | trim }}"
     - name: "[Probe] Resolve the chosen connection settings"
       ansible.builtin.set_fact:
-        probe_chosen: "{{ remnawave_target.host_ssh_identities[probe_identity | lower] }}"
+        probe_chosen: "{{ remnawave_target.ssh_identities[probe_identity | lower] }}"
 
     - name: "[Probe] Register the probed identity on the target host"
       ansible.builtin.add_host:
@@ -162,9 +162,9 @@
         that:
           - ansible_os_family == 'Debian'
         fail_msg: >-
-          host_apt_mirror is set, but the host is not Debian-family.
-          Example: host_apt_mirror: https://mirrors.tuna.tsinghua.edu.cn/debian
-      when: host_apt_mirror | default('', true) | length > 0
+          apt_mirror is set, but the host is not Debian-family.
+          Example: apt_mirror: https://mirrors.tuna.tsinghua.edu.cn/debian
+      when: apt_mirror | default('', true) | length > 0
 
     - name: "[Bootstrap] Back up the current APT sources (once)"
       ansible.builtin.copy:
@@ -173,7 +173,7 @@
         remote_src: true
         force: false
         mode: "0644"
-      when: host_apt_mirror | default('', true) | length > 0
+      when: apt_mirror | default('', true) | length > 0
 
     - name: "[Bootstrap] Render the APT sources from the mirror"
       ansible.builtin.template:
@@ -183,13 +183,13 @@
         group: root
         mode: "0644"
       register: apt_sources
-      when: host_apt_mirror | default('', true) | length > 0
+      when: apt_mirror | default('', true) | length > 0
 
     - name: "[Bootstrap] Refresh the APT cache"
       ansible.builtin.apt:
         update_cache: true
       when:
-        - host_apt_mirror | default('', true) | length > 0
+        - apt_mirror | default('', true) | length > 0
         - apt_sources.changed | default(false)
 
     # --------------------------------------------------------------------------
@@ -264,13 +264,13 @@
             length: 18
       when:
         - not (bootstrap_use_key | bool)
-        - (host_bootstrap_password | default('', true) | length) == 0
+        - (bootstrap_password | default('', true) | length) == 0
 
     - name: "[Bootstrap] Resolve the effective service-account password"
       ansible.builtin.set_fact:
-        host_bootstrap_password_final: >-
-          {{ host_bootstrap_password
-             if (host_bootstrap_password | default('', true) | length > 0)
+        bootstrap_password_final: >-
+          {{ bootstrap_password
+             if (bootstrap_password | default('', true) | length > 0)
              else (vault_host_ansible_password | default('', true)) }}
       when: not (bootstrap_use_key | bool)
 
@@ -287,14 +287,14 @@
         create_home: true
         state: present
         password: >-
-          {{ (host_bootstrap_password_final | password_hash('sha512'))
+          {{ (bootstrap_password_final | password_hash('sha512'))
              if not (bootstrap_use_key | bool) else omit }}
         update_password: on_create
       no_log: true
       when: probe_identity | lower != 'ansible'
 
     # --------------------------------------------------------------------------
-    # Admin identity (optional, opt-in via host_admin_enabled). This is a HUMAN
+    # Admin identity (optional, opt-in via create_admin_account). This is a HUMAN
     # operator account, so it always gets a password (generated into vault.yml
     # when left empty) for console login and sudo; a configured public key is
     # installed additionally. Root is never created; the service account is
@@ -302,8 +302,8 @@
     # --------------------------------------------------------------------------
     - name: "[Bootstrap] Resolve the admin identity settings"
       ansible.builtin.set_fact:
-        bootstrap_admin: "{{ host_ssh_identities.admin }}"
-        bootstrap_admin_defined: "{{ host_admin_enabled | default(false) | bool }}"
+        bootstrap_admin: "{{ ssh_identities.admin }}"
+        bootstrap_admin_defined: "{{ create_admin_account | default(false) | bool }}"
 
     - name: "[Bootstrap] Provision the admin password (enabled, none supplied)"
       ansible.builtin.include_role:
@@ -342,7 +342,7 @@
       ansible.builtin.set_fact:
         bootstrap_pubkey_specs: >-
           {%- set ns = namespace(specs=[]) -%}
-          {%- for id, ident in host_ssh_identities.items() -%}
+          {%- for id, ident in ssh_identities.items() -%}
           {%-   if (id != 'admin' or (bootstrap_admin_defined | default(false) | bool))
                  and (ident.pubkey | default('', true) | string | trim) | length > 0 -%}
           {%-     set ns.specs = ns.specs + [{'id': id, 'user': ident.user, 'path': ident.pubkey}] -%}
@@ -450,7 +450,7 @@
         mode: "0440"
         validate: "visudo -cf %s"
       loop: "{{ bootstrap_sudo_nopasswd_users }}"
-      when: host_bootstrap_sudo_nopasswd | default(true) | bool
+      when: bootstrap_sudo_nopasswd | default(true) | bool
 
     - name: "[Bootstrap] Grant the admin account password sudo"
       ansible.builtin.copy:

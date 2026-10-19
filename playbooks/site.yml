@@ -65,12 +65,12 @@
     - name: "[Preflight] Require the service account (not root) for the deploy"
       ansible.builtin.assert:
         that:
-          - (host_ssh_user | default('root')) != 'root' or (host_allow_root_login | default(false) | bool)
+          - (ssh_user | default('root')) != 'root' or (allow_root_login | default(false) | bool)
         fail_msg: >-
           The deploy must run as the non-root `ansible` service account, not
           root. Run `make host-bootstrap` once as root to create it, then set its
           key/password in inventory/host_vars/<host>/vault.yml. Override
-          deliberately with host_allow_root_login=true if you accept running as
+          deliberately with allow_root_login=true if you accept running as
           root.
 
 - name: Deploy the Remnawave node stack
@@ -85,7 +85,7 @@
     # and everything else off the public internet while the overlay stays open.
     - role: firewall
       tags: [firewall]
-      when: host_firewall_enabled | default(false) | bool
+      when: firewall_enabled | default(false) | bool
     # The Remnawave Node container itself.
     - role: remnanode
       tags: [remnanode]

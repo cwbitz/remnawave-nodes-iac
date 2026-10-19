@@ -22,7 +22,7 @@ conventions and gotchas.
   `make vault-edit HOST=<host>`.
 - Create the non-root service account (as root, once): `make host-bootstrap`,
   then point the connection at it in `vault.yml`. Deploys refuse root unless
-  `host_allow_root_login=true`.
+  `allow_root_login=true`.
 - The vault password file is auto-created by the make targets
   (`~/.config/projects/remnawave-nodes-iac/ansible_vault_password`); keep it safe.
 
@@ -37,7 +37,7 @@ conventions and gotchas.
 4. Keep `NODE_PORT` **off the public internet** — the Panel reaches the node over
    the NetBird overlay (`docs/components/panel-contract.md`). `roles/firewall`
    enforces this; declare the Xray inbounds the Panel pushes in
-   `host_firewall_public_tcp_ports` so public proxy ports stay open.
+   `firewall_public_tcp_ports` so public proxy ports stay open.
 
 ## 2. Deploy
 
@@ -104,7 +104,7 @@ make deploy TAGS=firewall   # apply the default-deny inbound firewall only
   internet: only the overlay, SSH, the WireGuard UDP port and the declared Xray
   inbounds are reachable. Details: `docs/components/firewall.md`.
 - When the Panel pushes an Xray inbound on a public port, declare it in
-  `host_firewall_public_tcp_ports` (or `..._udp_ports`) in the host's `main.yml`
+  `firewall_public_tcp_ports` (or `..._udp_ports`) in the host's `main.yml`
   and re-run; otherwise the proxy is unreachable from clients.
 
 ## 5. Upgrade and rollback
@@ -124,11 +124,11 @@ make deploy TAGS=firewall   # apply the default-deny inbound firewall only
 | Node container restarts | `docker logs remnanode`; confirm `NODE_PORT`/`SECRET_KEY` are correct and unchanged. |
 | Overlay peer has no `wt0` address | Valid `vault_netbird_setup_key` and `netbird_management_url` (main.yml); `docker logs netbird`. A changed management URL needs a fresh key + reset `netbird_config` volume. |
 | Central Prometheus shows the node down | The peer joined with a group the observability stack discovers (`endpoint`); overlay up; `curl -s <overlay-ip>:9100/metrics` from another peer. |
-| `make deploy` refuses root | Expected: run `make host-bootstrap` first, then connect as the `ansible` account in `vault.yml` (or set `host_allow_root_login=true`). |
+| `make deploy` refuses root | Expected: run `make host-bootstrap` first, then connect as the `ansible` account in `vault.yml` (or set `allow_root_login=true`). |
 | SSH refuses the private key (`UNPROTECTED PRIVATE KEY FILE`, `are too open`) | The shared `scripts/run-with-ssh-agent.sh` starts the pinned Keychain agent, loads the vault keys and retries once. If it still fails, check the `vault_*_ssh_privkey_file` paths and run `make agent-load`. |
 | A vault file is unreadable | It must be ansible-vault encrypted; the helpers re-encrypt a plaintext file on the next write. |
 | `NODE_PORT` reachable from the internet | The base firewall is missing or disabled: `nft list table inet hostfw` / `systemctl status host-firewall`; re-run `make deploy TAGS=firewall`. |
-| Proxy clients cannot connect after a Panel config push | The pushed Xray inbound port is not open: add it to `host_firewall_public_tcp_ports` in the host's `main.yml` and re-run `make deploy TAGS=firewall`. |
+| Proxy clients cannot connect after a Panel config push | The pushed Xray inbound port is not open: add it to `firewall_public_tcp_ports` in the host's `main.yml` and re-run `make deploy TAGS=firewall`. |
 | SSH/overlay lost after applying the firewall | Recover from the provider console: `systemctl stop host-firewall` (then `nft delete table inet hostfw`), fix the knobs, and re-run. |
 | Panel cannot reach the node after the firewall | Check `wt0` is up (`ip -4 -o addr show wt0`), that the Panel's node address is the node's **overlay** IP, and that the tenant ACL allows `NODE_PORT` (`nft list chain ip netbird netbird-acl-input-rules` on the node shows only `9100`/`6060` by default — the overlay drops the rest). |
 

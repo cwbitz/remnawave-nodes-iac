@@ -57,9 +57,9 @@
 - name: "[Monitoring] Assert a central Loki URL when shipping logs"
   ansible.builtin.assert:
     that:
-      - (loki_url | default('', true) | length) > 0
+      - (loki_push_url | default('', true) | length) > 0
     fail_msg: >-
-      alloy_enabled requires loki_url (logs are pushed to Loki over the overlay).
+      alloy_enabled requires loki_push_url (logs are pushed to Loki over the overlay).
   when: alloy_enabled | bool
 
 - name: "[Monitoring] Ensure the monitoring stack directory exists"

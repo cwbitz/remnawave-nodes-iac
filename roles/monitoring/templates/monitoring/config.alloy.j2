@@ -26,6 +26,6 @@ loki.source.journal "ssh" {
 
 loki.write "central" {
   endpoint {
-    url = "{{ loki_url }}/loki/api/v1/push"
+    url = "{{ loki_push_url }}/loki/api/v1/push"
   }
 }
