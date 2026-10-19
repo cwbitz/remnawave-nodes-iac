@@ -1,17 +1,21 @@
 ---
 # ==============================================================================
-# Per-host configuration template (inventory/host_vars/example/main.yml)
+# Per-host configuration (inventory/host_vars/example/main.yml)
 # ==============================================================================
-# Copy to inventory/host_vars/<hostname>/main.yml for each host (only example/ is
-# committed; real <hostname>/ directories are gitignored). Secrets/PII go in the
-# encrypted vault.yml next to it; the shared SSH connection wiring lives in
-# inventory/group_vars/remnanodes/main.yml.
-
-# --- SSH connection identity -------------------------------------------------
-# The ansible/admin/root aliases are wired in
-# inventory/group_vars/remnanodes/main.yml; the user/password/key paths live
-# in vault.yml (see vault.yml.example). `make host-bootstrap` probes
-# [ansible, admin, root] and uses the first that works; normal runs use `ansible`.
+# `make host-init` copies this file (comment-free) to
+# inventory/host_vars/<hostname>/main.yml, so the values below ARE the defaults a
+# new host starts with: they mirror the effective project defaults (group_vars
+# wins over the role default) and every operator knob is present. Change what you
+# need; nothing else is required.
+#
+# Only example/ is committed (real <hostname>/ directories are gitignored).
+# Secrets/PII go in the encrypted vault.yml next to it; the shared SSH connection
+# wiring lives in inventory/group_vars/remnanodes/main.yml.
+#
+# A knob whose absence is meaningful (its default is derived from another
+# variable at run time — see apt_security_mirror) is documented here but
+# stays commented out, so the derivation still applies. `scripts/audit_example_knobs.py`
+# enforces all of this (run by `make lint`).
 
 # ==============================================================================
 # NetBird overlay (roles/agent)
@@ -22,8 +26,12 @@
 # netbird-iac). The setup key decides which group the peer auto-joins — pick the
 # key whose group the central observability stack discovers (`endpoint` by
 # default, which grants no exit/LAN routes).
-netbird_management_url: "https://netbird.example.com"   # empty = NetBird Cloud
+netbird_management_url: ""   # empty = NetBird Cloud; a self-hosted mesh sets its URL
 netbird_peer_setup_key: "{{ vault_netbird_setup_key }}"
+# The agent also serves the netbird DNS zone on the host (through
+# systemd-resolved over D-Bus); leave true unless the host's resolver must not be
+# touched.
+netbird_dns_manage: true
 # Set true only when this node routes traffic for a routed network / exit node;
 # it enables IPv4/IPv6 forwarding on the host.
 netbird_agent_routing: false
@@ -38,36 +46,79 @@ netbird_agent_routing: false
 remnanode_node_port: ""     # e.g. 2222: the port the Panel dials in on
 remnanode_secret_key: "{{ vault_remnanode_secret_key }}"
 
-# --- Optional host monitoring + host security (make monitoring) --------------
-# Installs prometheus-node-exporter + CrowdSec (+ the nftables firewall bouncer)
-# and joins the NetBird overlay, so the central Prometheus/Alloy (sibling
-# docker-stack-iac) scrapes the host over the overlay with no public port.
-# Enabled by default for this group; set false to opt out.
-# monitoring_enabled: false
-# node_exporter is localhost-only plus the overlay address; widen the local
-# address only when a trusted scraper must reach it.
-# node_exporter_listen_addr: "127.0.0.1:9100"
-# Optionally ship host logs to a central Loki reachable over the overlay.
-# alloy_enabled: true
-# loki_push_url: "http://<loki-overlay-ip>:3100"
+# ==============================================================================
+# Host monitoring + host security (roles/monitoring; make monitoring)
+# ==============================================================================
+# prometheus-node-exporter + CrowdSec (+ the nftables firewall bouncer) and the
+# NetBird overlay join, so the central Prometheus/Alloy (sibling docker-stack-iac)
+# scrapes the host over the overlay with no public port. Enabled by default for
+# this group; set monitoring_enabled false to opt out (each component can be
+# disabled on its own as well).
+monitoring_enabled: true
+node_exporter_enabled: true
+crowdsec_enabled: true
+# node_exporter has no knob: it binds the overlay address only (the central
+# Prometheus scrapes it over the mesh; nothing listens locally or publicly).
+# Optionally ship host logs to a central Loki reachable over the overlay
+# (alloy_enabled requires loki_push_url).
+alloy_enabled: false
+loki_push_url: ""
 
-# --- Optional host firewall (roles/firewall) ---------------------------------
-# Default-deny inbound (enabled by default for this group; set false to opt out).
-# SSH, the NetBird overlay and the WireGuard UDP port stay open; NODE_PORT and
-# everything else are reachable only over the overlay. The Panel owns the Xray
-# inbounds, so declare the ports it pushes here (empty = no proxy service yet):
-# firewall_enabled: false
-# firewall_public_tcp_ports: [443]
-# firewall_public_udp_ports: []
+# Journal sources Alloy ships to the central Loki (see
+# roles/monitoring/defaults/main.yml). Raw extra matches go in
+# alloy_journal_extra_matches.
+alloy_log_presets: [ssh, security, kernel, services]
+alloy_journal_extra_matches: []
 
-# --- Optional host bootstrap (make host-bootstrap; NOT part of make deploy) --
-# Region-specific mirrors for hosts where the defaults are slow/blocked (e.g.
-# China-based VPS). The security mirror is derived from apt_mirror (override
-# with apt_security_mirror); Docker Hub registry mirrors are tried in order.
-# apt_mirror: "https://mirrors.tuna.tsinghua.edu.cn/debian"
-# docker_registry_mirrors:
-#   - "https://docker.1ms.run"
-# The probe, the 'ansible' service account and key/password handling are
-# documented in playbooks/bootstrap.yml and vault.yml.example. Create the
-# optional human 'admin' account with (it always gets a password):
-# create_admin_account: true
+# ==============================================================================
+# Host firewall (roles/firewall)
+# ==============================================================================
+# Default-deny inbound (a dedicated nftables table; enabled by default for this
+# group). SSH, the NetBird overlay and the WireGuard UDP port stay open; NODE_PORT
+# and everything else are reachable only over the overlay. The Panel owns the Xray
+# inbounds, so declare the ports it pushes here (empty = no proxy service yet).
+firewall_enabled: true
+firewall_ssh_port: "{{ ansible_port | default(22) | int }}"
+firewall_public_tcp_ports: []
+firewall_public_udp_ports: []
+firewall_allow_icmp: true
+
+# ==============================================================================
+# SSH hardening (roles/sshd)
+# ==============================================================================
+# Key-only SSH administration: PasswordAuthentication no (plus the PAM
+# keyboard-interactive and empty-password paths), applied as a drop-in in
+# /etc/ssh/sshd_config.d/. OFF by default, because it removes the password path
+# host-bootstrap falls back to: it is only safe once a keyed login survives it —
+# the `ansible` account's key (vault_host_ansible_ssh_pubkey_file), or root's key
+# on a root-administered host — which the role proves and fails the run
+# otherwise.
+sshd_hardening_enabled: false
+# Root SSH policy, independent of the toggle above: "no" disables root SSH;
+# "prohibit-password" keeps root reachable by public key only (needed on a host
+# administered only through root).
+sshd_permit_root_login: "no"
+
+# ==============================================================================
+# Host bootstrap (make host-bootstrap; NOT part of make deploy)
+# ==============================================================================
+# install_docker false requires a preinstalled Docker. Region-specific mirrors for
+# hosts where the defaults are slow/blocked (e.g. China-based VPS): the security
+# mirror is derived from apt_mirror, and Docker Hub registry mirrors are
+# tried in order.
+install_docker: true
+apt_mirror: ""
+docker_registry_mirrors: []
+# [DERIVED — leave commented] Defaults to the security repo derived from
+# apt_mirror; setting it (even empty) disables that derivation.
+# apt_security_mirror: "https://security.debian.org/debian-security"
+# The optional human 'admin' operator account: console login + sudo, always with
+# a password (generated into vault_host_admin_password when empty) plus any
+# configured public key. Created only when enabled.
+create_admin_account: false
+# Escape hatches: run the deploy as root instead of the service account (not
+# recommended); pin the service-account password instead of generating one; grant
+# the automation account passwordless sudo.
+allow_root_login: false
+bootstrap_password: ""
+bootstrap_sudo_nopasswd: true

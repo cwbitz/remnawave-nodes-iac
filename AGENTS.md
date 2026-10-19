@@ -70,17 +70,25 @@ live in `inventory/host_vars/<hostname>/main.yml`.
   comment-preserving (`scripts/ensure_inventory_host.py`).
 - `make host-bootstrap [HOST=]` — bootstrap one host; `make deploy` runs it first.
 - `make agent` / `make monitoring` — the overlay join and the host
-  monitoring/security parts. The host firewall (`roles/firewall`) is part of
-  `site.yml`; `make deploy TAGS=firewall` runs only it.
+  monitoring/security parts. The host firewall (`roles/firewall`) and key-only SSH
+  (`roles/sshd`) are part of `site.yml`; `make deploy TAGS=firewall` /
+  `TAGS=sshd` runs only one of them.
 - `make dry-run` / `make deploy` — preview / one-shot deploy.
-- The internal `make lint` (`--syntax-check` + `ansible-lint`) is run by CI and
-  hidden from `make help`.
+- The internal `make lint` (`--syntax-check` + `ansible-lint` +
+  `scripts/audit_example_knobs.py`) is run by CI and hidden from `make help`. The
+  audit keeps `host_vars/example/main.yml` a complete, value-accurate mirror of
+  every operator knob.
 - `make print [HOST=]` — resolved host vars incl. decrypted vault.
 
 ## Important gotchas
 
 - The deploy **requires the non-root service account**: `playbooks/site.yml`
   asserts `ssh_user != root` (override with `allow_root_login=true`).
+- SSH hardening (`sshd_hardening_enabled`, `roles/sshd`) is **opt-in and
+  self-protecting**: it closes password login, so it refuses to run unless the
+  `ansible` account has a public key and a key-only login is proven — and it
+  reverts itself when a verification fails. Enable it only after
+  `make host-bootstrap` has authorized the key.
 - Keep a node's `NODE_PORT` off the public internet — the Panel is the TLS client
   and reaches the node over the NetBird overlay (`roles/firewall` enforces it; see
   `docs/components/panel-contract.md`).

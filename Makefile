@@ -371,6 +371,9 @@ lint: vault-init
 	$(ANS_PLAY) --syntax-check playbooks/agent.yml
 	$(ANS_PLAY) --syntax-check playbooks/monitoring.yml
 	ansible-lint playbooks/site.yml playbooks/bootstrap.yml playbooks/agent.yml playbooks/monitoring.yml
+	# The example main.yml is the template host-init copies: it must carry every
+	# operator knob with its project default (stdlib-only script).
+	python3 scripts/audit_example_knobs.py
 
 .PHONY: dry-run
 dry-run: vault-init agent-fallback ## Dry-run (--check --diff); REFRESH=1 refreshes host keys first
