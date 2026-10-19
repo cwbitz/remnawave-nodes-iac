@@ -155,6 +155,43 @@
 
   tasks:
     # --------------------------------------------------------------------------
+    # Hostname resolution (loopback alias)
+    # --------------------------------------------------------------------------
+    # A cloud image can set a hostname that /etc/hosts does not map: the name then
+    # falls through nsswitch to DNS and everything that resolves the local name
+    # waits for a resolver timeout — `sudo` does it on EVERY task, ~2s per become
+    # task on a deploy. Map it to the standard loopback alias (the Debian
+    # installer's own layout), but ONLY when it does not resolve already, so a
+    # host whose name is in DNS (or already in /etc/hosts) is left untouched.
+    - name: "[Bootstrap] Read the effective hostname"
+      ansible.builtin.command:
+        argv: [hostname]
+      register: bootstrap_hostname
+      changed_when: false
+
+    - name: "[Bootstrap] Check whether the hostname already resolves"
+      ansible.builtin.command:
+        argv: [getent, hosts, "{{ bootstrap_hostname.stdout }}"]
+      register: bootstrap_hostname_lookup
+      changed_when: false
+      failed_when: false
+
+    - name: "[Bootstrap] Map an unresolvable hostname to the loopback alias"
+      ansible.builtin.lineinfile:
+        path: /etc/hosts
+        # The full name first (what gethostname()/sudo resolve), then the short
+        # name when it differs (Debian's own cloud-image layout).
+        line: >-
+          {{ ('127.0.1.1 ' ~ bootstrap_hostname.stdout ~ ' ' ~ bootstrap_hostname_short)
+             if bootstrap_hostname_short != bootstrap_hostname.stdout
+             else ('127.0.1.1 ' ~ bootstrap_hostname.stdout) }}
+        insertafter: "^127\\.0\\.0\\.1"
+        state: present
+      vars:
+        bootstrap_hostname_short: "{{ bootstrap_hostname.stdout.split('.') | first }}"
+      when: bootstrap_hostname_lookup.rc | default(1) != 0
+
+    # --------------------------------------------------------------------------
     # APT mirror (Debian-family)
     # --------------------------------------------------------------------------
     - name: "[Bootstrap] Validate the APT mirror settings"
