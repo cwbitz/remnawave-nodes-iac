@@ -308,7 +308,7 @@ require-inventory:
 	fi
 
 .PHONY: vault-edit
-vault-edit: vault-init require-inventory ## Edit one host's vault (HOST=<name>; auto when a single host; plaintext auto-encrypted first)
+vault-edit: vault-init require-inventory ## Edit one host's vault (plaintext auto-encrypted first, keys re-sorted alphabetically; HOST=<name>; auto when a single host)
 	@host="$(HOST)"; \
 	if [ -z "$$host" ]; then \
 		host="$$(ansible-inventory -i $(INVENTORY) --list 2>/dev/null \
@@ -327,7 +327,21 @@ vault-edit: vault-init require-inventory ## Edit one host's vault (HOST=<name>; 
 		echo "Encrypting plaintext $$p before editing..."; \
 		ansible-vault encrypt "$$p"; \
 	fi; \
-	ansible-vault edit "$$p"
+	edit_rc=0; ansible-vault edit "$$p" || edit_rc=$$?; \
+	if [ $$edit_rc -eq 0 ]; then \
+		b=$$(mktemp); a=$$(mktemp); rc=0; \
+		ansible-vault view "$$p" > "$$b" || rc=1; \
+		if [ $$rc -eq 0 ]; then cp "$$b" "$$a" || rc=1; fi; \
+		if [ $$rc -eq 0 ]; then python3 $(CURDIR)/scripts/sort_vault_keys.py "$$a" || rc=1; fi; \
+		if [ $$rc -ne 0 ]; then \
+			echo "ERROR: could not normalise the key order of $$p; it is unchanged (as edited)" >&2; \
+		elif ! cmp -s "$$b" "$$a"; then \
+			ansible-vault encrypt --output "$$p" "$$a" \
+				&& echo "vault-edit: re-encrypted with the keys in alphabetical order"; \
+		fi; \
+		rm -f "$$b" "$$a"; \
+	fi; \
+	exit $$edit_rc
 
 .PHONY: vault-view
 vault-view: vault-init require-inventory ## View vault.yml for EVERY host, or one with HOST=<name> (read-only)

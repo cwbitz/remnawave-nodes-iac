@@ -54,7 +54,8 @@ live in `inventory/host_vars/<hostname>/main.yml`.
 - `make vault-init` / `vault-view [HOST=]` / `vault-edit [HOST=]` — the vault
   password file and the per-host vault; `vault-view` covers every host (or one with
   HOST), and `vault-edit` targets HOST, or the single host when the inventory holds
-  exactly one.
+  exactly one (a plaintext vault is encrypted first, and the keys are re-sorted
+  alphabetically on save).
 - `make host-init HOST=<name> [HOST_IP=] [HOST_PORT=]` — scaffold
   `inventory/hosts.yml` (from the committed `example/` when absent) and
   `inventory/host_vars/<name>/`, encrypt the scaffolded `vault.yml`, and ensure
