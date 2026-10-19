@@ -10,9 +10,8 @@
 # The management server is owned by the sibling netbird-iac project; this project
 # consumes the mesh ONLY through its public interface. Both inputs are owned by
 # THIS project (management URL in host_vars main.yml, setup key in the vault).
-
-# Rendered docker-compose project directory for the agent.
-agent_dir: "/opt/netbird-agent"
+# The rendered compose dir and the pinned image (agent_dir, netbird_agent_version)
+# are role constants in vars/main.yml.
 
 # Self-hosted NetBird management URL (e.g. "https://netbird.example.com").
 netbird_management_url: ""

@@ -5,9 +5,8 @@
 # Deploys the Remnawave Node container (Xray-core proxy node) that is managed by
 # the Remnawave Panel. The Panel (control plane) lives in the sibling
 # docker-stack-iac project; this project only runs the Nodes.
-
-# Rendered docker-compose project directory for the node.
-remnanode_dir: "/opt/remnanode"
+# The rendered compose dir and the pinned image (remnanode_dir,
+# remnanode_version) are role constants in vars/main.yml.
 
 # Created in the Panel, then copied from its "Copy docker-compose.yml" output:
 # NODE_PORT here (non-secret) and SECRET_KEY in the vault.
@@ -15,9 +14,3 @@ remnanode_dir: "/opt/remnanode"
 #   remnanode_secret_key the SECRET_KEY value (node <-> panel secret)
 remnanode_node_port: ""
 remnanode_secret_key: "{{ vault_remnanode_secret_key | default('', true) }}"
-
-# Node image. Upstream publishes moving tags (`latest` / `sha-*`); the value the
-# Panel generates is `latest`, so that is the default. Renovate tracks it (manual
-# review, see renovate.json).
-# renovate: datasource=docker depName=remnawave/node
-remnanode_version: "latest"

@@ -2,6 +2,10 @@
 # ==============================================================================
 # Role-owned constants (roles/agent/vars/main.yml)
 # ==============================================================================
-# Container image repository (tag is netbird_agent_version in defaults/,
-# Renovate-tracked).
+# Rendered docker-compose project directory for the agent.
+agent_dir: "/opt/netbird-agent"
+
+# Overlay agent image.
 netbird_agent_image: "ghcr.io/netbirdio/netbird"
+# renovate: datasource=docker depName=ghcr.io/netbirdio/netbird
+netbird_agent_version: "0.77.0"
