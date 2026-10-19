@@ -27,3 +27,14 @@ crowdsec_enabled: true
 # (e.g. "http://100.125.0.5:3100").
 alloy_enabled: false
 loki_push_url: ""
+
+# --- Log shipping (alloy_enabled) ---------------------------------------------
+# Curated journal presets to ship to the central Loki:
+#   ssh      - sshd/ssh auth events (login attempts, brute force)
+#   security - CrowdSec decisions + sudo/su usage
+#   kernel   - kernel messages (OOM killer, disk/network errors, link flaps)
+#   services - every unit's err/warning lines (PRIORITY 3 and 4)
+alloy_log_presets: [ssh, security, kernel, services]
+# Raw extra journal matches (FIELD=VALUE, AND-combined), e.g.:
+#   - "_SYSTEMD_UNIT=docker.service"
+alloy_journal_extra_matches: []

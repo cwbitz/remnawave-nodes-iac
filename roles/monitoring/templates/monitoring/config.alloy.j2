@@ -1,14 +1,32 @@
 // ==============================================================================
-// Alloy log shipper: host SSH auth events -> central Loki over the overlay.
+// Alloy log shipper: host journal -> central Loki over the overlay.
 // Managed by Ansible - do not edit on the target host.
 // ==============================================================================
+// Log sources are selected by `alloy_log_presets` (curated sets, see
+// roles/monitoring/defaults/main.yml) plus raw `alloy_journal_extra_matches`.
+//
+// The `host` label is the INVENTORY name, NOT the OS hostname: it has to equal
+// the Prometheus `instance` label, because Grafana's metrics->logs correlation
+// resolves the log query as `{host="<instance>"}`. The OS hostname is kept as
+// `os_hostname` for reference.
+//
+// One component per journal match: Alloy's `matches` combines multiple
+// FIELD=VALUE pairs with AND, so an alternation (ssh *or* sshd) needs two sources.
+// ==============================================================================
+
+{% set journal_presets = {
+  'ssh':      ['_SYSTEMD_UNIT=ssh.service', '_SYSTEMD_UNIT=sshd.service'],
+  'security': ['SYSLOG_IDENTIFIER=crowdsec', 'SYSLOG_IDENTIFIER=sudo', 'SYSLOG_IDENTIFIER=su'],
+  'kernel':   ['_TRANSPORT=kernel'],
+  'services': ['PRIORITY=3', 'PRIORITY=4'],
+} %}
 
 loki.relabel "journal" {
   forward_to = []
 
   rule {
     source_labels = ["__journal__hostname"]
-    target_label  = "host"
+    target_label  = "os_hostname"
   }
 
   rule {
@@ -17,12 +35,26 @@ loki.relabel "journal" {
   }
 }
 
-loki.source.journal "ssh" {
+{% for preset in alloy_log_presets | default(['ssh', 'security', 'kernel', 'services']) %}
+{%   for match in journal_presets[preset] | default([]) %}
+loki.source.journal "{{ preset }}_{{ loop.index }}" {
   path          = "/var/log/journal"
-  matches       = "_SYSTEMD_UNIT=ssh.service"
+  matches       = "{{ match }}"
   relabel_rules = loki.relabel.journal.rules
   forward_to    = [loki.write.central.receiver]
+  labels        = { host = "{{ inventory_hostname }}", source = "{{ preset }}" }
 }
+{%   endfor %}
+{% endfor %}
+{% for match in alloy_journal_extra_matches | default([]) %}
+loki.source.journal "extra_{{ loop.index }}" {
+  path          = "/var/log/journal"
+  matches       = "{{ match }}"
+  relabel_rules = loki.relabel.journal.rules
+  forward_to    = [loki.write.central.receiver]
+  labels        = { host = "{{ inventory_hostname }}", source = "extra" }
+}
+{% endfor %}
 
 loki.write "central" {
   endpoint {

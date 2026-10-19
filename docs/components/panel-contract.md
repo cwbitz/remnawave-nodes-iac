@@ -40,7 +40,7 @@ Prometheus/Grafana/Loki discovers peers from the NetBird API and scrapes `:9100`
 `endpoint` setup key (the default) makes a node discoverable with no exit/LAN
 routes. Shipping host logs (`alloy_enabled`, a node-side option) additionally
 needs the central Loki published on the observer host's overlay IP
-(`docker-stack-iac`'s `loki_publish`), because NetBird peer DNS names do not
+(`docker-stack-iac`'s `loki_publish_addr`), because NetBird peer DNS names do not
 resolve on the node. See [`monitoring-security.md`](monitoring-security.md).
 
 ## Scope

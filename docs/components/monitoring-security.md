@@ -6,9 +6,10 @@
 
 ## What it installs
 
-- `prometheus-node-exporter` — host metrics. Binds `127.0.0.1:9100` **plus the
-  overlay address** (`node_exporter_listen_addr` widens the local address), so the
-  central Prometheus scrapes it with no public port.
+- `prometheus-node-exporter` — host metrics. Binds the **overlay address only**
+  (`<overlay-ip>:9100`), so the central Prometheus scrapes it with no public and
+  no local listener. A systemd drop-in waits for the overlay before starting it,
+  so the bind survives a reboot.
 - `crowdsec` — log-based detection (SSH brute force, scans) from the systemd
   journal (no rsyslog needed); its metrics listen on `:6060` on the overlay.
 - `crowdsec-firewall-bouncer` — enforces CrowdSec decisions via nftables. **Not a
