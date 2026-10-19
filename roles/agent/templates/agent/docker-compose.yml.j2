@@ -21,6 +21,12 @@ services:
       NB_HOSTNAME: "{{ inventory_hostname }}"
     volumes:
       - netbird_config:/var/lib/netbird
+{% if netbird_dns_manage | default(true) | bool %}
+      # The agent's DNS manager talks to the host's systemd-resolved over D-Bus:
+      # without this mount the netbird zone is not resolvable on the host (nor
+      # inside containers that forward to the host stub).
+      - /var/run/dbus:/var/run/dbus
+{% endif %}
 
 volumes:
   netbird_config:

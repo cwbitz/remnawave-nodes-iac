@@ -22,10 +22,14 @@ netbird_management_url: ""
 # routing node uses its routing group's key.
 netbird_peer_setup_key: "{{ vault_netbird_setup_key | default('', true) }}"
 
+# NetBird DNS management: the agent is the host's resolver for the netbird zone
+# (`<peer>.netbird.selfhosted`). It applies that through the host's
+# systemd-resolved over D-Bus, so the D-Bus socket must be visible INSIDE the
+# container — without this the zone does not resolve on the host, nor inside
+# containers that forward to the host stub (e.g. the Panel's Prometheus). Set
+# false only on a host whose resolver the agent should not touch.
+netbird_dns_manage: true
+
 # Whether this peer routes traffic for a routed network / exit node. When true
 # the host enables IPv4/IPv6 forwarding.
 netbird_agent_routing: false
-
-# Overlay agent image (Renovate-tracked).
-# renovate: datasource=docker depName=ghcr.io/netbirdio/netbird
-netbird_agent_version: "0.77.0"
