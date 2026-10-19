@@ -47,7 +47,11 @@ management URL + a setup key for the overlay).
 3. **Host firewall** (`roles/firewall`): a default-deny inbound base firewall (a
    dedicated nftables table), so `NODE_PORT` — and everything else — is reachable
    only over the overlay. SSH, the overlay and the WireGuard UDP port stay open.
-4. **Remnawave Node** (`roles/remnanode`): renders `/opt/remnanode/docker-compose.yml`
+4. **SSH hardening** (`roles/sshd`, opt-in): a drop-in that closes password login
+   and applies `sshd_permit_root_login` (key-only administration via the `ansible`
+   key; `no` by default), verified against the effective configuration and rolled
+   back when the key login cannot be proven.
+5. **Remnawave Node** (`roles/remnanode`): renders `/opt/remnanode/docker-compose.yml`
    and runs the `remnawave/node` container with `NODE_PORT` / `SECRET_KEY`.
 
 ## Remnawave Node inputs
@@ -162,9 +166,9 @@ account does not exist yet, so `deploy` runs the same host bootstrap as
 | `make dry-run` | `site.yml --check --diff` | Safe preview. |
 | `make print [HOST=]` | — | Resolved host vars incl. decrypted vault. |
 
-`make deploy TAGS=remnanode` (or `TAGS=monitoring`, `TAGS=firewall`) runs only
-that role. The internal `make lint` (syntax check + `ansible-lint`) is hidden from
-`make help`.
+`make deploy TAGS=remnanode` (or `TAGS=monitoring`, `TAGS=firewall`, `TAGS=sshd`)
+runs only that role. The internal `make lint` (syntax check + `ansible-lint`) is
+hidden from `make help`.
 
 ## Secrets
 
@@ -184,6 +188,7 @@ encrypted; the committed schema reference is
   [`netbird-overlay.md`](docs/components/netbird-overlay.md),
   [`monitoring-security.md`](docs/components/monitoring-security.md),
   [`firewall.md`](docs/components/firewall.md),
+  [`sshd-hardening.md`](docs/components/sshd-hardening.md),
   [`remnanode.md`](docs/components/remnanode.md),
   [`panel-contract.md`](docs/components/panel-contract.md).
 
@@ -198,6 +203,7 @@ playbooks/site.yml        # full node stack (monitoring/agent + remnanode)
 roles/agent               # NetBird overlay agent (mesh join)
 roles/monitoring          # node_exporter + CrowdSec + firewall bouncer (+ agent)
 roles/firewall            # default-deny inbound base firewall (nftables)
+roles/sshd                # key-only SSH administration (sshd drop-in, opt-in)
 roles/remnanode           # the Remnawave Node container
 roles/helpers/            # shared vault-secret provisioning + Docker install
 docs/                     # this repo's docs (RUNBOOK.md, components/)

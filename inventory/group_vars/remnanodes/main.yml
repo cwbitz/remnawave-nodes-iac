@@ -36,3 +36,7 @@ monitoring_enabled: true
 install_docker: true
 create_admin_account: false
 firewall_enabled: true
+# Key-only SSH (roles/sshd). OFF by default, unlike the firewall: it removes the
+# password path that host-bootstrap and the root fallback rely on, so it is
+# opted into per host once the `ansible` account can log in with its key.
+sshd_hardening_enabled: false

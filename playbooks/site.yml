@@ -86,6 +86,12 @@
     - role: firewall
       tags: [firewall]
       when: firewall_enabled | default(false) | bool
+    # Key-only SSH administration (drop-in, opt-in). Requires the `ansible`
+    # account to reach the host with its key: the role proves that and rolls
+    # itself back otherwise, so an un-keyed host keeps password login.
+    - role: sshd
+      tags: [sshd]
+      when: sshd_hardening_enabled | default(false) | bool
     # The Remnawave Node container itself.
     - role: remnanode
       tags: [remnanode]

@@ -23,6 +23,9 @@ conventions and gotchas.
 - Create the non-root service account (as root, once): `make host-bootstrap`,
   then point the connection at it in `vault.yml`. Deploys refuse root unless
   `allow_root_login=true`.
+- Key-only SSH administration is an **opt-in** step (`sshd_hardening_enabled`
+  in the host's `main.yml`, off by default): enable it only after
+  `make host-bootstrap` has authorized the `ansible` key. See §4c.
 - The vault password file is auto-created by the make targets
   (`~/.config/projects/remnawave-nodes-iac/ansible_vault_password`); keep it safe.
 
@@ -49,7 +52,7 @@ make deploy      # bootstrap the host, then deploy the node stack
 `make lint` (syntax check + `ansible-lint`) is an internal CI check, hidden from
 `make help`.
 
-Focused tags: `monitoring`, `firewall`, `remnanode`
+Focused tags: `monitoring`, `firewall`, `sshd`, `remnanode`
 (`make deploy TAGS=remnanode`).
 
 `make deploy` runs `playbooks/bootstrap.yml` (service account + Docker), then
@@ -112,6 +115,26 @@ make deploy TAGS=firewall   # apply the default-deny inbound firewall only
   `firewall_public_tcp_ports` (or `..._udp_ports`) in the host's `main.yml`
   and re-run; otherwise the proxy is unreachable from clients.
 
+## 4c. SSH hardening
+
+```bash
+make deploy TAGS=sshd   # key-only SSH (roles/sshd)
+```
+
+- Off by default. Set `sshd_hardening_enabled: true` in the host's
+  `main.yml` only **after** `make host-bootstrap` has authorized a key that
+  survives it (the `ansible` key, or root's with
+  `sshd_permit_root_login: prohibit-password`) — the role proves a key-only login
+  works and rolls itself back (failing the run) otherwise. Details:
+  [`docs/components/sshd-hardening.md`](components/sshd-hardening.md).
+- Password logins (including root's) are closed; the root-login policy is
+  `sshd_permit_root_login` (`no` disables root SSH, `prohibit-password` keeps it
+  by key only). `ansible` with its key is the default SSH identity; the
+  OS/console login (root + `sudo`) is unaffected.
+- Rollback (or recovery when the key material is lost): from the provider console
+  `rm /etc/ssh/sshd_config.d/00-sshd-hardening.conf && systemctl reload ssh`,
+  then set `sshd_hardening_enabled: false` in the host's `main.yml`.
+
 ## 5. Upgrade and rollback
 
 - **Node upgrade**: let Renovate bump `/…/remnanode_version` (or edit it), then
@@ -120,6 +143,9 @@ make deploy TAGS=firewall   # apply the default-deny inbound firewall only
 - **Full node rebuild**: re-run `make host-init`/`make vault-edit`, or on an
   already-scaffolded host recreate the container with `make deploy`.
 - **Config rollback**: `git revert` or edit the per-host vars, then `make deploy`.
+- **SSH hardening rollback**: `rm /etc/ssh/sshd_config.d/00-sshd-hardening.conf
+  && systemctl reload ssh` (provider console), then set
+  `sshd_hardening_enabled: false` and re-run.
 
 ## 6. Troubleshooting
 
@@ -131,10 +157,12 @@ make deploy TAGS=firewall   # apply the default-deny inbound firewall only
 | Central Prometheus shows the node down | The peer joined with a group the observability stack discovers (`endpoint`); overlay up; `curl -s <overlay-ip>:9100/metrics` from another peer. |
 | `make deploy` refuses root | Expected: run `make host-bootstrap` first, then connect as the `ansible` account in `vault.yml` (or set `allow_root_login=true`). |
 | SSH refuses the private key (`UNPROTECTED PRIVATE KEY FILE`, `are too open`) | The shared `scripts/run-with-ssh-agent.sh` starts the pinned Keychain agent, loads the vault keys and retries once. If it still fails, check the `vault_*_ssh_privkey_file` paths and run `make agent-load`. |
+| `make deploy TAGS=sshd` failed and the host kept password login | Expected: the role reverted `/etc/ssh/sshd_config.d/00-sshd-hardening.conf` and failed. Read the task that failed (the key-only login probe is the usual one): the `ansible` key must be authorized by `make host-bootstrap` and accepted by OpenSSH (`make agent-load` for a `/mnt/c` key). |
+| No usable SSH login after enabling hardening | Recover from the provider console: `rm /etc/ssh/sshd_config.d/00-sshd-hardening.conf && systemctl reload ssh`, then set `sshd_hardening_enabled: false` in the host's `main.yml` and re-run. |
 | A vault file is unreadable | It must be ansible-vault encrypted; the helpers re-encrypt a plaintext file on the next write. |
-| `NODE_PORT` reachable from the internet | The base firewall is missing or disabled: `nft list table inet hostfw` / `systemctl status host-firewall`; re-run `make deploy TAGS=firewall`. |
+| `NODE_PORT` reachable from the internet | The base firewall is missing or disabled: `nft list table inet basefw` / `systemctl status firewall`; re-run `make deploy TAGS=firewall`. (The NetBird agent adds one extra `iifname "wt0" counter … accept` rule of its own; that is expected.) |
 | Proxy clients cannot connect after a Panel config push | The pushed Xray inbound port is not open: add it to `firewall_public_tcp_ports` in the host's `main.yml` and re-run `make deploy TAGS=firewall`. |
-| SSH/overlay lost after applying the firewall | Recover from the provider console: `systemctl stop host-firewall` (then `nft delete table inet hostfw`), fix the knobs, and re-run. |
+| SSH/overlay lost after applying the firewall | Recover from the provider console: `systemctl stop firewall` (then `nft delete table inet basefw`), fix the knobs, and re-run. |
 | Panel cannot reach the node after the firewall | Check `wt0` is up (`ip -4 -o addr show wt0`), that the Panel's node address is the node's **overlay** IP, and that the tenant ACL allows `NODE_PORT` (`nft list chain ip netbird netbird-acl-input-rules` on the node shows only `9100`/`6060` by default — the overlay drops the rest). |
 
 Useful commands:

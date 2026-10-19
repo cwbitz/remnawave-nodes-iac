@@ -18,7 +18,8 @@ range) is committed in `inventory/group_vars/all/main.yml`. Every host is in the
 single `remnanodes` group — the play target
 for every playbook — whose `group_vars/remnanodes/main.yml` holds the shared
 SSH connection wiring plus `install_docker`, `create_admin_account`,
-`monitoring_enabled` and `firewall_enabled`; per-host, non-secret settings
+`monitoring_enabled`, `firewall_enabled` and
+`sshd_hardening_enabled`; per-host, non-secret settings
 live in `inventory/host_vars/<hostname>/main.yml`.
 
 `make deploy` is the one-shot entry point: it bootstraps the host, then runs
@@ -117,7 +118,7 @@ Shared by the `*-iac` repos; keep this chain statically resolvable so
 
 ### Image version baseline
 
-Every tag is rendered through role-default vars, each with a
+Every tag is a role constant in `roles/*/vars/`, each with a
 `# renovate: datasource=docker depName=<image>` annotation (see `renovate.json`).
 
 | Component | Registry | Version var |
