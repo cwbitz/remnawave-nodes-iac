@@ -80,7 +80,7 @@ KEYCHAIN_AGENT   := eval "$$($(KEYCHAIN_BIN) agent start --eval --quiet 2>/dev/n
 SSH_AGENT_ENV   ?= $(HOME)/.cache/iac/ssh-agent.env
 SSH_AGENT_RUN   ?= $(CURDIR)/scripts/run-with-ssh-agent.sh
 # Per-project fork: hostvars holding the control-node private-key paths.
-SSH_AGENT_KEY_VARS ?= vault_host_ansible_ssh_privkey_file vault_host_admin_ssh_privkey_file vault_host_root_ssh_privkey_file
+SSH_AGENT_KEY_VARS ?= host_ansible_ssh_privkey_file host_admin_ssh_privkey_file host_root_ssh_privkey_file
 export SSH_AGENT_ENV
 export SSH_AGENT_KEYCHAIN_BIN  := $(KEYCHAIN_BIN)
 export SSH_AGENT_ANS_PLAY      := $(ANS_PLAY)

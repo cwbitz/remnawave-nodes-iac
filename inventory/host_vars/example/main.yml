@@ -6,6 +6,17 @@
 # Every knob is listed with its default; secrets/PII go in the encrypted
 # vault.yml next to it.
 
+# --- SSH connection identities ------------------------------------------------
+# Account name and key paths are non-secret (passwords stay in vault.yml).
+# The optional human `admin` account may be renamed; `ansible` is a fixed name.
+host_admin_username: "admin"
+host_ansible_ssh_pubkey_file: ""
+host_ansible_ssh_privkey_file: ""
+host_admin_ssh_pubkey_file: ""
+host_admin_ssh_privkey_file: ""
+host_root_ssh_pubkey_file: ""
+host_root_ssh_privkey_file: ""
+
 # ==============================================================================
 # NetBird overlay
 # ==============================================================================

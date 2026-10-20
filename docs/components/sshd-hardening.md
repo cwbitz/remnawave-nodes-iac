@@ -16,8 +16,8 @@ role is opted into.
 It is **opt-in per host** (`sshd_hardening_enabled`, off by default): closing
 password login removes the very path the bootstrap probe relies on, so it is only
 safe once a keyed login survives it — the `ansible` service account's key
-(installed by `make host-bootstrap` from `vault_host_ansible_ssh_pubkey_file`),
-or root's key on a root-administered host (`vault_host_root_ssh_pubkey_file` with
+(installed by `make host-bootstrap` from `host_ansible_ssh_pubkey_file`),
+or root's key on a root-administered host (`host_root_ssh_pubkey_file` with
 `sshd_permit_root_login: prohibit-password`).
 
 ## How
