@@ -2,9 +2,10 @@
 # ==============================================================================
 # NetBird agent - mesh join (roles/agent/tasks)
 # ==============================================================================
-# Deploys the NetBird agent container so a host joins the overlay. A routing
-# node (netbird_agent_routing: true) additionally enables IP forwarding, the
-# host-side requirement for a routed-network gateway / exit node.
+# Deploys the NetBird agent container so a host joins the overlay. The agent
+# always serves the NetBird DNS zone through the host's systemd-resolved (the
+# D-Bus socket is mounted into the container for that), and a plain endpoint
+# peer does no IP forwarding.
 # ==============================================================================
 
 - name: "[Agent] Assert the overlay join credentials"
@@ -23,18 +24,6 @@
   ansible.builtin.include_role:
     name: helpers
     tasks_from: install_docker
-
-- name: "[Agent] Enable IP forwarding on a routing node"
-  ansible.posix.sysctl:
-    name: "{{ item }}"
-    value: "1"
-    sysctl_set: true
-    reload: true
-    state: present
-  loop:
-    - net.ipv4.ip_forward
-    - net.ipv6.conf.all.forwarding
-  when: netbird_agent_routing | bool
 
 - name: "[Agent] Ensure the agent stack directory exists"
   ansible.builtin.file:

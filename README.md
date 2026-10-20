@@ -112,9 +112,7 @@ vault_netbird_setup_key: "..."   # this node's enrollment key
 ```
 
 The setup key's auto-group decides which peers the central observability stack
-discovers (`endpoint` by default: route-less, no exit/LAN routes). Set
-`netbird_agent_routing: true` only for a node that routes for a routed
-network / exit node.
+discovers (`endpoint` by default: route-less, no exit/LAN routes).
 
 ## Requirements
 

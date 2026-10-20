@@ -5,8 +5,7 @@
 #   make agent
 #
 # Runs the NetBird agent on the `remnanodes` group so each host becomes a
-# mesh peer; a routing node (netbird_agent_routing: true) additionally has IP
-# forwarding enabled. The setup key (netbird_peer_setup_key) decides the group a peer
+# mesh peer. The setup key (netbird_peer_setup_key) decides the group a peer
 # auto-joins, hence its role in the mesh. Both inputs are owned by this project
 # (see host_vars main.yml and the vault). See roles/agent.
 # ==============================================================================

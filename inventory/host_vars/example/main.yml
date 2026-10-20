@@ -28,13 +28,6 @@
 # default, which grants no exit/LAN routes).
 netbird_management_url: ""   # empty = NetBird Cloud; a self-hosted mesh sets its URL
 netbird_peer_setup_key: "{{ vault_netbird_setup_key }}"
-# The agent also serves the netbird DNS zone on the host (through
-# systemd-resolved over D-Bus); leave true unless the host's resolver must not be
-# touched.
-netbird_dns_manage: true
-# Set true only when this node routes traffic for a routed network / exit node;
-# it enables IPv4/IPv6 forwarding on the host.
-netbird_agent_routing: false
 
 # ==============================================================================
 # Remnawave Node (roles/remnanode)

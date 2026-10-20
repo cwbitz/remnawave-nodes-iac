@@ -14,10 +14,20 @@ read from as source. The setup key's auto-group decides which peers the central
 observability stack discovers — the route-less `endpoint` key (the default) grants
 no exit/LAN routes.
 
-## Routing nodes
+## DNS and routing
 
-`netbird_agent_routing: true` enables IPv4/IPv6 forwarding on the host — the
-host-side requirement for a routed-network gateway / exit node.
+The agent always serves the NetBird DNS zone (`<peer>.netbird.selfhosted`): it
+installs itself as the host resolver through systemd-resolved over D-Bus, and
+falls back to rewriting `/etc/resolv.conf` on hosts without systemd-resolved
+(hence the D-Bus **and** `/etc/resolv.conf` mounts in the agent compose). The host
+therefore resolves peer names — which is what makes a `loki_push_url` like
+`http://<central-peer>.netbird.selfhosted:3100` work — and containers that need
+the zone get it via a `dns: ["<overlay-ip>"]` override (the agent's embedded
+resolver), because Docker's embedded DNS does not forward to the host resolver.
+
+Nodes are plain endpoints: they never enable IP forwarding or act as a
+routed-network gateway / exit node (that is a routing peer's job, outside this
+project's scope).
 
 ## Ownership / convergence
 

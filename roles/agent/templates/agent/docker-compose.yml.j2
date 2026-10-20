@@ -21,12 +21,16 @@ services:
       NB_HOSTNAME: "{{ inventory_hostname }}"
     volumes:
       - netbird_config:/var/lib/netbird
-{% if netbird_dns_manage | default(true) | bool %}
       # The agent's DNS manager talks to the host's systemd-resolved over D-Bus:
-      # without this mount the netbird zone is not resolvable on the host (nor
-      # inside containers that forward to the host stub).
-      - /var/run/dbus:/var/run/dbus
-{% endif %}
+      # it serves the netbird zone (`<peer>.netbird.selfhosted`) on the host and
+      # inside containers that forward to the host stub (e.g. the Panel's
+      # Prometheus). Always mounted — DNS management is not optional.
+      # File-mode DNS (hosts without systemd-resolved): the agent rewrites
+      # /etc/resolv.conf to point at its embedded resolver, so the HOST file has
+      # to be mounted — without this the agent only rewrites the container's
+      # private copy and the host never resolves the netbird zone. With
+      # systemd-resolved present the agent uses D-Bus and the mount is inert.
+      - /etc/resolv.conf:/etc/resolv.conf
 
 volumes:
   netbird_config:
