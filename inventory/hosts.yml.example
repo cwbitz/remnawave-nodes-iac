@@ -2,18 +2,10 @@
 # ==============================================================================
 # Ansible Inventory template (inventory/hosts.yml.example)
 # ==============================================================================
-# Copy to inventory/hosts.yml and replace the host names and addresses. The real
-# hosts.yml is gitignored (real hostnames/IPs); only this example is committed.
-# This file carries topology ONLY — the project-owned baseline variables live in
-# the committed inventory/group_vars/all/main.yml. Host addresses
-# (ansible_host / ansible_port) live here; per-host settings live in
-# inventory/host_vars/<hostname>/main.yml and the shared SSH connection wiring
-# lives in inventory/group_vars/remnanodes/main.yml.
-#
-# Every managed host is a Remnawave proxy Node: it joins the NetBird overlay
-# (roles/agent), installs host monitoring + security (roles/monitoring) and runs
-# the Remnawave Node container (roles/remnanode). The single inventory group
-# `remnanodes` is the play target for every playbook.
+# `make host-init HOST=<name> HOST_IP=<addr>` creates this file and the matching
+# host_vars entry. Topology only: ansible_host/ansible_port per host; per-host
+# settings live in inventory/host_vars/<hostname>/main.yml. `remnanodes` is the
+# single group and every playbook's target.
 # ==============================================================================
 
 # The Remnawave proxy Nodes managed by this project.
