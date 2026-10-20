@@ -53,15 +53,17 @@ crowdsec_enabled: true
 # node_exporter has no knob: it binds the overlay address only (the central
 # Prometheus scrapes it over the mesh; nothing listens locally or publicly).
 # Optionally ship host logs to a central Loki reachable over the overlay
-# (alloy_enabled requires loki_push_url).
+# (alloy_enabled requires loki_push_url): an overlay IP, or preferably the central
+# peer's NetBird name ("http://<peer>.netbird.selfhosted:3100"), which survives a
+# re-enrolled central peer.
 alloy_enabled: false
 loki_push_url: ""
 
 # Journal sources Alloy ships to the central Loki (see
 # roles/monitoring/defaults/main.yml). Raw extra matches go in
-# alloy_journal_extra_matches.
-alloy_log_presets: [ssh, security, kernel, services]
-alloy_journal_extra_matches: []
+# alloy_journal_extra.
+alloy_journal_presets: [ssh, security, kernel, services]
+alloy_journal_extra: []
 
 # ==============================================================================
 # Host firewall (roles/firewall)

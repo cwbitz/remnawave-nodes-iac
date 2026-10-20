@@ -65,12 +65,12 @@
 - name: "[Monitoring] Assert the log presets are known"
   ansible.builtin.assert:
     that:
-      - (alloy_log_presets | default([]) | difference(['ssh', 'security', 'kernel', 'services']) | length) == 0
+      - (alloy_journal_presets | default([]) | difference(['ssh', 'security', 'kernel', 'services']) | length) == 0
     fail_msg: >-
-      Unknown alloy_log_presets: {{
-        alloy_log_presets | default([]) | difference(['ssh', 'security', 'kernel', 'services']) | join(', ')
+      Unknown alloy_journal_presets: {{
+        alloy_journal_presets | default([]) | difference(['ssh', 'security', 'kernel', 'services']) | join(', ')
       }}. Known presets: ssh, security, kernel, services (raw journal matches go in
-      alloy_journal_extra_matches).
+      alloy_journal_extra).
   when: alloy_enabled | bool
 
 - name: "[Monitoring] Ensure the monitoring stack directory exists"
@@ -82,7 +82,9 @@
     mode: "0700"
 
 # The push target is an explicit address, so a re-enrolled central stack can leave
-# it stale and every push fails silently in Alloy. Prove reachability here.
+# it stale and every push fails silently in Alloy. Prove reachability here. The
+# host resolves a NetBird name because the agent manages /etc/resolv.conf (file
+# mode) or systemd-resolved (D-Bus).
 - name: "[Monitoring] Assert the central Loki answers"
   ansible.builtin.uri:
     url: "{{ loki_push_url }}/ready"
@@ -98,12 +100,16 @@
 - name: "[Monitoring] Fail when the central Loki is unreachable"
   ansible.builtin.assert:
     that:
-      - monitoring_loki_probe.status is defined
+      # A connection error leaves status undefined/-1, so a bare `is defined`
+      # would pass on an unreachable or unresolvable target.
+      - (monitoring_loki_probe.status | default(-1)) in [200, 503]
     fail_msg: >-
       {{ loki_push_url }} did not answer from this host ({{ monitoring_loki_probe.msg | default('no response') }}).
-      If the central stack was rebuilt/re-enrolled, its overlay address changed:
-      check the current value there (`ip -4 -o addr show wt0`) and update loki_push_url
-      (or set it to the peer's netbird name where DNS resolves).
+      A re-enrolled central stack changes its overlay address, so prefer
+      loki_push_url with the central peer's NetBird name
+      ("http://<peer>.netbird.selfhosted:3100", resolved by the container through
+      the agent's DNS); an IP literal must be updated there
+      (`ip -4 -o addr show wt0`).
   when:
     - alloy_enabled | bool
     - not ansible_check_mode

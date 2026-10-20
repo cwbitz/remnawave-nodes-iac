@@ -2,8 +2,8 @@
 // Alloy log shipper: host journal -> central Loki over the overlay.
 // Managed by Ansible - do not edit on the target host.
 // ==============================================================================
-// Log sources are selected by `alloy_log_presets` (curated sets, see
-// roles/monitoring/defaults/main.yml) plus raw `alloy_journal_extra_matches`.
+// Log sources are selected by `alloy_journal_presets` (curated sets, see
+// roles/monitoring/defaults/main.yml) plus raw `alloy_journal_extra`.
 //
 // The `host` label is the INVENTORY name, NOT the OS hostname: it has to equal
 // the Prometheus `instance` label, because Grafana's metrics->logs correlation
@@ -35,7 +35,7 @@ loki.relabel "journal" {
   }
 }
 
-{% for preset in alloy_log_presets | default(['ssh', 'security', 'kernel', 'services']) %}
+{% for preset in alloy_journal_presets | default(['ssh', 'security', 'kernel', 'services']) %}
 {%   for match in journal_presets[preset] | default([]) %}
 loki.source.journal "{{ preset }}_{{ loop.index }}" {
   path          = "/var/log/journal"
@@ -46,7 +46,7 @@ loki.source.journal "{{ preset }}_{{ loop.index }}" {
 }
 {%   endfor %}
 {% endfor %}
-{% for match in alloy_journal_extra_matches | default([]) %}
+{% for match in alloy_journal_extra | default([]) %}
 loki.source.journal "extra_{{ loop.index }}" {
   path          = "/var/log/journal"
   matches       = "{{ match }}"

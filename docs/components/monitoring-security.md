@@ -16,7 +16,10 @@
   base firewall**: it only acts on CrowdSec decisions (the base firewall is
   `roles/firewall`, see [`firewall.md`](firewall.md)).
 - `grafana/alloy` (optional, `alloy_enabled`) — ships host journal logs to a
-  central Loki reachable at `loki_push_url` over the overlay.
+  central Loki reachable at `loki_push_url` over the overlay (an overlay IP, or
+  preferably the central peer's NetBird name `<peer>.netbird.selfhosted`, which
+  the alloy container resolves through the agent and which survives a
+  re-enrolled central peer).
 
 The Debian packages self-configure: crowdsec enables `crowdsecurity/linux` +
 `crowdsecurity/sshd` and reads `ssh.service` from journald; the firewall bouncer

@@ -23,8 +23,10 @@ crowdsec_enabled: true
 # run-time fact (overlay_ip) and deliberately not an operator knob.
 
 # --- Log shipping to a central Loki over the overlay (optional) ---------------
-# Requires a central Loki reachable at loki_push_url over the overlay
-# (e.g. "http://100.125.0.5:3100").
+# Requires a central Loki reachable at loki_push_url over the overlay. Accepts an
+# overlay IP ("http://100.125.0.5:3100") or the central peer's NetBird name
+# ("http://<peer>.netbird.selfhosted:3100"); the name is preferred because a
+# re-enrolled central peer changes its overlay IP and would leave it stale.
 alloy_enabled: false
 loki_push_url: ""
 
@@ -34,7 +36,7 @@ loki_push_url: ""
 #   security - CrowdSec decisions + sudo/su usage
 #   kernel   - kernel messages (OOM killer, disk/network errors, link flaps)
 #   services - every unit's err/warning lines (PRIORITY 3 and 4)
-alloy_log_presets: [ssh, security, kernel, services]
+alloy_journal_presets: [ssh, security, kernel, services]
 # Raw extra journal matches (FIELD=VALUE, AND-combined), e.g.:
 #   - "_SYSTEMD_UNIT=docker.service"
-alloy_journal_extra_matches: []
+alloy_journal_extra: []

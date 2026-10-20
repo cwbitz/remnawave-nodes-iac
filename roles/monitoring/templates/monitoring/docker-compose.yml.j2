@@ -8,6 +8,14 @@ services:
     container_name: alloy
     restart: unless-stopped
     user: "0:0"
+{% if (overlay_ip | default('', true) | length) > 0 %}
+    # Resolve a NetBird-name loki_push_url (`<peer>.netbird.selfhosted`) through
+    # the agent's embedded DNS on this host's own overlay address. An IP-literal
+    # loki_push_url needs no resolver, so both forms work; the name survives a
+    # re-enrolled central peer, whose overlay address would go stale.
+    dns:
+      - "{{ overlay_ip }}"
+{% endif %}
     command:
       - run
       - /etc/alloy/config.alloy
