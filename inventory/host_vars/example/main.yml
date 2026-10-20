@@ -7,40 +7,33 @@
 # vault.yml next to it.
 
 # ==============================================================================
-# NetBird overlay (roles/agent)
+# NetBird overlay
 # ==============================================================================
-# The node joins the mesh as a peer. The management server is owned by the
-# sibling netbird-iac project; this project consumes the mesh ONLY through its
-# public interface, so both inputs are owned by THIS project (never read from
-# netbird-iac). The setup key decides which group the peer auto-joins — pick the
-# key whose group the central observability stack discovers (`endpoint` by
-# default, which grants no exit/LAN routes).
+# The node joins the mesh as a peer. Pick a setup key whose group the central
+# observability stack discovers (`endpoint` by default; it grants no exit/LAN
+# routes).
 netbird_management_url: ""   # empty = NetBird Cloud; a self-hosted mesh sets its URL
 netbird_peer_setup_key: "{{ vault_netbird_setup_key }}"
 
 # ==============================================================================
-# Remnawave Node (roles/remnanode)
+# Remnawave Node
 # ==============================================================================
 # Create the Node in the Remnawave Panel, then copy from its generated
 # docker-compose.yml: NODE_PORT here (not a secret) and SECRET_KEY into the vault
-# (vault_remnanode_secret_key). The rest of that file is the committed template
-# roles/remnanode/templates/remnanode/docker-compose.yml.j2.
+# (vault_remnanode_secret_key).
 remnanode_node_port: ""     # e.g. 2222: the port the Panel dials in on
 remnanode_secret_key: "{{ vault_remnanode_secret_key }}"
 
 # ==============================================================================
-# Host monitoring + host security (roles/monitoring; make monitoring)
+# Host monitoring + host security (make monitoring)
 # ==============================================================================
 # prometheus-node-exporter + CrowdSec (+ the nftables firewall bouncer) and the
-# NetBird overlay join, so the central Prometheus/Alloy (sibling docker-stack-iac)
-# scrapes the host over the overlay with no public port. Enabled by default for
-# this group; set monitoring_enabled false to opt out (each component can be
-# disabled on its own as well).
+# NetBird overlay join, so the central Prometheus/Alloy scrapes the host over the
+# overlay with no public port. Enabled by default for this group; set
+# monitoring_enabled false to opt out (each component can be disabled on its own).
 monitoring_enabled: true
 node_exporter_enabled: true
 crowdsec_enabled: true
-# node_exporter has no knob: it binds the overlay address only (the central
-# Prometheus scrapes it over the mesh; nothing listens locally or publicly).
 # Optionally ship host logs to a central Loki reachable over the overlay
 # (alloy_enabled requires loki_push_url): an overlay IP, or preferably the central
 # peer's NetBird name ("http://<peer>.netbird.selfhosted:3100"), which survives a
@@ -48,14 +41,13 @@ crowdsec_enabled: true
 alloy_enabled: false
 loki_push_url: ""
 
-# Journal sources Alloy ships to the central Loki (see
-# roles/monitoring/defaults/main.yml). Raw extra matches go in
+# Journal sources Alloy ships to the central Loki; raw extra matches go in
 # alloy_journal_extra.
 alloy_journal_presets: [ssh, security, kernel, services]
 alloy_journal_extra: []
 
 # ==============================================================================
-# Host firewall (roles/firewall)
+# Host firewall
 # ==============================================================================
 # Default-deny inbound (a dedicated nftables table; enabled by default for this
 # group). SSH, the NetBird overlay and the WireGuard UDP port stay open; NODE_PORT
@@ -71,15 +63,11 @@ firewall_public_udp_ports: []
 firewall_allow_icmp: true
 
 # ==============================================================================
-# SSH hardening (roles/sshd)
+# SSH hardening
 # ==============================================================================
-# Key-only SSH administration: PasswordAuthentication no (plus the PAM
-# keyboard-interactive and empty-password paths), applied as a drop-in in
-# /etc/ssh/sshd_config.d/. OFF by default, because it removes the password path
-# host-bootstrap falls back to: it is only safe once a keyed login survives it —
-# the `ansible` account's key (vault_host_ansible_ssh_pubkey_file), or root's key
-# on a root-administered host — which the role proves and fails the run
-# otherwise.
+# Key-only SSH administration. Enable it only once a keyed login works for
+# `ansible` (or root when that is the only admin path); the role verifies that
+# and fails otherwise.
 sshd_hardening_enabled: false
 # Root SSH policy, independent of the toggle above: "no" disables root SSH;
 # "prohibit-password" keeps root reachable by public key only (needed on a host
@@ -89,14 +77,11 @@ sshd_permit_root_login: "no"
 # ==============================================================================
 # Host bootstrap (make host-bootstrap; NOT part of make deploy)
 # ==============================================================================
-# install_docker false requires a preinstalled Docker. Region-specific mirrors for
-# hosts where the defaults are slow/blocked (e.g. China-based VPS): the security
-# mirror is derived from apt_mirror, and Docker Hub registry mirrors are
-# tried in order.
+# install_docker false requires a preinstalled Docker. Mirrors for hosts where the
+# defaults are slow or blocked; the security repo follows apt_mirror.
 install_docker: true
 apt_mirror: ""
 docker_registry_mirrors: []
-# The APT security repository is derived from apt_mirror (it is not a knob).
 # The optional human 'admin' operator account: console login + sudo, always with
 # a password (generated into vault_host_admin_password when empty) plus any
 # configured public key. Created only when enabled.

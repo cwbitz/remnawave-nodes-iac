@@ -34,14 +34,14 @@ vault_host_ansible_password: ""
 vault_host_ansible_ssh_privkey_file: "~/.ssh/id_ed25519_ansible"
 vault_host_ansible_ssh_pubkey_file: ""
 
-# --- NetBird overlay (roles/agent) -------------------------------------------
+# --- NetBird overlay --------------------------------------------------------
 # This node's enrollment setup key; the management URL is non-secret and lives in
 # main.yml. The key decides which NetBird group the peer auto-joins, hence what
 # the central observability stack discovers (`endpoint` grants no exit/LAN
 # routes).
 vault_netbird_setup_key: ""
 
-# --- Remnawave Node (roles/remnanode) ----------------------------------------
+# --- Remnawave Node ---------------------------------------------------------
 # The Node's SECRET_KEY, copied from the docker-compose.yml the Panel generates
 # when the Node is created. It is a live credential: the Panel authenticates the
 # Node with it. (NODE_PORT is non-secret; set it in main.yml.)
