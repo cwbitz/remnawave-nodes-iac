@@ -2,20 +2,9 @@
 # ==============================================================================
 # Per-host configuration (inventory/host_vars/example/main.yml)
 # ==============================================================================
-# `make host-init` copies this file (comment-free) to
-# inventory/host_vars/<hostname>/main.yml, so the values below ARE the defaults a
-# new host starts with: they mirror the effective project defaults (group_vars
-# wins over the role default) and every operator knob is present. Change what you
-# need; nothing else is required.
-#
-# Only example/ is committed (real <hostname>/ directories are gitignored).
-# Secrets/PII go in the encrypted vault.yml next to it; the shared SSH connection
-# wiring lives in inventory/group_vars/remnanodes/main.yml.
-#
-# A knob whose absence is meaningful (its default is derived from another
-# variable at run time — see apt_security_mirror) is documented here but
-# stays commented out, so the derivation still applies. `scripts/audit_example_knobs.py`
-# enforces all of this (run by `make lint`).
+# `make host-init` copies this file to inventory/host_vars/<hostname>/main.yml.
+# Every knob is listed with its default; secrets/PII go in the encrypted
+# vault.yml next to it.
 
 # ==============================================================================
 # NetBird overlay (roles/agent)
@@ -104,9 +93,7 @@ sshd_permit_root_login: "no"
 install_docker: true
 apt_mirror: ""
 docker_registry_mirrors: []
-# [DERIVED — leave commented] Defaults to the security repo derived from
-# apt_mirror; setting it (even empty) disables that derivation.
-# apt_security_mirror: "https://security.debian.org/debian-security"
+# The APT security repository is derived from apt_mirror (it is not a knob).
 # The optional human 'admin' operator account: console login + sudo, always with
 # a password (generated into vault_host_admin_password when empty) plus any
 # configured public key. Created only when enabled.
