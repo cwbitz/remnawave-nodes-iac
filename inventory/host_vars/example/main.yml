@@ -111,9 +111,6 @@ docker_registry_mirrors: []
 # a password (generated into vault_host_admin_password when empty) plus any
 # configured public key. Created only when enabled.
 create_admin_account: false
-# Escape hatches: run the deploy as root instead of the service account (not
-# recommended); pin the service-account password instead of generating one; grant
-# the automation account passwordless sudo.
+# Escape hatch: run the deploy as root instead of the service account (not
+# recommended).
 allow_root_login: false
-bootstrap_password: ""
-bootstrap_sudo_nopasswd: true

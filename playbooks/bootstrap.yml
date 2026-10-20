@@ -15,8 +15,8 @@
 # authorized for that account. Unset is ignored (keys are never generated).
 #
 # The `ansible` account uses key auth when vault_host_ansible_ssh_pubkey_file is set;
-# otherwise a password is set (bootstrap_password, else generated into
-# vault_host_ansible_password). Passwords are hashed with a per-account random salt
+# otherwise a password is set from vault_host_ansible_password (generated into
+# vault.yml when absent). Passwords are hashed with a per-account random salt
 # and applied with update_password=on_create, so re-runs are idempotent and a
 # host-side password rotation is preserved. If sshd disables password auth,
 # login fails (sshd config is out of scope).
@@ -299,16 +299,6 @@
           - var: "vault_host_ansible_password"
             type: "base64"
             length: 18
-      when:
-        - not (bootstrap_use_key | bool)
-        - (bootstrap_password | default('', true) | length) == 0
-
-    - name: "[Bootstrap] Resolve the effective service-account password"
-      ansible.builtin.set_fact:
-        bootstrap_password_final: >-
-          {{ bootstrap_password
-             if (bootstrap_password | default('', true) | length > 0)
-             else (vault_host_ansible_password | default('', true)) }}
       when: not (bootstrap_use_key | bool)
 
     # Password mode only (no key supplied): hash with a per-account RANDOM salt
@@ -324,7 +314,7 @@
         create_home: true
         state: present
         password: >-
-          {{ (bootstrap_password_final | password_hash('sha512'))
+          {{ (vault_host_ansible_password | password_hash('sha512'))
              if not (bootstrap_use_key | bool) else omit }}
         update_password: on_create
       no_log: true
@@ -487,7 +477,6 @@
         mode: "0440"
         validate: "visudo -cf %s"
       loop: "{{ bootstrap_sudo_nopasswd_users }}"
-      when: bootstrap_sudo_nopasswd | default(true) | bool
 
     - name: "[Bootstrap] Grant the admin account password sudo"
       ansible.builtin.copy:

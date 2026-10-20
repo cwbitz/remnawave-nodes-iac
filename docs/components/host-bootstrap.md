@@ -28,8 +28,8 @@ The `ansible` / `admin` / `root` aliases are derived per host in
 value schema is `inventory/host_vars/example/vault.yml.example`.
 
 A private-key path alone is **not** key mode: the account still gets a password
-(unless `bootstrap_password` is set) so an unauthorized key cannot lock you
-out; it becomes key-only once its **public**-key path is set.
+(from `vault_host_ansible_password`, generated when empty) so an unauthorized key
+cannot lock you out; it becomes key-only once its **public**-key path is set.
 
 `create_admin_account: true` additionally creates the optional human `admin` account
 (console login + sudo), which always gets a password plus any configured key.

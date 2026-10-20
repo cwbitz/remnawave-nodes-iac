@@ -61,7 +61,6 @@ DERIVED = {"apt_security_mirror"}
 # presence as an ACTIVE line required; the values are the documented defaults.
 EXTRA = {
     "apt_mirror", "docker_registry_mirrors", "allow_root_login",
-    "bootstrap_password", "bootstrap_sudo_nopasswd",
 }
 
 KEY_RE = re.compile(r"^\s*([A-Za-z_][A-Za-z0-9_]*):\s*(.*)$")

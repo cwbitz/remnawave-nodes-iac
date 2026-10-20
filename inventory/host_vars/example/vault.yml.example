@@ -15,8 +15,9 @@
 # are never generated). Paths only, never raw key strings.
 #
 # A private-key-only identity is NOT key mode: the account still gets a password
-# (bootstrap_password, else generated here) so an unauthorized key cannot
-# lock you out. An identity becomes key-only once its public-key path is set.
+# (from vault_host_ansible_password, generated here when left empty) so an
+# unauthorized key cannot lock you out. An identity becomes key-only once its
+# public-key path is set.
 vault_host_root_password: ""
 vault_host_root_ssh_privkey_file: "~/.ssh/id_ed25519"
 vault_host_root_ssh_pubkey_file: ""
