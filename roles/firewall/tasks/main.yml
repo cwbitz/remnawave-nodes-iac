@@ -13,6 +13,64 @@
 # the run loudly instead of silently locking the host out.
 # ==============================================================================
 
+# Validate everything BEFORE touching the live ruleset: the retire steps below
+# remove the previous table, so a bad port spec must fail while the host is still
+# protected by the rules it already has.
+- name: "[Firewall] Assert the nft binary is available"
+  ansible.builtin.command: "{{ firewall_nft }} --version"
+  register: firewall_nft_version
+  changed_when: false
+  check_mode: false
+  failed_when: false
+
+- name: "[Firewall] Fail when nft is missing"
+  ansible.builtin.assert:
+    that:
+      - firewall_nft_version.rc | default(1) == 0
+    fail_msg: >-
+      nftables is required by the host firewall but the `nft` binary is missing
+      on {{ inventory_hostname }}. Install the `nftables` package (it also ships
+      CrowdSec's firewall bouncer) and re-run.
+
+- name: "[Firewall] Assert the public port knobs are lists"
+  ansible.builtin.assert:
+    that:
+      - firewall_public_tcp_ports is sequence
+      - firewall_public_tcp_ports is not string
+      - firewall_public_udp_ports is sequence
+      - firewall_public_udp_ports is not string
+    fail_msg: >-
+      firewall_public_tcp_ports / firewall_public_udp_ports must be YAML lists
+      whose entries are a port or a `start-end` range, e.g. ["443"] and
+      ["20000-20100"].
+
+# Each public port knob takes a single port or a `start-end` range (the same
+# syntax the Panel's inbound port uses, e.g. `["443", "20000-20100"]`). Normalize
+# to strings for validation, then let nftables render the ranges natively.
+- name: "[Firewall] Normalize the public port specs"
+  ansible.builtin.set_fact:
+    firewall_public_tcp_specs: "{{ firewall_public_tcp_ports | map('string') | list }}"
+    firewall_public_udp_specs: "{{ firewall_public_udp_ports | map('string') | list }}"
+
+- name: "[Firewall] Assert the port knobs are valid"
+  ansible.builtin.assert:
+    that:
+      - firewall_ssh_port | int >= 1
+      - firewall_ssh_port | int <= 65535
+      - firewall_netbird_wg_port | int >= 1
+      - firewall_netbird_wg_port | int <= 65535
+      - item is match('^[0-9]+(-[0-9]+)?$')
+      - (item.split('-') | first | int) >= 1
+      - (item.split('-') | last | int) <= 65535
+      - (item.split('-') | length) == 1 or (item.split('-') | first | int) <= (item.split('-') | last | int)
+    fail_msg: >-
+      firewall_public_*_ports entries must be a single port (1-65535) or a
+      `start-end` range with start <= end; got {{ item }}. Also check ssh={{
+      firewall_ssh_port }} and netbird_wg={{ firewall_netbird_wg_port }}.
+  loop: "{{ firewall_public_tcp_specs + firewall_public_udp_specs }}"
+  loop_control:
+    label: "{{ item }}"
+
 - name: "[Firewall] Stop the previous unit"
   ansible.builtin.systemd_service:
     name: "{{ item }}"
@@ -41,39 +99,6 @@
   changed_when: true
   failed_when: false
   when: not ansible_check_mode
-
-- name: "[Firewall] Assert the nft binary is available"
-  ansible.builtin.command: "{{ firewall_nft }} --version"
-  register: firewall_nft_version
-  changed_when: false
-  check_mode: false
-  failed_when: false
-
-- name: "[Firewall] Fail when nft is missing"
-  ansible.builtin.assert:
-    that:
-      - firewall_nft_version.rc | default(1) == 0
-    fail_msg: >-
-      nftables is required by the host firewall but the `nft` binary is missing
-      on {{ inventory_hostname }}. Install the `nftables` package (it also ships
-      CrowdSec's firewall bouncer) and re-run.
-
-- name: "[Firewall] Assert the port knobs are valid ports"
-  ansible.builtin.assert:
-    that:
-      - firewall_ssh_port | int >= 1
-      - firewall_ssh_port | int <= 65535
-      - firewall_netbird_wg_port | int >= 1
-      - firewall_netbird_wg_port | int <= 65535
-      - (firewall_public_tcp_ports | map('int') | select('lt', 1) | list | length) == 0
-      - (firewall_public_tcp_ports | map('int') | select('gt', 65535) | list | length) == 0
-      - (firewall_public_udp_ports | map('int') | select('lt', 1) | list | length) == 0
-      - (firewall_public_udp_ports | map('int') | select('gt', 65535) | list | length) == 0
-    fail_msg: >-
-      firewall_ports must be 1-65535: ssh={{ firewall_ssh_port }},
-      netbird_wg={{ firewall_netbird_wg_port }},
-      public_tcp={{ firewall_public_tcp_ports }},
-      public_udp={{ firewall_public_udp_ports }}.
 
 - name: "[Firewall] Ensure the nftables config directory exists"
   ansible.builtin.file:

@@ -61,6 +61,9 @@ alloy_journal_extra: []
 # group). SSH, the NetBird overlay and the WireGuard UDP port stay open; NODE_PORT
 # and everything else are reachable only over the overlay. The Panel owns the Xray
 # inbounds, so declare the ports it pushes here (empty = no proxy service yet).
+# Each entry is a single port or a `start-end` range, so the Panel's own value can
+# be copied verbatim, e.g. ["443"] and ["20000-20100"]. The two projects are
+# decoupled: keep these in step with the Panel's inbound ports by hand.
 firewall_enabled: true
 firewall_ssh_port: "{{ ansible_port | default(22) | int }}"
 firewall_public_tcp_ports: []

@@ -27,9 +27,12 @@ firewall_enabled: false
 firewall_ssh_port: "{{ ansible_port | default(22) | int }}"
 
 # Public ports the Node must serve beyond the overlay: the Xray inbounds the
-# Panel pushes (it owns them; this project does not know them in advance). List
-# the ones you actually expose, e.g. `[443]` / `[443, 8443]`. Empty = overlay +
-# SSH only (no proxy service yet).
+# Panel pushes (it owns them; this project does not know them in advance). Each
+# entry is a single port or a `start-end` range — use the Panel's own syntax
+# verbatim, e.g. `["443"]`, `["20000-20100"]` or `["443", "8443-8450"]`. The
+# firewall renders ranges with nftables' native interval syntax; keep the values
+# in step with the Panel by hand (the projects are deliberately decoupled).
+# Empty = overlay + SSH only (no proxy service yet).
 firewall_public_tcp_ports: []
 firewall_public_udp_ports: []
 

@@ -31,7 +31,7 @@ A **dedicated nftables table** (`inet basefw`) with an `input` hook, policy
 | `ct state established,related` | replies to host-initiated flows (mesh management, DNS, image pulls, apt) |
 | `icmp`/`ipv6-icmp` | path-MTU discovery, diagnostics (`firewall_allow_icmp`) |
 | `tcp <ssh>` | SSH (`firewall_ssh_port`, defaults to the inventory `ansible_port`, then 22) |
-| `tcp`/`udp <public_ports>` | the Xray inbounds the Panel pushes (`firewall_public_tcp_ports` / `..._udp_ports`) |
+| `tcp`/`udp <public_ports>` | the Xray inbounds the Panel pushes (`firewall_public_tcp_ports` / `..._udp_ports`; single ports and `start-end` ranges) |
 
 The overlay and the WireGuard port are accepted **before** any conntrack-state
 rule, and there is no `ct state invalid drop`: the kernel's WireGuard bypasses the
@@ -64,6 +64,13 @@ Operator knobs live in `inventory/host_vars/<host>/main.yml` (see
 - `firewall_public_tcp_ports` / `firewall_public_udp_ports` — the Xray
   inbounds the Panel pushes. **The Panel owns these ports**, so this project cannot
   derive them; declare the ones you actually expose (empty = no proxy service yet).
+  Each entry is either a single port or a `start-end` range, the same syntax the
+  Panel uses, so its value can be copied verbatim — e.g. `["443"]` for REALITY and
+  `["20000-20100"]` for the HY2 range (matching `remnawave_hy2_port` in
+  `docker-stack-iac`). The range is rendered with nftables' native interval
+  syntax (`udp dport { 20000-20100 }`), not expanded into one rule per port. The
+  two projects are deliberately decoupled, so keep the values in step by hand when
+  the Panel's inbound ports change.
 - `firewall_ssh_port` / `firewall_allow_icmp` — overrides. The overlay interface
   and WireGuard port mirror the NetBird client's own defaults, so they are role
   constants (`roles/firewall/vars/main.yml`), not operator knobs.
@@ -75,6 +82,9 @@ Operator knobs live in `inventory/host_vars/<host>/main.yml` (see
   `nft -c` *before* applying: a bad ruleset fails the start and never loads, so it
   cannot leave the host unfirewalled. The unit reloads only when the rendered
   ruleset differs.
+- Port knobs are validated (list shape, `port` / `start-end` syntax, 1–65535,
+  `start <= end`) **before** the role stops or retires the previous ruleset, so a
+  typo fails while the host is still protected by its existing table.
 - It never enables Debian's `nftables.service` (whose stock config does
   `flush ruleset`, which would race with Docker/CrowdSec/NetBird at boot).
 - SSH is always allowed and the role re-checks reachability

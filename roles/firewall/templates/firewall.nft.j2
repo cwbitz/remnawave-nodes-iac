@@ -44,13 +44,14 @@ table inet {{ firewall_table }} {
 
 		# SSH (CrowdSec's firewall bouncer handles the brute force).
 		tcp dport {{ firewall_ssh_port | int }} accept
-{% if firewall_public_tcp_ports | length > 0 %}
+{% if firewall_public_tcp_specs | length > 0 %}
 
-		# Xray inbounds the Panel pushes (operator-declared).
-		tcp dport { {{ firewall_public_tcp_ports | map('int') | join(', ') }} } accept
+		# Xray inbounds the Panel pushes (operator-declared; single ports and
+		# `start-end` ranges, rendered with nftables' native interval syntax).
+		tcp dport { {{ firewall_public_tcp_specs | join(', ') }} } accept
 {% endif %}
-{% if firewall_public_udp_ports | length > 0 %}
-		udp dport { {{ firewall_public_udp_ports | map('int') | join(', ') }} } accept
+{% if firewall_public_udp_specs | length > 0 %}
+		udp dport { {{ firewall_public_udp_specs | join(', ') }} } accept
 {% endif %}
 
 		# Everything else inbound: dropped (counted, for debugging).
