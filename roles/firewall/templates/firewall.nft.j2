@@ -42,12 +42,11 @@ table inet {{ firewall_table }} {
 		meta l4proto { icmp, ipv6-icmp } accept
 {% endif %}
 
-		# SSH (CrowdSec's firewall bouncer handles the brute force).
-		tcp dport {{ firewall_ssh_port | int }} accept
 {% if firewall_public_tcp_specs | length > 0 %}
 
-		# Xray inbounds the Panel pushes (operator-declared; single ports and
-		# `start-end` ranges, rendered with nftables' native interval syntax).
+		# Public TCP ports: the SSH/admin port plus the Xray inbounds the Panel
+		# pushes (operator-declared; single ports and `start-end` ranges, rendered
+		# with nftables' native interval syntax).
 		tcp dport { {{ firewall_public_tcp_specs | join(', ') }} } accept
 {% endif %}
 {% if firewall_public_udp_specs | length > 0 %}

@@ -1,13 +1,4 @@
 ---
-# ==============================================================================
-# NetBird agent - mesh join (roles/agent/tasks)
-# ==============================================================================
-# Deploys the NetBird agent container so a host joins the overlay. The agent
-# always serves the NetBird DNS zone through the host's systemd-resolved (the
-# D-Bus socket is mounted into the container for that), and a plain endpoint
-# peer does no IP forwarding.
-# ==============================================================================
-
 - name: "[Agent] Assert the overlay join credentials"
   ansible.builtin.assert:
     that:
@@ -33,9 +24,6 @@
     group: root
     mode: "0700"
 
-# The agent runs in this role's own compose project: a `netbird` container owned by
-# a DIFFERENT compose project is removed first (ours is left alone), so taking over
-# ownership converges.
 - name: "[Agent] Inspect any existing overlay container"
   community.docker.docker_container_info:
     name: netbird

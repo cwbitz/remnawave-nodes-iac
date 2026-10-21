@@ -1,42 +1,8 @@
 ---
-# ==============================================================================
-# Role defaults (roles/monitoring/defaults/main.yml)
-# ==============================================================================
-# Optional VPS host monitoring + host security (Debian-family, apt-based) plus
-# the NetBird overlay agent (roles/agent, included so the central Prometheus/Alloy
-# can reach the host over the overlay). Opt-in: set `monitoring_enabled: true` in
-# inventory/host_vars/<host>/main.yml (the remnanodes group sets it by
-# default). When false the role is skipped.
-# The rendered compose dir and the pinned Alloy image (monitoring_dir,
-# alloy_version) are role constants in vars/main.yml.
-
 monitoring_enabled: false
-
-# Components (each independently disableable). Node exporter and CrowdSec; the
-# nftables firewall bouncer ships with CrowdSec.
-node_exporter_enabled: true
-crowdsec_enabled: true
-
-# node_exporter binds exactly ONE address: the host's overlay address on the
-# standard port (roles/monitoring/vars/main.yml). There is no local or public
-# listener — the central Prometheus scrapes it over the mesh — so the address is a
-# run-time fact (overlay_ip) and deliberately not an operator knob.
-
-# --- Log shipping to a central Loki over the overlay (optional) ---------------
-# Requires a central Loki reachable at loki_push_url over the overlay. Accepts an
-# overlay IP ("http://100.125.0.5:3100") or the central peer's NetBird name
-# ("http://<peer>.netbird.selfhosted:3100"); the name is preferred because a
-# re-enrolled central peer changes its overlay IP and would leave it stale.
+node_exporter_enabled: false
+crowdsec_enabled: false
 alloy_enabled: false
 loki_push_url: ""
-
-# --- Log shipping (alloy_enabled) ---------------------------------------------
-# Curated journal presets to ship to the central Loki:
-#   ssh      - sshd/ssh auth events (login attempts, brute force)
-#   security - CrowdSec decisions + sudo/su usage
-#   kernel   - kernel messages (OOM killer, disk/network errors, link flaps)
-#   services - every unit's err/warning lines (PRIORITY 3 and 4)
 alloy_journal_presets: [ssh, security, kernel, services]
-# Raw extra journal matches (FIELD=VALUE, AND-combined), e.g.:
-#   - "_SYSTEMD_UNIT=docker.service"
-alloy_journal_extra: []
+alloy_journal_extras: []

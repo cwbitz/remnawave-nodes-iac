@@ -3,7 +3,7 @@
 // Managed by Ansible - do not edit on the target host.
 // ==============================================================================
 // Log sources are selected by `alloy_journal_presets` (curated sets, see
-// roles/monitoring/defaults/main.yml) plus raw `alloy_journal_extra`.
+// roles/monitoring/defaults/main.yml) plus raw `alloy_journal_extras`.
 //
 // The `host` label is the INVENTORY name, NOT the OS hostname: it has to equal
 // the Prometheus `instance` label, because Grafana's metrics->logs correlation
@@ -46,7 +46,7 @@ loki.source.journal "{{ preset }}_{{ loop.index }}" {
 }
 {%   endfor %}
 {% endfor %}
-{% for match in alloy_journal_extra | default([]) %}
+{% for match in alloy_journal_extras | default([]) %}
 loki.source.journal "extra_{{ loop.index }}" {
   path          = "/var/log/journal"
   matches       = "{{ match }}"

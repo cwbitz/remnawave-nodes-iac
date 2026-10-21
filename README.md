@@ -28,7 +28,7 @@ management URL + a setup key for the overlay).
 │  remnanode (Xray-core)          netbird agent          host security       │
 │   network_mode: host   ───────  joins the overlay  ─── node_exporter       │
 │   listens on NODE_PORT          (wt0)                  CrowdSec + bouncer  │
-│   firewall: default-deny inbound (only SSH / wt0 / WireGuard open)         │
+│   firewall: default-deny inbound (declared ports / wt0 / WireGuard only)   │
 │        ▲                                                                   │
 └────────┼───────────────────────────────────────────────────────────────────┘
          │ Panel -> Node internal API (NODE_PORT, SECRET_KEY)
@@ -36,8 +36,8 @@ management URL + a setup key for the overlay).
 ```
 
 1. **Host bootstrap** (`playbooks/bootstrap.yml`, `make host-bootstrap`): probes
-   the SSH identities `ansible → admin → root`, creates the least-privilege
-   `ansible` service account (NOPASSWD sudo) when needed, and installs Docker
+   the SSH identities `iac → admin → root`, creates the
+   least-privilege `iac` automation account (NOPASSWD sudo) when needed, and installs Docker
    Engine + the Compose v2 plugin. Optionally sets APT/Docker registry mirrors.
 2. **Overlay + monitoring** (`roles/monitoring`, which includes `roles/agent`):
    installs `prometheus-node-exporter`, `crowdsec` and the
@@ -46,9 +46,10 @@ management URL + a setup key for the overlay).
    port.
 3. **Host firewall** (`roles/firewall`): a default-deny inbound base firewall (a
    dedicated nftables table), so `NODE_PORT` — and everything else — is reachable
-   only over the overlay. SSH, the overlay and the WireGuard UDP port stay open.
+   only over the overlay. The overlay, the WireGuard UDP port and the declared
+   public ports (the SSH/admin port included) stay open.
 4. **SSH hardening** (`roles/sshd`, opt-in): a drop-in that closes password login
-   and applies `sshd_permit_root_login` (key-only administration via the `ansible`
+   and applies `sshd_permit_root_login` (key-only administration via the `iac`
    key; `no` by default), verified against the effective configuration and rolled
    back when the key login cannot be proven.
 5. **Remnawave Node** (`roles/remnanode`): renders `/opt/remnanode/docker-compose.yml`
@@ -117,7 +118,7 @@ discovers (`endpoint` by default: route-less, no exit/LAN routes).
 ## Requirements
 
 - A fresh **Debian 13** VPS reachable over SSH as `root` (only `root` is required
-  initially; the bootstrap creates the `ansible` service account). No Docker and
+  initially; the bootstrap creates the `iac` automation account). No Docker and
   no prior system update are needed.
 - On the control node: `mise` or `asdf`, `openssl`, and SSH access to the host.
   `sshpass` is only needed for the `make host-bootstrap` password probe and is
@@ -149,7 +150,7 @@ make deploy
 ```
 
 `make deploy` is the one-shot entry point: it bootstraps the host, then deploys
-the node stack (`playbooks/site.yml`). On a fresh host the `ansible` service
+the node stack (`playbooks/site.yml`). On a fresh host the `iac` automation
 account does not exist yet, so `deploy` runs the same host bootstrap as
 `make host-bootstrap` first.
 
@@ -157,7 +158,7 @@ account does not exist yet, so `deploy` runs the same host bootstrap as
 
 | Target | Playbook | What it does |
 |---|---|---|
-| `make host-bootstrap` | `bootstrap.yml` | Probe SSH identities, create the `ansible` account, install Docker. `HOST=<name>` targets one host. |
+| `make host-bootstrap` | `bootstrap.yml` | Probe SSH identities, create the `iac` account, install Docker. `HOST=<name>` targets one host. |
 | `make agent` | `agent.yml` | Join the nodes to the NetBird overlay only. |
 | `make monitoring` | `monitoring.yml` | node_exporter + CrowdSec + firewall bouncer (+ overlay agent). |
 | `make deploy` | `bootstrap.yml` + `site.yml` | Full node stack: monitoring/agent + Remnawave Node. |
@@ -193,7 +194,7 @@ encrypted; the committed schema reference is
 ## Layout
 
 ```
-inventory/                # hosts.yml(.example), group_vars/{all,remnanodes}, host_vars/example
+inventory/                # hosts.yml(.example), group_vars/{all}, host_vars/example
 playbooks/bootstrap.yml   # host init: service account + Docker (+ mirrors)
 playbooks/agent.yml       # join the NetBird overlay (agent role)
 playbooks/monitoring.yml  # host monitoring + security

@@ -6,8 +6,10 @@ via `make agent`, or as part of `roles/monitoring` / `site.yml`.
 
 ## Inputs (owned by this project)
 
-- `netbird_management_url` — non-secret; host `main.yml` (empty = NetBird Cloud).
-- `netbird_peer_setup_key` — from `vault_netbird_setup_key`; this node's enrollment key.
+- `netbird_management_url` — non-secret; host `main.yml` (full URL with scheme and
+  no trailing slash, e.g. `https://netbird.example.com`; empty = NetBird Cloud).
+- `netbird_peer_setup_key` — this node's enrollment key, resolved by
+  `roles/agent/defaults` from `vault_netbird_setup_key` (never set in `main.yml`).
 
 The management server is owned by the sibling `netbird-iac` project and is never
 read from as source. The setup key's auto-group decides which peers the central

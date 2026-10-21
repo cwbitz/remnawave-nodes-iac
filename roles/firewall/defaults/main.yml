@@ -1,40 +1,5 @@
 ---
-# ==============================================================================
-# Host firewall - role defaults (roles/firewall/defaults/main.yml)
-# ==============================================================================
-# Default-deny inbound for the Node host: the Remnawave Node publishes NODE_PORT
-# on `network_mode: host` (0.0.0.0), and the Panel dials it over the NetBird
-# overlay, so the port must be reachable on the overlay and nowhere else. The
-# CrowdSec firewall bouncer only enforces CrowdSec decisions, so it is not a base
-# firewall; this role is.
-#
-# Applied through a DEDICATED nftables table (never `flush ruleset`), so it
-# coexists with Docker (ip filter/nat), CrowdSec (ip crowdsec), NetBird
-# (ip netbird) and the Node's own table (ip remnanode). The FORWARD path is left
-# alone (Docker/NetBird own it).
-#
-# Opt-in per host: set `firewall_enabled: true` (the remnanodes group does)
-# in inventory/host_vars/<host>/main.yml.
-
 firewall_enabled: false
-
-# The overlay interface and its WireGuard port are properties of the NetBird
-# client, not of this project: the agent container is started with the client's
-# own defaults (the role passes neither `--interface` nor `--wireguard-port`), so
-# both are role constants in vars/main.yml rather than operator knobs.
-
-# The SSH port to keep open. Defaults to the inventory's ansible_port, then 22.
-firewall_ssh_port: "{{ ansible_port | default(22) | int }}"
-
-# Public ports the Node must serve beyond the overlay: the Xray inbounds the
-# Panel pushes (it owns them; this project does not know them in advance). Each
-# entry is a single port or a `start-end` range — use the Panel's own syntax
-# verbatim, e.g. `["443"]`, `["20000-20100"]` or `["443", "8443-8450"]`. The
-# firewall renders ranges with nftables' native interval syntax; keep the values
-# in step with the Panel by hand (the projects are deliberately decoupled).
-# Empty = overlay + SSH only (no proxy service yet).
-firewall_public_tcp_ports: []
+firewall_public_tcp_ports: ["22"]
 firewall_public_udp_ports: []
-
-# Accept ICMP/ICMPv6 (path-MTU discovery, diagnostics).
 firewall_allow_icmp: true

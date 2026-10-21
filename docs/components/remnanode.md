@@ -9,7 +9,9 @@ Created in the Panel (**Nodes → Management**, then **Copy docker-compose.yml**
 Only two values are needed:
 
 - `remnanode_node_port` — the `NODE_PORT` value (non-secret; host `main.yml`).
-- `remnanode_secret_key` ← `vault_remnanode_secret_key` — the `SECRET_KEY` value.
+- `remnanode_secret_key` — the `SECRET_KEY` value, resolved by
+  `roles/remnanode/defaults` from `vault_remnanode_secret_key` (never set in
+  `main.yml`).
 
 The role asserts a valid 1–65535 `NODE_PORT` and a non-empty `SECRET_KEY`, renders
 `roles/remnanode/templates/remnanode/docker-compose.yml.j2` to

@@ -1,17 +1,37 @@
 ---
-# ==============================================================================
-# Project-owned baseline for EVERY managed host
-# (inventory/group_vars/all/main.yml)
-# ==============================================================================
-# Committed, project-owned values that are not operator input. Topology lives in
-# inventory/hosts.yml (local-only), per-host settings in
-# inventory/host_vars/<hostname>/, and the shared connection wiring in the
-# committed inventory/group_vars/remnanodes/main.yml.
-# ==============================================================================
-
-# Supported ansible-core range for the control node; the preflight asserts the
-# running engine is within [min, max). Set ansible_core_allow_untested=true to
-# bypass for an untested newer engine.
 ansible_core_min_version: "2.19.0"
 ansible_core_max_version: "2.20.0"
 ansible_core_allow_untested: false
+
+ssh_identities:
+  iac:
+    user: "iac"
+    password: "{{ vault_host_iac_password | default('', true) }}"
+    privkey: "{{ host_iac_ssh_privkey_file | default('', true) }}"
+    pubkey: "{{ host_iac_ssh_pubkey_file | default('', true) }}"
+    become: true
+  admin:
+    user: "{{ host_admin_username | default('admin', true) }}"
+    password: "{{ vault_host_admin_password | default('', true) }}"
+    privkey: "{{ host_admin_ssh_privkey_file | default('', true) }}"
+    pubkey: "{{ host_admin_ssh_pubkey_file | default('', true) }}"
+    become: true
+  root:
+    user: "root"
+    password: "{{ vault_host_root_password | default('', true) }}"
+    privkey: "{{ host_root_ssh_privkey_file | default('', true) }}"
+    pubkey: "{{ host_root_ssh_pubkey_file | default('', true) }}"
+    become: false
+
+ssh_identity: "{{ ssh_identities['iac'] }}"
+ssh_user: "{{ ssh_identity.user }}"
+ssh_password: "{{ ssh_identity.password }}"
+ssh_privkey_file: "{{ ssh_identity.privkey }}"
+ssh_become: "{{ ssh_identity.become }}"
+ssh_common_args: "-o PreferredAuthentications=publickey,password -o NumberOfPasswordPrompts=1"
+
+ansible_user: "{{ ssh_user }}"
+ansible_password: "{{ ssh_password }}"
+ansible_ssh_private_key_file: "{{ ssh_privkey_file }}"
+ansible_become: "{{ ssh_become }}"
+ansible_ssh_common_args: "{{ ssh_common_args }}"

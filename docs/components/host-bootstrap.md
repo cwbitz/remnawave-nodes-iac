@@ -6,10 +6,10 @@ host at a time.
 
 ## What it does
 
-1. **Probes the SSH identities** `[ansible, admin, root]` (key first, then
-   password) and uses the first that works.
-2. **Creates/repairs the `ansible` service account** with NOPASSWD sudo, unless it
-   already connected as `ansible`. Password mode hashes with a per-account random
+1. **Probes the SSH identities** `[iac, admin, root]` (key first,
+   then password) and uses the first that works.
+2. **Creates/repairs the `iac` automation account** with NOPASSWD sudo, unless it
+   already connected as `iac`. Password mode hashes with a per-account random
    salt and applies `update_password=on_create`, so re-runs are idempotent and a
    host-side rotation is preserved. If sshd disables password auth, password login
    fails (sshd config is out of scope).
@@ -17,18 +17,19 @@ host at a time.
    `helpers/install_docker` task (Docker's official install script,
    `https://get.docker.com`). `install_docker: false` skips the install and fails
    with guidance when Docker is missing.
-4. **Optionally sets mirrors** (each a no-op unless set): `apt_mirror` /
-   `apt_security_mirror` (derived) and `docker_registry_mirrors`.
-5. **Authorizes configured SSH public keys** (`vault_<id>_ssh_pubkey_file`).
+4. **Optionally sets mirrors** (each a no-op unless set): `apt_mirror` (the
+   security suite derives from it) and `docker_registry_mirrors`.
+5. **Authorizes configured SSH public keys** (`host_<id>_ssh_pubkey_file` in the
+   host's `main.yml`).
 
 ## Identity wiring
 
-The `ansible` / `admin` / `root` aliases are derived per host in
-`inventory/group_vars/remnanodes/main.yml` from that host's own vault; the
+The `iac` / `admin` / `root` aliases are derived per host in
+`inventory/group_vars/all/main.yml` from that host's own vault; the
 value schema is `inventory/host_vars/example/vault.yml.example`.
 
 A private-key path alone is **not** key mode: the account still gets a password
-(from `vault_host_ansible_password`, generated when empty) so an unauthorized key
+(from `vault_host_iac_password`, generated when empty) so an unauthorized key
 cannot lock you out; it becomes key-only once its **public**-key path is set.
 
 `create_admin_account: true` additionally creates the optional human `admin` account

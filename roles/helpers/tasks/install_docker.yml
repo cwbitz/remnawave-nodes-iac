@@ -1,16 +1,4 @@
 ---
-# ==============================================================================
-# Install Docker Engine + the Compose v2 plugin when missing
-# (roles/helpers/tasks/install_docker.yml)
-#
-# No-op when `docker compose version` already succeeds; otherwise installs Docker
-# CE via Docker's official install script (https://get.docker.com, Debian-family).
-# Safe to include from several components.
-#
-# Parameter (via include vars):
-#   install_docker  bool, default true. When false, missing Docker is fatal.
-# ==============================================================================
-
 - name: "[Docker] Detect Docker Engine + the Compose v2 plugin"
   ansible.builtin.command: docker compose version
   register: install_docker_probe

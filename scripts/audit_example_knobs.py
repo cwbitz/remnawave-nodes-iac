@@ -15,8 +15,8 @@ new host and must carry every operator knob with its project default. This audit
   time (e.g. ``x | default(<derived>)``) is NOT an operator knob: it must be
   omitted from the example (setting it, even empty, defeats the derivation).
 * Not per-host knobs (skipped): the SSH connection wiring, the control-node
-  baseline, role-internal constants and vault-bound secrets — see the explicit
-  sets below. Playbook-level knobs are presence-checked through ``EXTRA``.
+  baseline and role-internal constants — see the explicit sets below.
+  Playbook-level knobs are presence-checked through ``EXTRA``.
 
 Standard library only (like the other scripts/), so a plain `python3` can run it.
 Values are compared with a small scalar parser; a key whose value is a block or
@@ -31,34 +31,22 @@ import os
 import re
 import sys
 
-# --------------------------------------------------------------------------------
-# Exclusions (explicit and documented — keep them in sync with the project).
-# --------------------------------------------------------------------------------
-# SSH connection wiring + control-node baseline: not per-host knobs, they live in
-# inventory/group_vars/<group>/main.yml (and group_vars/all for the engine range).
 WIRING = {
     "ssh_identities", "ssh_identity", "ssh_user", "ssh_password",
     "ssh_privkey_file", "ssh_become", "ssh_common_args",
     "ansible_user", "ansible_password", "ansible_ssh_private_key_file",
     "ansible_become", "ansible_ssh_common_args", "become", "user", "password",
-    "privkey", "pubkey", "root", "admin", "ansible",
+    "privkey", "pubkey", "root", "admin", "iac", "legacy", "ansible",
     "ansible_core_min_version", "ansible_core_max_version",
     "ansible_core_allow_untested",
 }
-# Role-internal constants that happen to live in defaults/ (paths, Renovate-pinned
-# image tags): changing them per host is not a supported operator knob.
 INTERNAL = {
     "agent_dir", "monitoring_dir", "remnanode_dir",
     "netbird_agent_version", "alloy_version", "remnanode_version",
 }
-# Vault-bound inputs: the example references the vault variable while the role
-# default adds a `| default('', true)` guard, so the texts differ by design.
-VAULT_BOUND = {"netbird_peer_setup_key", "remnanode_secret_key"}
-# Values derived at run time from another setting: not per-host knobs, so they
-# are absent from the example (setting one, even empty, defeats the derivation).
-DERIVED = {"apt_security_mirror"}
-# Playbook-level knobs (declared as play vars, not in group_vars/defaults):
-# presence as an ACTIVE line required; the values are the documented defaults.
+DERIVED = {
+    "apt_security_mirror", "netbird_peer_setup_key", "remnanode_secret_key",
+}
 EXTRA = {
     "apt_mirror", "docker_registry_mirrors", "allow_root_login",
 }
@@ -179,8 +167,6 @@ def main(argv: list[str]) -> int:
             continue
         if key not in active:
             problems.append(f"{key}: missing from the example (default {default!r} in {source})")
-            continue
-        if key in VAULT_BOUND:
             continue
         if default is not None and active[key] != default:
             problems.append(

@@ -1,13 +1,4 @@
 ---
-# ==============================================================================
-# Remnawave node (roles/remnanode/tasks)
-# ==============================================================================
-# Deploys the Remnawave Node container. The Panel pushes the Xray config to the
-# node; the node listens on NODE_PORT (host network) for the Panel's internal API
-# requests. NODE_PORT (host main.yml) and SECRET_KEY (vault) are copied from the
-# Panel's generated compose file.
-# ==============================================================================
-
 - name: "[Remnanode] Assert the node join credentials"
   ansible.builtin.assert:
     that:

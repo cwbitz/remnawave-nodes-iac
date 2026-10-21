@@ -12,8 +12,6 @@
     daemon_reload: true
 
 - name: "[Monitoring] Restart alloy"
-  # The Alloy config is a bind-mounted file: Docker does not notice it changing,
-  # so the container has to be restarted explicitly when it is re-rendered.
   community.docker.docker_container:
     name: "{{ alloy_container_name | default('alloy') }}"
     state: started

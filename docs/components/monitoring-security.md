@@ -1,8 +1,9 @@
 # Host monitoring & security
 
-`roles/monitoring/` — optional, opt-in. Default on for nodes
-(`monitoring_enabled: true` in `group_vars/remnanodes/main.yml`). Reached via
-`make monitoring` or as part of `site.yml`. Debian-family only.
+`roles/monitoring/` — optional, opt-in per host
+(`monitoring_enabled: true` in `inventory/host_vars/<host>/main.yml`; default
+`false`). Reached via `make monitoring` or as part of `site.yml`. Debian-family
+only.
 
 ## What it installs
 

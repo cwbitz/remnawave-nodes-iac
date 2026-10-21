@@ -16,11 +16,9 @@ Managed hosts live in the gitignored `inventory/hosts.yml` (committed template
 roles, or templates; the project-owned baseline for every managed host (engine
 range) is committed in `inventory/group_vars/all/main.yml`. Every host is in the
 single `remnanodes` group — the play target
-for every playbook — whose `group_vars/remnanodes/main.yml` holds the shared
-SSH connection wiring plus `install_docker`, `create_admin_account`,
-`monitoring_enabled`, `firewall_enabled` and
-`sshd_hardening_enabled`; per-host, non-secret settings
-live in `inventory/host_vars/<hostname>/main.yml`.
+for every playbook. The shared SSH connection wiring lives in
+`inventory/group_vars/all/main.yml`; every per-host knob (bootstrap, monitoring,
+firewall, SSH hardening) lives in `inventory/host_vars/<hostname>/main.yml`.
 
 `make deploy` is the one-shot entry point: it bootstraps the host, then runs
 `playbooks/site.yml` (overlay join + monitoring, then the Remnawave Node).
@@ -29,10 +27,10 @@ live in `inventory/host_vars/<hostname>/main.yml`.
 
 - `inventory/host_vars/<hostname>/vault.yml` — **gitignored, never committed**
   (even encrypted). The single per-host vault holding the SSH identity values
-  (`vault_host_root_*` / `vault_host_ansible_*` / `vault_host_admin_*`), the NetBird
+  (`vault_host_root_*` / `vault_host_iac_*` / `vault_host_admin_*`), the NetBird
   setup key (`vault_netbird_setup_key`), the Remnawave node secret
   (`vault_remnanode_secret_key`) and the control-generated service-account
-  passwords (`vault_host_ansible_password`, and `vault_host_admin_password` only
+  passwords (`vault_host_iac_password`, and `vault_host_admin_password` only
   when `create_admin_account`). Schema reference:
   `inventory/host_vars/example/vault.yml.example`.
 - Vault password file:
@@ -86,7 +84,7 @@ live in `inventory/host_vars/<hostname>/main.yml`.
   asserts `ssh_user != root` (override with `allow_root_login=true`).
 - SSH hardening (`sshd_hardening_enabled`, `roles/sshd`) is **opt-in and
   self-protecting**: it closes password login, so it refuses to run unless the
-  `ansible` account has a public key and a key-only login is proven — and it
+  `iac` account has a public key and a key-only login is proven — and it
   reverts itself when a verification fails. Enable it only after
   `make host-bootstrap` has authorized the key.
 - Keep a node's `NODE_PORT` off the public internet — the Panel is the TLS client
@@ -140,7 +138,7 @@ Every tag is a role constant in `roles/*/vars/`, each with a
 
 | Document | Covers |
 |---|---|
-| [`host-bootstrap.md`](docs/components/host-bootstrap.md) | Probe accounts, the `ansible` service account, Docker, mirrors, SSH wiring |
+| [`host-bootstrap.md`](docs/components/host-bootstrap.md) | Probe accounts, the `iac` automation account, Docker, mirrors, SSH wiring |
 | [`netbird-overlay.md`](docs/components/netbird-overlay.md) | Joining the NetBird mesh (the `agent` role) |
 | [`monitoring-security.md`](docs/components/monitoring-security.md) | node_exporter, CrowdSec, the firewall bouncer, optional Alloy |
 | [`firewall.md`](docs/components/firewall.md) | The default-deny inbound base firewall (nftables) |

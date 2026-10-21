@@ -15,8 +15,8 @@ role is opted into.
 
 It is **opt-in per host** (`sshd_hardening_enabled`, off by default): closing
 password login removes the very path the bootstrap probe relies on, so it is only
-safe once a keyed login survives it — the `ansible` service account's key
-(installed by `make host-bootstrap` from `host_ansible_ssh_pubkey_file`),
+safe once a keyed login survives it — the `iac` automation account's key
+(installed by `make host-bootstrap` from `host_iac_ssh_pubkey_file`),
 or root's key on a root-administered host (`host_root_ssh_pubkey_file` with
 `sshd_permit_root_login: prohibit-password`).
 
@@ -45,7 +45,7 @@ drop-in directory — `00-` therefore wins over a provider drop-in such as
 Hardening is the one change here that can take the host away from its operator, so
 the role verifies instead of trusting:
 
-1. **Preconditions** — a keyed login must survive: the `ansible` identity's
+1. **Preconditions** — a keyed login must survive: the `iac` identity's
    public key, or root's when `sshd_permit_root_login` allows it (else nothing
    runs).
 2. **Before loading** — the rendered drop-in is validated with `sshd -t`; a bad
@@ -56,7 +56,7 @@ the role verifies instead of trusting:
    catches a pre-existing drop-in that wins the first-obtained-value rule.
 4. **Then the login is re-proven** — a fresh, key-only (`BatchMode`,
    `PreferredAuthentications=publickey`) connection as the chosen identity
-   (`ansible`, or root) from the control node must succeed.
+   (`iac`, or root) from the control node must succeed.
 
 Any failure at 2–4 triggers the `rescue`: the drop-in is restored to its previous
 state (or removed when there was none), sshd is reloaded, and the run fails
@@ -73,7 +73,7 @@ Operator knobs live in `inventory/host_vars/<host>/main.yml` (see
   SSH, `prohibit-password` keeps it reachable by public key only. Independent of
   the toggle above.
 
-Password login itself is not configurable: it is closed on every path. `ansible`
+Password login itself is not configurable: it is closed on every path. `iac`
 (public key) is the default SSH identity; with `sshd_permit_root_login:
 prohibit-password` root's key is a valid identity too, while `no` leaves root the
 provider console and `sudo` only. The bootstrap still authorizes root's public
@@ -101,8 +101,8 @@ WSL `/mnt/c` key), and re-enable.
   are often world-readable, and OpenSSH rejects them. The role proves the login
   with the normal `ssh` client, so it fails (and reverts) rather than trusting the
   configured path.
-- The `[ansible, admin, root]` probe in `playbooks/bootstrap.yml` loses its
-  password fallback once hardening is on: at least one of the `ansible` or root
+- The `[iac, admin, root]` probe in `playbooks/bootstrap.yml`
+  loses its password fallback once hardening is on: at least one of the `iac` or root
   keys must be in place first (root only when `sshd_permit_root_login` allows it).
 - A client with no key configured sees `Permission denied (publickey)` — not a
   password prompt — once password authentication is off.

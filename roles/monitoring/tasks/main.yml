@@ -1,26 +1,4 @@
 ---
-# ==============================================================================
-# Optional VPS host monitoring + host security (roles/monitoring/tasks)
-# ==============================================================================
-# Installs, on a Debian-family host:
-#   * prometheus-node-exporter   — host metrics for central Prometheus/Grafana.
-#   * crowdsec                   — log-based detection (SSH brute force, scans)
-#                                  from the systemd journal (no rsyslog needed).
-#   * crowdsec-firewall-bouncer  — enforces CrowdSec decisions via nftables.
-# and joins the host to the NetBird overlay through the shared agent role
-# (roles/agent) so a central Prometheus/Alloy reaches it with no public port,
-# plus, optionally:
-#   * grafana/alloy              — ships host logs to a central Loki.
-#
-# The Debian packages self-configure: crowdsec enables crowdsecurity/linux +
-# crowdsecurity/sshd and reads `ssh.service` from journald; the firewall bouncer
-# registers its LAPI key against the local LAPI on install.
-#
-# The play sets gather_facts: false and this role gathers facts itself (first
-# task), so hosts that did NOT opt in (monitoring_enabled false) are skipped
-# without any connection being made.
-# ==============================================================================
-
 - name: "[Monitoring] Gather facts"
   ansible.builtin.setup:
 
@@ -47,9 +25,6 @@
     cache_valid_time: 3600
   when: monitoring_packages | length > 0
 
-# ------------------------------------------------------------------------------
-# Overlay agent (mesh join) + optional log shipper (Docker services)
-# ------------------------------------------------------------------------------
 - name: "[Monitoring] Join the host to the overlay"
   ansible.builtin.include_role:
     name: agent
@@ -70,7 +45,7 @@
       Unknown alloy_journal_presets: {{
         alloy_journal_presets | default([]) | difference(['ssh', 'security', 'kernel', 'services']) | join(', ')
       }}. Known presets: ssh, security, kernel, services (raw journal matches go in
-      alloy_journal_extra).
+      alloy_journal_extras).
   when: alloy_enabled | bool
 
 - name: "[Monitoring] Ensure the monitoring stack directory exists"
@@ -81,10 +56,6 @@
     group: root
     mode: "0700"
 
-# The push target is an explicit address, so a re-enrolled central stack can leave
-# it stale and every push fails silently in Alloy. Prove reachability here. The
-# host resolves a NetBird name because the agent manages /etc/resolv.conf (file
-# mode) or systemd-resolved (D-Bus).
 - name: "[Monitoring] Assert the central Loki answers"
   ansible.builtin.uri:
     url: "{{ loki_push_url }}/ready"
@@ -100,8 +71,6 @@
 - name: "[Monitoring] Fail when the central Loki is unreachable"
   ansible.builtin.assert:
     that:
-      # A connection error leaves status undefined/-1, so a bare `is defined`
-      # would pass on an unreachable or unresolvable target.
       - (monitoring_loki_probe.status | default(-1)) in [200, 503]
     fail_msg: >-
       {{ loki_push_url }} did not answer from this host ({{ monitoring_loki_probe.msg | default('no response') }}).
@@ -143,9 +112,6 @@
     - alloy_enabled | bool
     - not ansible_check_mode
 
-# ------------------------------------------------------------------------------
-# Host exporters
-# ------------------------------------------------------------------------------
 - name: "[Monitoring] Build the node_exporter listen arguments"
   ansible.builtin.set_fact:
     node_exporter_listen_args:
@@ -163,10 +129,6 @@
   when: node_exporter_enabled | bool
   notify: "[Monitoring] Restart node_exporter"
 
-# The bound address is created by the NetBird agent container, which Docker
-# restarts at boot AFTER systemd has already tried to start this unit. Without a
-# wait (and a retry) the first start fails with "cannot assign requested address"
-# and Debian's unit does not restart it (see the drop-in template).
 - name: "[Monitoring] Ensure the node_exporter drop-in directory exists"
   ansible.builtin.file:
     path: "{{ node_exporter_dropin_dir }}"
@@ -201,8 +163,6 @@
     - (overlay_ip | default('')) | length > 0
   notify: "[Monitoring] Restart crowdsec"
 
-# CrowdSec also binds the overlay address (its metrics listener), so it needs the
-# same boot-race guard as node_exporter (see the drop-in template).
 - name: "[Monitoring] Ensure the crowdsec drop-in directory exists"
   ansible.builtin.file:
     path: "{{ crowdsec_dropin_dir }}"

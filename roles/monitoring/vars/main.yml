@@ -1,32 +1,17 @@
 ---
-# ==============================================================================
-# Role-owned constants (roles/monitoring/vars/main.yml)
-# ==============================================================================
-# Debian package / systemd unit names (not operator knobs).
+# renovate: datasource=docker depName=grafana/alloy
+alloy_version: "v1.18.1"
+
 pkg_node_exporter: "prometheus-node-exporter"
 pkg_crowdsec: "crowdsec"
 pkg_crowdsec_firewall_bouncer: "crowdsec-firewall-bouncer"
-
 svc_node_exporter: "prometheus-node-exporter"
-# The single listen address is the overlay address (a run-time fact, see
-# defaults/main.yml) on this port; node_exporter gets no other listener.
 node_exporter_port: 9100
-# systemd drop-in that makes the overlay-address bind survive the boot race (the
-# agent container creates wt0 after the exporter unit starts).
 node_exporter_dropin_dir: "/etc/systemd/system/prometheus-node-exporter.service.d"
 node_exporter_dropin: "{{ node_exporter_dropin_dir }}/10-overlay-wait.conf"
-# The same boot-race guard for CrowdSec: its metrics listener also binds the
-# overlay address (config.yaml.local, rendered by tasks/main.yml).
 crowdsec_dropin_dir: "/etc/systemd/system/crowdsec.service.d"
 crowdsec_dropin: "{{ crowdsec_dropin_dir }}/10-overlay-wait.conf"
 svc_crowdsec: "crowdsec"
 svc_crowdsec_firewall_bouncer: "crowdsec-firewall-bouncer"
-
-# Stack directory for the rendered monitoring Docker services (the optional
-# Alloy log shipper).
 monitoring_dir: "/opt/monitoring"
-
-# Alloy log-shipper image.
 alloy_image: "grafana/alloy"
-# renovate: datasource=docker depName=grafana/alloy
-alloy_version: "v1.18.1"

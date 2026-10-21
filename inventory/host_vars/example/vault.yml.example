@@ -7,16 +7,16 @@
 # by `make vault-init` (path set in ansible.cfg).
 
 # --- SSH connection identity -------------------------------------------------
-# The ansible/admin/root aliases are wired in
+# The iac/admin/root aliases are wired in
 # inventory/group_vars/remnanodes/main.yml. Account names and key paths are
 # non-secret and live in the main.yml next to this file (host_admin_username,
 # host_<id>_ssh_{pub,priv}key_file); this file holds only the passwords.
-# `make host-bootstrap` probes [ansible, admin, root], uses the first that works,
+# `make host-bootstrap` probes [iac, admin, root], uses the first that works,
 # and authorizes each supplied public key for its account (empty is ignored; keys
 # are never generated).
 #
 # A private-key path without a public key is NOT key mode: the account still gets
-# a password (from vault_host_ansible_password, generated here when left empty) so
+# a password (from vault_host_iac_password, generated here when left empty) so
 # an unauthorized key cannot lock you out. An identity becomes key-only once its
 # public-key path is set.
 vault_host_root_password: ""
@@ -24,9 +24,9 @@ vault_host_root_password: ""
 # create_admin_account: true in main.yml); it always gets a password for console
 # login and sudo, plus any configured public key.
 vault_host_admin_password: ""
-# The `ansible` service account host-bootstrap creates/repairs (name fixed); its
+# The `iac` automation account host-bootstrap creates/repairs (name fixed); its
 # public key switches the account to key auth instead of a generated password.
-vault_host_ansible_password: ""
+vault_host_iac_password: ""
 
 # --- NetBird overlay --------------------------------------------------------
 # This node's enrollment setup key; the management URL is non-secret and lives in
@@ -44,7 +44,7 @@ vault_remnanode_secret_key: ""
 # ==============================================================================
 # Control-generated secrets (written here when left empty)
 # ==============================================================================
-#   vault_host_ansible_password  service-account password (only when no public
+#   vault_host_iac_password  service-account password (only when no public
 #                                key is given)
 #   vault_host_admin_password    admin password (only when create_admin_account)
 # Existing non-empty values are preserved (never rotated).

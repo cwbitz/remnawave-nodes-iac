@@ -1,11 +1,4 @@
 ---
-# ==============================================================================
-# Control-node prerequisite checks (roles/helpers/tasks/control_node_prereqs.yml)
-#
-# Include from any component that must verify control-node tooling first.
-# Parameter: secrets_component (used in failure messages).
-# ==============================================================================
-
 - name: "[ControlNode] Check openssl availability on the control node"
   tags: "{{ secrets_component | default('secrets') }}"
   ansible.builtin.command: openssl version

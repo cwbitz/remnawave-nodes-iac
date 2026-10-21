@@ -1,8 +1,8 @@
 # Host firewall
 
-`roles/firewall/` — the host's **base firewall**: default-deny inbound, on by
-default for nodes (`firewall_enabled: true` in
-`group_vars/remnanodes/main.yml`). Reached via `make deploy` (`TAGS=firewall`) or
+`roles/firewall/` — the host's **base firewall**: default-deny inbound, opt-in per
+host (`firewall_enabled: true` in `inventory/host_vars/<host>/main.yml`; default
+`false`). Reached via `make deploy` (`TAGS=firewall`) or
 `playbooks/site.yml`. Debian-family only.
 
 ## Why
@@ -30,8 +30,7 @@ A **dedicated nftables table** (`inet basefw`) with an `input` hook, policy
 | `udp <netbird_wg>` | the NetBird WireGuard port (`firewall_netbird_wg_port`, default 51820) — closing it would not break the mesh but would force relayed instead of direct P2P peers |
 | `ct state established,related` | replies to host-initiated flows (mesh management, DNS, image pulls, apt) |
 | `icmp`/`ipv6-icmp` | path-MTU discovery, diagnostics (`firewall_allow_icmp`) |
-| `tcp <ssh>` | SSH (`firewall_ssh_port`, defaults to the inventory `ansible_port`, then 22) |
-| `tcp`/`udp <public_ports>` | the Xray inbounds the Panel pushes (`firewall_public_tcp_ports` / `..._udp_ports`; single ports and `start-end` ranges) |
+| `tcp`/`udp <public_ports>` | every declared public port: the SSH/admin port (single port, matching the inventory `ansible_port`; 22 by default) plus the Xray inbounds the Panel pushes (`firewall_public_tcp_ports` / `..._udp_ports`; single ports and `start-end` ranges) |
 
 The overlay and the WireGuard port are accepted **before** any conntrack-state
 rule, and there is no `ct state invalid drop`: the kernel's WireGuard bypasses the
@@ -60,10 +59,14 @@ and the table's own `wt0` accept keeps the tunnel up in the meantime.
 Operator knobs live in `inventory/host_vars/<host>/main.yml` (see
 `host_vars/example/main.yml`):
 
-- `firewall_enabled` — per-host opt-in (default `false`; the group sets `true`).
-- `firewall_public_tcp_ports` / `firewall_public_udp_ports` — the Xray
-  inbounds the Panel pushes. **The Panel owns these ports**, so this project cannot
-  derive them; declare the ones you actually expose (empty = no proxy service yet).
+- `firewall_enabled` — per-host opt-in (default `false`).
+- `firewall_public_tcp_ports` / `firewall_public_udp_ports` — the public ports
+  the Node serves. The TCP list must contain the SSH/admin port as a single port
+  (default `["22"]`, matching the inventory `ansible_port`; the role refuses to
+  apply a ruleset that would omit it). The rest are the Xray
+  inbounds the Panel pushes. **The Panel owns those ports**, so this project cannot
+  derive them; declare the ones you actually expose (beyond SSH, empty = no proxy
+  service yet).
   Each entry is either a single port or a `start-end` range, the same syntax the
   Panel uses, so its value can be copied verbatim — e.g. `["443"]` for REALITY and
   `["20000-20100"]` for the HY2 range (matching `remnawave_hy2_port` in
@@ -71,9 +74,11 @@ Operator knobs live in `inventory/host_vars/<host>/main.yml` (see
   syntax (`udp dport { 20000-20100 }`), not expanded into one rule per port. The
   two projects are deliberately decoupled, so keep the values in step by hand when
   the Panel's inbound ports change.
-- `firewall_ssh_port` / `firewall_allow_icmp` — overrides. The overlay interface
-  and WireGuard port mirror the NetBird client's own defaults, so they are role
-  constants (`roles/firewall/vars/main.yml`), not operator knobs.
+- `firewall_allow_icmp` — accept ICMP/ICMPv6 (default `true`). The SSH/admin port
+  is an ordinary entry in `firewall_public_tcp_ports`, kept in step with the
+  inventory `ansible_port`. The overlay interface and WireGuard port mirror the
+  NetBird client's own defaults, so they are role constants
+  (`roles/firewall/vars/main.yml`), not operator knobs.
 
 ## Persistence and safety
 
@@ -83,13 +88,14 @@ Operator knobs live in `inventory/host_vars/<host>/main.yml` (see
   cannot leave the host unfirewalled. The unit reloads only when the rendered
   ruleset differs.
 - Port knobs are validated (list shape, `port` / `start-end` syntax, 1–65535,
-  `start <= end`) **before** the role stops or retires the previous ruleset, so a
-  typo fails while the host is still protected by its existing table.
+  `start <= end`, and the SSH/admin port covered) **before** the role stops or
+  retires the previous ruleset, so a typo or a missing SSH entry fails while the
+  host is still protected by its existing table.
 - It never enables Debian's `nftables.service` (whose stock config does
   `flush ruleset`, which would race with Docker/CrowdSec/NetBird at boot).
-- SSH is always allowed and the role re-checks reachability
-  (`wait_for_connection`) after applying, so a mistake fails the run loudly
-  instead of silently locking the host out. If a lockout does happen, recover via
+- The role re-checks reachability (`wait_for_connection`) after applying, so a
+  mistake fails the run loudly instead of silently locking the host out. If a
+  lockout does happen, recover via
   the provider console: `systemctl stop firewall` (or delete the table with
   `nft delete table inet basefw`).
 

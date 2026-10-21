@@ -169,7 +169,6 @@ def main() -> int:
         return 1
     hosts_indent = _indent(lines[hosts_index])
 
-    # Walk the hosts block: detect an existing entry and learn its indentation.
     entry_indent: int | None = None
     dup = re.compile(r"^[ ]*" + re.escape(args.host) + r"\s*:\s*(?:#.*)?$")
     for index in range(hosts_index + 1, len(lines)):

@@ -1,24 +1,4 @@
 ---
-# ==============================================================================
-# Deploy a Remnawave proxy Node.
-#
-#   make deploy
-#
-# A Remnawave Node is a lightweight container that embeds Xray-core; it is
-# managed by the Remnawave Panel (which lives in the sibling docker-stack-iac
-# project) and dialable by it on NODE_PORT. Each node also joins the NetBird
-# overlay and carries host monitoring/security (roles/monitoring, which includes
-# roles/agent) before the Remnawave Node container is deployed (roles/remnanode).
-#
-# Driven from the control node over SSH. See README.md and docs/components/.
-# ==============================================================================
-
-# Preflight on the control node: every managed host's connection address lives in
-# the gitignored inventory (the committed template carries the CHANGE_ME_HOST_IP
-# placeholder). It is validated here, as an implicit localhost play and before
-# any connection is attempted, so an unfilled entry fails with the command that
-# fixes it instead of an opaque SSH-resolution error. Tagged [always], so focused
-# runs check it too.
 - name: "Preflight: verify the managed hosts are configured"
   hosts: localhost
   connection: local
@@ -67,7 +47,7 @@
         that:
           - (ssh_user | default('root')) != 'root' or (allow_root_login | default(false) | bool)
         fail_msg: >-
-          The deploy must run as the non-root `ansible` service account, not
+          The deploy must run as the non-root `iac` automation account, not
           root. Run `make host-bootstrap` once as root to create it, then set its
           key/password in inventory/host_vars/<host>/vault.yml. Override
           deliberately with allow_root_login=true if you accept running as
@@ -77,21 +57,14 @@
   hosts: remnanodes
   gather_facts: true
   roles:
-    # Host monitoring + security; includes the NetBird overlay agent.
     - role: monitoring
       tags: [monitoring]
       when: monitoring_enabled | default(false) | bool
-    # Default-deny inbound firewall (a dedicated nftables table): keeps NODE_PORT
-    # and everything else off the public internet while the overlay stays open.
     - role: firewall
       tags: [firewall]
       when: firewall_enabled | default(false) | bool
-    # Key-only SSH administration (drop-in, opt-in). Requires the `ansible`
-    # account to reach the host with its key: the role proves that and rolls
-    # itself back otherwise, so an un-keyed host keeps password login.
     - role: sshd
       tags: [sshd]
       when: sshd_hardening_enabled | default(false) | bool
-    # The Remnawave Node container itself.
     - role: remnanode
       tags: [remnanode]

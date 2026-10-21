@@ -1,22 +1,3 @@
 ---
-# ==============================================================================
-# NetBird agent - mesh join (roles/agent/defaults/main.yml)
-# ==============================================================================
-# Runs the NetBird agent container so a host joins the overlay. Used by the
-# `remnanodes` group (every Remnawave node is a mesh peer) and by the
-# monitoring role (so the central Prometheus/Alloy can reach the host over the
-# overlay with no public port).
-#
-# The management server is owned by the sibling netbird-iac project; this project
-# consumes the mesh ONLY through its public interface. Both inputs are owned by
-# THIS project (management URL in host_vars main.yml, setup key in the vault).
-# The rendered compose dir and the pinned image (agent_dir, netbird_agent_version)
-# are role constants in vars/main.yml.
-
-# Self-hosted NetBird management URL (e.g. "https://netbird.example.com").
 netbird_management_url: ""
-
-# Mesh setup key: decides which NetBird group the peer auto-joins, hence what the
-# central observability stack discovers. Pick the key whose group is discovered
-# (the route-less `endpoint` key by default, which grants no exit/LAN routes).
 netbird_peer_setup_key: "{{ vault_netbird_setup_key | default('', true) }}"

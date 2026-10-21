@@ -3,6 +3,5 @@ collections:
     version: "4.8.5"
   - name: community.general
     version: "11.4.2"
-  # Provides the timer/profile_tasks callbacks enabled in ansible.cfg.
   - name: ansible.posix
     version: "2.2.2"

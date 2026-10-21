@@ -3,9 +3,4 @@
 deb {{ apt_mirror }} {{ ansible_distribution_release }} main contrib non-free non-free-firmware
 deb {{ apt_mirror }} {{ ansible_distribution_release }}-updates main contrib non-free non-free-firmware
 deb {{ apt_mirror }} {{ ansible_distribution_release }}-backports main contrib non-free non-free-firmware
-# apt_security_mirror is optional; when unset OR empty it is derived from
-# apt_mirror (so an empty value copied from a template cannot break the line).
-{% set apt_security_mirror = apt_security_mirror
-     if (apt_security_mirror | default('', true) | length) > 0
-     else (apt_mirror | regex_replace('/debian/?$', '') ~ '/debian-security') %}
 deb {{ apt_security_mirror }} {{ ansible_distribution_release }}-security main contrib non-free non-free-firmware

@@ -1,6 +1,4 @@
 ---
-# Vault-free inventory for CI lint / syntax-check only. One placeholder host is
-# enough (no host_vars, hence no encrypted vault); CI never connects to it.
 all:
   children:
     remnanodes:

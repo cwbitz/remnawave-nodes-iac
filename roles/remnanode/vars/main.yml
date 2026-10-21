@@ -1,13 +1,6 @@
 ---
-# ==============================================================================
-# Role-owned constants (roles/remnanode/vars/main.yml)
-# ==============================================================================
-# Rendered docker-compose project directory for the node.
-remnanode_dir: "/opt/remnanode"
-
-# Node image. Upstream publishes moving tags (`latest` / `sha-*`); the value the
-# Panel generates is `latest`, so that is the default. Renovate tracks it (manual
-# review, see renovate.json).
-remnanode_image: "remnawave/node"
 # renovate: datasource=docker depName=remnawave/node
 remnanode_version: "latest"
+
+remnanode_dir: "/opt/remnanode"
+remnanode_image: "remnawave/node"

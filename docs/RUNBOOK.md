@@ -25,7 +25,7 @@ conventions and gotchas.
   `allow_root_login=true`.
 - Key-only SSH administration is an **opt-in** step (`sshd_hardening_enabled`
   in the host's `main.yml`, off by default): enable it only after
-  `make host-bootstrap` has authorized the `ansible` key. See §4c.
+  `make host-bootstrap` has authorized the `iac` key. See §4c.
 - The vault password file is auto-created by the make targets
   (`~/.config/projects/remnawave-nodes-iac/ansible_vault_password`); keep it safe.
 
@@ -39,8 +39,9 @@ conventions and gotchas.
    file is already the committed template.
 4. Keep `NODE_PORT` **off the public internet** — the Panel reaches the node over
    the NetBird overlay (`docs/components/panel-contract.md`). `roles/firewall`
-   enforces this; declare the Xray inbounds the Panel pushes in
-   `firewall_public_tcp_ports` so public proxy ports stay open.
+   enforces this; keep the SSH/admin port (22 by default) in
+   `firewall_public_tcp_ports` and declare the Xray inbounds the Panel pushes so
+   public proxy ports stay open.
 
 ## 2. Deploy
 
@@ -109,8 +110,9 @@ make deploy TAGS=firewall   # apply the default-deny inbound firewall only
 ```
 
 - `roles/firewall` keeps `NODE_PORT` (and everything else) off the public
-  internet: only the overlay, SSH, the WireGuard UDP port and the declared Xray
-  inbounds are reachable. Details: `docs/components/firewall.md`.
+  internet: only the overlay, the WireGuard UDP port and the declared public
+  ports (the SSH/admin port and the Xray inbounds) are reachable. Details:
+  `docs/components/firewall.md`.
 - When the Panel pushes an Xray inbound on a public port, declare it in
   `firewall_public_tcp_ports` (or `..._udp_ports`) in the host's `main.yml`
   and re-run; otherwise the proxy is unreachable from clients.
@@ -123,13 +125,13 @@ make deploy TAGS=sshd   # key-only SSH (roles/sshd)
 
 - Off by default. Set `sshd_hardening_enabled: true` in the host's
   `main.yml` only **after** `make host-bootstrap` has authorized a key that
-  survives it (the `ansible` key, or root's with
+  survives it (the `iac` key, or root's with
   `sshd_permit_root_login: prohibit-password`) — the role proves a key-only login
   works and rolls itself back (failing the run) otherwise. Details:
   [`docs/components/sshd-hardening.md`](components/sshd-hardening.md).
 - Password logins (including root's) are closed; the root-login policy is
   `sshd_permit_root_login` (`no` disables root SSH, `prohibit-password` keeps it
-  by key only). `ansible` with its key is the default SSH identity; the
+  by key only). `iac` with its key is the default SSH identity; the
   OS/console login (root + `sudo`) is unaffected.
 - Rollback (or recovery when the key material is lost): from the provider console
   `rm /etc/ssh/sshd_config.d/00-sshd-hardening.conf && systemctl reload ssh`,
@@ -155,9 +157,9 @@ make deploy TAGS=sshd   # key-only SSH (roles/sshd)
 | Node container restarts | `docker logs remnanode`; confirm `NODE_PORT`/`SECRET_KEY` are correct and unchanged. |
 | Overlay peer has no `wt0` address | Valid `vault_netbird_setup_key` and `netbird_management_url` (main.yml); `docker logs netbird`. A changed management URL needs a fresh key + reset `netbird_config` volume. |
 | Central Prometheus shows the node down | The peer joined with a group the observability stack discovers (`endpoint`); overlay up; `curl -s <overlay-ip>:9100/metrics` from another peer. |
-| `make deploy` refuses root | Expected: run `make host-bootstrap` first, then connect as the `ansible` account in `vault.yml` (or set `allow_root_login=true`). |
+| `make deploy` refuses root | Expected: run `make host-bootstrap` first, then connect as the `iac` account in `vault.yml` (or set `allow_root_login=true`). |
 | SSH refuses the private key (`UNPROTECTED PRIVATE KEY FILE`, `are too open`) | The shared `scripts/run-with-ssh-agent.sh` starts the pinned Keychain agent, loads the vault keys and retries once. If it still fails, check the `vault_*_ssh_privkey_file` paths and run `make agent-load`. |
-| `make deploy TAGS=sshd` failed and the host kept password login | Expected: the role reverted `/etc/ssh/sshd_config.d/00-sshd-hardening.conf` and failed. Read the task that failed (the key-only login probe is the usual one): the `ansible` key must be authorized by `make host-bootstrap` and accepted by OpenSSH (`make agent-load` for a `/mnt/c` key). |
+| `make deploy TAGS=sshd` failed and the host kept password login | Expected: the role reverted `/etc/ssh/sshd_config.d/00-sshd-hardening.conf` and failed. Read the task that failed (the key-only login probe is the usual one): the `iac` key must be authorized by `make host-bootstrap` and accepted by OpenSSH (`make agent-load` for a `/mnt/c` key). |
 | No usable SSH login after enabling hardening | Recover from the provider console: `rm /etc/ssh/sshd_config.d/00-sshd-hardening.conf && systemctl reload ssh`, then set `sshd_hardening_enabled: false` in the host's `main.yml` and re-run. |
 | A vault file is unreadable | It must be ansible-vault encrypted; the helpers re-encrypt a plaintext file on the next write. |
 | `NODE_PORT` reachable from the internet | The base firewall is missing or disabled: `nft list table inet basefw` / `systemctl status firewall`; re-run `make deploy TAGS=firewall`. (The NetBird agent adds one extra `iifname "wt0" counter … accept` rule of its own; that is expected.) |
