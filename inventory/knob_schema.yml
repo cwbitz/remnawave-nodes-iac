@@ -1,0 +1,47 @@
+---
+operator_knob_schema:
+  host_admin_username: "host_admin_username is not defined or host_admin_username is string"
+  host_iac_ssh_pubkey_file: "host_iac_ssh_pubkey_file is not defined or host_iac_ssh_pubkey_file is string"
+  host_iac_ssh_privkey_file: "host_iac_ssh_privkey_file is not defined or host_iac_ssh_privkey_file is string"
+  host_admin_ssh_pubkey_file: "host_admin_ssh_pubkey_file is not defined or host_admin_ssh_pubkey_file is string"
+  host_admin_ssh_privkey_file: "host_admin_ssh_privkey_file is not defined or host_admin_ssh_privkey_file is string"
+  host_root_ssh_pubkey_file: "host_root_ssh_pubkey_file is not defined or host_root_ssh_pubkey_file is string"
+  host_root_ssh_privkey_file: "host_root_ssh_privkey_file is not defined or host_root_ssh_privkey_file is string"
+  install_docker: "install_docker is not defined or install_docker is boolean"
+  apt_mirror: "(apt_mirror | default('', true) | string | trim) == '' or (apt_mirror | string) is match('^https?://[^\\s]+$')"
+  docker_registry_mirrors: >-
+    docker_registry_mirrors is not defined or ((docker_registry_mirrors is sequence) and not (docker_registry_mirrors is string) and not
+    (docker_registry_mirrors is mapping))
+  create_admin_account: "create_admin_account is not defined or create_admin_account is boolean"
+  allow_root_login: "allow_root_login is not defined or allow_root_login is boolean"
+  sshd_hardening_enabled: "sshd_hardening_enabled is not defined or sshd_hardening_enabled is boolean"
+  sshd_permit_root_login: >-
+    sshd_permit_root_login is not defined or (sshd_permit_root_login | string) in ["yes", "no", "prohibit-password", "without-password"]
+  firewall_enabled: "firewall_enabled is not defined or firewall_enabled is boolean"
+  firewall_public_tcp_ports: >-
+    firewall_public_tcp_ports is not defined or (((firewall_public_tcp_ports is sequence) and not (firewall_public_tcp_ports is string) and not
+    (firewall_public_tcp_ports is mapping)) and ((firewall_public_tcp_ports | map('string') | reject('match', '^[0-9]+(-[0-9]+)?$') | list |
+    length) == 0))
+  firewall_public_udp_ports: >-
+    firewall_public_udp_ports is not defined or (((firewall_public_udp_ports is sequence) and not (firewall_public_udp_ports is string) and not
+    (firewall_public_udp_ports is mapping)) and ((firewall_public_udp_ports | map('string') | reject('match', '^[0-9]+(-[0-9]+)?$') | list |
+    length) == 0))
+  firewall_allow_icmp: "firewall_allow_icmp is not defined or firewall_allow_icmp is boolean"
+  monitoring_enabled: "monitoring_enabled is not defined or monitoring_enabled is boolean"
+  node_exporter_enabled: "node_exporter_enabled is not defined or node_exporter_enabled is boolean"
+  crowdsec_enabled: "crowdsec_enabled is not defined or crowdsec_enabled is boolean"
+  alloy_enabled: "alloy_enabled is not defined or alloy_enabled is boolean"
+  loki_push_url: "(loki_push_url | default('', true) | string | trim) == '' or (loki_push_url | string) is match('^https?://[^\\s]+$')"
+  alloy_journal_presets: >-
+    alloy_journal_presets is not defined or ((alloy_journal_presets is sequence) and not (alloy_journal_presets is string) and not
+    (alloy_journal_presets is mapping))
+  alloy_journal_extras: >-
+    alloy_journal_extras is not defined or ((alloy_journal_extras is sequence) and not (alloy_journal_extras is string) and not
+    (alloy_journal_extras is mapping))
+  netbird_management_url: >-
+    ((netbird_management_url | default('', true) | string | trim) == '' or (netbird_management_url | string) is match('^https?://[^\s]+$')) and
+    (netbird_management_url is defined) and ((netbird_management_url | default('', true) | string | trim | length) > 0)
+  remnanode_node_port: >-
+    ((remnanode_node_port | default('', true) | string | trim) == '' or (((remnanode_node_port | string) is match('^[0-9]+(-[0-9]+)?$')) and
+    ((remnanode_node_port | string | regex_replace('-[0-9]+$', '') | int) >= 1) and ((remnanode_node_port | string | regex_replace('^[0-9]+-',
+    '') | int) <= 65535))) and (remnanode_node_port is defined) and ((remnanode_node_port | default('', true) | string | trim | length) > 0)

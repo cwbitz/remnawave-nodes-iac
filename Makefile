@@ -1,64 +1,28 @@
-# ==============================================================================
-# Remnawave nodes IaC - Makefile wrapper
-# ==============================================================================
-# Entry points around ansible-playbook / ansible-lint. Run `make help` for the
-# target list. Override HOST=... (single host), TAGS=... (focused run).
-
 SHELL := /bin/bash
 .DEFAULT_GOAL := help
 
-# Fixed paths (not operator knobs): the playbooks and inventory are part of the
-# repo layout. Non-mainstream cases can call ansible directly.
 ANS_PLAY      := ansible-playbook
 PLAYBOOK      := playbooks/site.yml
 INVENTORY     := inventory/hosts.yml
 INV           := $(INVENTORY)
 INVENTORY_DIR := inventory
 
-# Command-line inputs (set at invocation).
 TAGS ?=
 HOST ?=
 
-# Management address / SSH port written into the inventory entry by host-init.
-# Empty address writes the CHANGE_ME_HOST_IP placeholder, which the site preflight
-# rejects until it is replaced with the host's real address; an empty port leaves
-# the default (22).
 HOST_IP ?=
 HOST_PORT ?=
 
-# Operator knobs for the scaffolding target. They are command-line inputs: a
-# value inherited from the environment is called out, because make lets an
-# environment variable win over the file default silently.
 $(foreach v,HOST HOST_IP HOST_PORT,$(if $(filter environment,$(origin $(v))),$(warning $(v) is inherited from the environment; pass $(v)=... explicitly if unintended)))
-# Refresh SSH host keys before connecting (REFRESH=1). Useful after a managed
-# host is rebuilt: its new host key would otherwise fail the "host key changed"
-# check. hostkey-init scans every inventory host and (re)writes its key into the
-# control node's known_hosts; deploy/dry-run/host-bootstrap call it when set.
 REFRESH ?=
 KNOWN_HOSTS ?= $(HOME)/.ssh/known_hosts
 
-# Ansible Vault password file (outside the repo), exported under Ansible's own
-# env-var name so every ansible-* invocation picks it up.
 export ANSIBLE_VAULT_PASSWORD_FILE := $(HOME)/.config/projects/remnawave-nodes-iac/ansible_vault_password
 
-# Unified operator hint, printed only when a vault command cannot decrypt a
-# file (the vault password is missing or does not match).
 VAULT_PASSWORD_HINT := ERROR: Ansible Vault cannot decrypt this file - the password in $(ANSIBLE_VAULT_PASSWORD_FILE) is missing or incorrect. Restore the original password, or re-encrypt the vault file with the current one.
 
-# sshpass is needed ONLY for the `host-bootstrap` password probe. It is ensured
-# by the internal `ensure-sshpass` target (invoked by `install`): installed with
-# passwordless apt-get when available, otherwise rootless into
-# ~/.local/bin/sshpass; a failure is fatal (install it manually and re-run).
-# Key-only bootstrap does not need it, and steady-state Ansible password auth
-# uses ssh_askpass, not sshpass.
 SSHPASS_BIN   ?= $(HOME)/.local/bin/sshpass
 
-# Keychain 3 (pinned single-file zipapp) is an OPTIONAL fallback ssh-agent: it is
-# only started when OpenSSH refuses a private key whose permissions cannot be
-# fixed (e.g. the WSL /mnt/c mount, mode 0777). It is ensured by the internal
-# `ensure-keychain` target (invoked by `install`); all `keychain-*` targets are
-# internal and never exposed as public make commands. The download URL is fixed;
-# a failure aborts so the operator can place the asset manually and re-run.
 KEYCHAIN_PIN     := $(CURDIR)/keychain.pin
 KEYCHAIN_VERSION := $(shell awk '!/^#/ && NF {print $$1; exit}' $(KEYCHAIN_PIN))
 KEYCHAIN_SHA256  := $(shell awk '!/^#/ && NF {print $$2; exit}' $(KEYCHAIN_PIN) | sed 's/^sha256://')
@@ -66,34 +30,19 @@ KEYCHAIN_URL     ?= https://github.com/danielrobbins/keychain/releases/download/
 KEYCHAIN_BIN     ?= $(HOME)/.local/bin/keychain
 KEYCHAIN_CACHE   ?= $(HOME)/.cache/remnawave-nodes-iac
 KEYCHAIN_ASSET   := $(KEYCHAIN_CACHE)/keychain-$(KEYCHAIN_VERSION).pyz
-# Start (or reuse) the Keychain agent in the CURRENT shell; --eval prints the
-# SSH_AUTH_SOCK / SSH_AGENT_PID exports on stdout (banner goes to stderr).
 KEYCHAIN_AGENT   := eval "$$($(KEYCHAIN_BIN) agent start --eval --quiet 2>/dev/null)"
 
-# ------------------------------------------------ shared ssh-agent runner ----
-# Identical across the 5 IaC projects: the generic scripts/run-with-ssh-agent.sh
-# is driven by the SSH_AGENT_* environment variables, so only the per-project
-# values below differ (the private-key hostvar names, and the inventory/playbook
-# paths already defined above). The agent is prepared proactively only when a
-# configured key has permissions OpenSSH would refuse (e.g. WSL /mnt/c), and the
-# runner retries once on a refused-key failure as a safety net.
 SSH_AGENT_ENV   ?= $(HOME)/.cache/iac/ssh-agent.env
 SSH_AGENT_RUN   ?= $(CURDIR)/scripts/run-with-ssh-agent.sh
-# Per-project fork: hostvars holding the control-node private-key paths.
-SSH_AGENT_KEY_VARS ?= host_ansible_ssh_privkey_file host_admin_ssh_privkey_file host_root_ssh_privkey_file
+SSH_AGENT_KEY_VARS ?= host_iac_ssh_privkey_file host_admin_ssh_privkey_file host_root_ssh_privkey_file
 export SSH_AGENT_ENV
 export SSH_AGENT_KEYCHAIN_BIN  := $(KEYCHAIN_BIN)
 export SSH_AGENT_ANS_PLAY      := $(ANS_PLAY)
 export SSH_AGENT_INVENTORY     := $(INV)
 export SSH_AGENT_LOAD_PLAYBOOK := playbooks/ssh_agent_load.yml
 
-# (shared) Probe: exit 0 when a configured private key has unsafe permissions
-# (group/other bits set, e.g. 0777), i.e. OpenSSH would refuse it.
 SSH_AGENT_PROBE := ansible-inventory -i $(INV) --list 2>/dev/null | SSH_AGENT_KEY_VARS="$(SSH_AGENT_KEY_VARS)" python3 -c "import json,os,sys; names=os.environ['SSH_AGENT_KEY_VARS'].split(); vs=json.load(sys.stdin).get('_meta',{}).get('hostvars',{}); ks={os.path.expanduser(h.get(v)) for h in vs.values() for v in names if h.get(v)}; sys.exit(0 if any(os.path.isfile(k) and (os.stat(k).st_mode & 0o077) for k in ks) else 1)"
 
-# (shared) Canned recipe: prepare the Keychain ssh-agent. Reuse a loaded agent;
-# otherwise start Keychain and load the configured keys. SSH_AGENT_FORCE=1 skips
-# the permission probe. Writes SSH_AGENT_ENV for the runner to source.
 define SSH_AGENT_PREPARE
 	@set -e; \
 	mkdir -p "$$(dirname "$(SSH_AGENT_ENV)")"; \
@@ -111,27 +60,20 @@ define SSH_AGENT_PREPARE
 	$(ANS_PLAY) -i $(INV) $(SSH_AGENT_LOAD_PLAYBOOK)
 endef
 
-# (internal) Diagnostic probe: exit 0 when a configured private key would be
-# refused by OpenSSH. Shared across the 5 projects.
 agent-needed: vault-init
 	@$(SSH_AGENT_PROBE)
 
-# (internal) Prepare the Keychain ssh-agent, probe-gated (Ansible targets).
 agent-fallback: ensure-keychain
 	$(SSH_AGENT_PREPARE)
 
-# (internal) Prepare the Keychain ssh-agent unconditionally. Unused by this
-# Ansible-only project, kept so the block is identical across the 5 projects.
 agent-ensure: ensure-keychain
 	$(SSH_AGENT_PREPARE)
 agent-ensure: SSH_AGENT_FORCE := 1
 
-# (internal) Load the connection keys into the Keychain ssh-agent
 agent-load: vault-init ensure-keychain
 	@$(KEYCHAIN_AGENT); \
 	$(ANS_PLAY) -i $(INV) $(SSH_AGENT_LOAD_PLAYBOOK)
 
-# (internal) Ensure the Keychain agent has identities loaded
 agent-check: ensure-keychain
 	@$(KEYCHAIN_AGENT); \
 	if ssh-add -l >/dev/null 2>&1; then \
@@ -159,19 +101,11 @@ install: ensure-sshpass ensure-keychain ## Install the pinned toolchain, collect
 	else echo "Neither mise nor asdf found; install one, or ensure ansible-core 2.19.x is on PATH." >&2; exit 1; fi
 	@$(MAKE) --no-print-directory ensure-ansible-collections
 
-# Internal. Install/refresh the pinned Ansible collections into the
-# project-local `collections/` dir (selected by ansible.cfg's `collections_path`,
-# which REPLACES the global ~/.ansible/collections). ansible-galaxy is
-# idempotent and version-aware: it no-ops when the pinned versions are present,
-# and installs/upgrades to the exact requirements.yml pins otherwise.
 ensure-ansible-collections:
 	@ansible-galaxy collection install -r requirements.yml
 
-# Internal helpers (not listed in `make help`; not part of the public interface).
 .PHONY: ensure-ansible-collections ensure-sshpass ensure-keychain keychain-fetch verify-keychain-pin \
         agent-needed agent-fallback agent-ensure agent-load agent-check require-inventory
-# (internal) ensure sshpass: passwordless apt-get when available, otherwise a
-# rootless install into ~/.local/bin. A failure is fatal — no silent fallback.
 ensure-sshpass:
 	@set -e; \
 	if command -v sshpass >/dev/null 2>&1 || [ -x "$(SSHPASS_BIN)" ]; then \
@@ -196,7 +130,6 @@ ensure-sshpass:
 		echo "sshpass installed: $(SSHPASS_BIN)"; \
 	fi
 
-# (internal) download the pinned Keychain asset into the fixed cache path.
 keychain-fetch:
 	@set -e; \
 	mkdir -p "$(KEYCHAIN_CACHE)"; \
@@ -215,13 +148,11 @@ keychain-fetch:
 	fi; \
 	mv "$(KEYCHAIN_ASSET).tmp" "$(KEYCHAIN_ASSET)"
 
-# (internal) verify the cached asset against keychain.pin (used by CI).
 verify-keychain-pin: keychain-fetch
 	@set -e; \
 	printf '%s  %s\n' "$(KEYCHAIN_SHA256)" "$(KEYCHAIN_ASSET)" | sha256sum -c -; \
 	echo "keychain pin OK: v$(KEYCHAIN_VERSION)"
 
-# (internal) ensure the pinned asset is installed (and unmodified) in ~/.local/bin.
 ensure-keychain: verify-keychain-pin
 	@set -e; \
 	if [ -f "$(KEYCHAIN_BIN)" ] \
@@ -237,7 +168,7 @@ host-init: vault-init ## Scaffold host_vars/<HOST> + the inventory entry (HOST d
 	@host="$(HOST)"; host="$${host:-remnanode-1}"; ip="$(HOST_IP)"; ip="$${ip:-CHANGE_ME_HOST_IP}"; port="$(HOST_PORT)"; \
 	if [ -e "$(INVENTORY)" ]; then :; else python3 $(CURDIR)/scripts/render_clean_template.py inventory/hosts.yml.example $(INVENTORY); echo "Created $(INVENTORY) from example (comments stripped)"; fi; \
 	install -d -m 0700 $(INVENTORY_DIR)/host_vars/$$host; \
-	if [ ! -e $(INVENTORY_DIR)/host_vars/$$host/main.yml ]; then python3 $(CURDIR)/scripts/render_clean_template.py $(INVENTORY_DIR)/host_vars/example/main.yml $(INVENTORY_DIR)/host_vars/$$host/main.yml; fi; \
+	if [ ! -e $(INVENTORY_DIR)/host_vars/$$host/main.yml ]; then python3 $(CURDIR)/scripts/render_clean_template.py --strip-blank-lines $(INVENTORY_DIR)/host_vars/example/main.yml $(INVENTORY_DIR)/host_vars/$$host/main.yml; fi; \
 	chmod 0644 $(INVENTORY_DIR)/host_vars/$$host/main.yml; \
 	if [ ! -e $(INVENTORY_DIR)/host_vars/$$host/vault.yml ]; then python3 $(CURDIR)/scripts/render_clean_template.py --strip-blank-lines $(INVENTORY_DIR)/host_vars/example/vault.yml.example $(INVENTORY_DIR)/host_vars/$$host/vault.yml; fi; \
 	if grep -q 'ANSIBLE_VAULT' $(INVENTORY_DIR)/host_vars/$$host/vault.yml; then :; else \
@@ -251,13 +182,10 @@ host-init: vault-init ## Scaffold host_vars/<HOST> + the inventory entry (HOST d
 	echo "      verify: make print HOST=$$host"
 
 .PHONY: host-bootstrap
-host-bootstrap: vault-init agent-fallback ## Create the ansible service account on one host (HOST=<name>, default the first node); REFRESH=1 refreshes host keys first
+host-bootstrap: vault-init agent-fallback ## Create the iac automation account on one host (HOST=<name>, default the first node); REFRESH=1 refreshes host keys first
 	@if [ -n "$(REFRESH)" ]; then $(MAKE) --no-print-directory hostkey-init; fi; \
 	$(SSH_AGENT_RUN) $(ANS_PLAY) -i $(INVENTORY) playbooks/bootstrap.yml $(if $(HOST),-e bootstrap_host=$(HOST),)
 
-# Refresh every managed host's SSH host key in the control node's known_hosts
-# (removing any stale entry first). Also run automatically when REFRESH=1 is set
-# on deploy / dry-run / host-bootstrap.
 .PHONY: hostkey-init
 hostkey-init: vault-init ## Refresh every managed host's SSH host key in known_hosts
 	@set -e; \
@@ -293,10 +221,6 @@ vault-init: ## One-time: generate the vault password (idempotent)
 			|| { printf '%s\n' "$(VAULT_PASSWORD_HINT)" >&2; exit 1; }; \
 	fi
 
-# (internal) Fail early with actionable guidance when the real inventory does
-# not exist yet (only inventory/hosts.yml.example is committed). Several targets
-# resolve the host list via `ansible-inventory`, which otherwise produces no JSON
-# and makes their parser crash.
 .PHONY: require-inventory
 require-inventory:
 	@if [ ! -f "$(INVENTORY)" ]; then \
@@ -364,25 +288,27 @@ vault-view: vault-init require-inventory ## View vault.yml for EVERY host, or on
 		else cat "$$p"; fi; \
 	done
 
+.PHONY: validate-knobs
+validate-knobs: vault-init
+	@test -f $(INVENTORY) || { echo "validate-knobs: $(INVENTORY) missing, skipped"; exit 0; }
+	$(ANS_PLAY) -i $(INVENTORY) playbooks/validate_knobs.yml
+
 .PHONY: lint
-# (internal) Syntax check + ansible-lint (invoked by CI).
-lint: vault-init
+lint: vault-init validate-knobs
 	$(ANS_PLAY) --syntax-check playbooks/site.yml
 	$(ANS_PLAY) --syntax-check playbooks/bootstrap.yml
 	$(ANS_PLAY) --syntax-check playbooks/agent.yml
 	$(ANS_PLAY) --syntax-check playbooks/monitoring.yml
 	ansible-lint playbooks/site.yml playbooks/bootstrap.yml playbooks/agent.yml playbooks/monitoring.yml
-	# The example main.yml is the template host-init copies: it must carry every
-	# operator knob with its project default (stdlib-only script).
 	python3 scripts/audit_example_knobs.py
 
 .PHONY: dry-run
-dry-run: vault-init agent-fallback ## Dry-run (--check --diff); REFRESH=1 refreshes host keys first
+dry-run: vault-init validate-knobs agent-fallback ## Dry-run (--check --diff); REFRESH=1 refreshes host keys first
 	@if [ -n "$(REFRESH)" ]; then $(MAKE) --no-print-directory hostkey-init; fi; \
 	$(SSH_AGENT_RUN) $(ANS_PLAY) -i $(INVENTORY) $(PLAYBOOK) --check --diff $(if $(TAGS),--tags $(TAGS),)
 
 .PHONY: deploy
-deploy: vault-init agent-fallback ## One-shot: bootstrap the host, then deploy the Remnawave node stack; TAGS=... runs only tagged roles; REFRESH=1 refreshes host keys first
+deploy: vault-init validate-knobs agent-fallback ## One-shot: bootstrap the host, then deploy the Remnawave node stack; TAGS=... runs only tagged roles; REFRESH=1 refreshes host keys first
 	@if [ -n "$(REFRESH)" ]; then $(MAKE) --no-print-directory hostkey-init; fi
 	@echo "==> Bootstrapping the host (playbooks/bootstrap.yml: service account, Docker)..."
 	$(SSH_AGENT_RUN) $(ANS_PLAY) -i $(INVENTORY) playbooks/bootstrap.yml $(if $(HOST),-e bootstrap_host=$(HOST),)
