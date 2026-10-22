@@ -7,6 +7,7 @@
   vars:
     ansible_become: false
     host_keys_out: "host_keys.json"
+    host_keys_hosts: "{{ groups['remnanodes'] | default([]) }}"
   tasks:
     - name: "[HostKeys] Build the resolved target list"
       ansible.builtin.set_fact:
@@ -15,7 +16,7 @@
                'name': item,
                'host': hostvars[item].ansible_host | default(item),
                'port': hostvars[item].ansible_port | default(22) } ] }}
-      loop: "{{ groups['remnanodes'] | default([]) }}"
+      loop: "{{ host_keys_hosts }}"
       changed_when: false
 
     - name: "[HostKeys] Write the resolved SSH targets"

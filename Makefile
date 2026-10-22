@@ -6,6 +6,7 @@ PLAYBOOK      := playbooks/site.yml
 INVENTORY     := inventory/hosts.yml
 INV           := $(INVENTORY)
 INVENTORY_DIR := inventory
+INVENTORY_HOSTS = ansible-inventory -i $(INVENTORY) --list 2>/dev/null | python3 -c 'import json,sys; print("\n".join(sorted(json.load(sys.stdin).get("_meta",{}).get("hostvars",{}))))'
 
 TAGS ?=
 HOST ?=
@@ -164,8 +165,8 @@ ensure-keychain: verify-keychain-pin
 	echo "keychain installed: $(KEYCHAIN_BIN) (v$(KEYCHAIN_VERSION))"
 
 .PHONY: host-init
-host-init: vault-init ## Scaffold host_vars/<HOST> + the inventory entry (HOST default remnanode-1, IP default CHANGE_ME_HOST_IP)
-	@host="$(HOST)"; host="$${host:-remnanode-1}"; ip="$(HOST_IP)"; ip="$${ip:-CHANGE_ME_HOST_IP}"; port="$(HOST_PORT)"; \
+host-init: vault-init ## Scaffold host_vars/<HOST> + the inventory entry (HOST default remnanode-1, IP default CHANGE_ME_HOST_IP, FORCE=1 replaces an existing entry)
+	@set -e; host="$(HOST)"; host="$${host:-remnanode-1}"; ip="$(HOST_IP)"; ip="$${ip:-CHANGE_ME_HOST_IP}"; \
 	if [ -e "$(INVENTORY)" ]; then :; else python3 $(CURDIR)/scripts/render_clean_template.py inventory/hosts.yml.example $(INVENTORY); echo "Created $(INVENTORY) from example (comments stripped)"; fi; \
 	install -d -m 0700 $(INVENTORY_DIR)/host_vars/$$host; \
 	if [ ! -e $(INVENTORY_DIR)/host_vars/$$host/main.yml ]; then python3 $(CURDIR)/scripts/render_clean_template.py --strip-blank-lines $(INVENTORY_DIR)/host_vars/example/main.yml $(INVENTORY_DIR)/host_vars/$$host/main.yml; fi; \
@@ -176,8 +177,11 @@ host-init: vault-init ## Scaffold host_vars/<HOST> + the inventory entry (HOST d
 		ansible-vault encrypt $(INVENTORY_DIR)/host_vars/$$host/vault.yml; \
 	fi; \
 	chmod 0600 $(INVENTORY_DIR)/host_vars/$$host/vault.yml; \
-	python3 $(CURDIR)/scripts/ensure_inventory_host.py "$(INVENTORY)" "$$host" --group remnanodes --ansible-host "$$ip" $(if $(HOST_PORT),--ansible-port "$(HOST_PORT)"); \
-	echo "Scaffolded $(INVENTORY_DIR)/host_vars/$$host/ (ansible_host: $$ip, ansible_port: $${port:-22} in $(INVENTORY))"; \
+	entry=$$(python3 $(CURDIR)/scripts/ensure_inventory_host.py "$(INVENTORY)" "$$host" --group remnanodes --ansible-host "$$ip" $(if $(HOST_PORT),--ansible-port "$(HOST_PORT)") $(if $(FORCE),--force)); \
+	printf '%s\n' "$$entry"; \
+	effective_host=$$(printf '%s\n' "$$entry" | sed -n 's/^effective ansible_host=//p'); \
+	effective_port=$$(printf '%s\n' "$$entry" | sed -n 's/^effective ansible_port=//p'); \
+	echo "Scaffolded $(INVENTORY_DIR)/host_vars/$$host/ (ansible_host: $${effective_host:-unset}, ansible_port: $${effective_port:-22} in $(INVENTORY))"; \
 	echo "next: make vault-edit HOST=$$host   (fill the CHANGE_ME_* values; generated ones fill themselves)"; \
 	echo "      verify: make print HOST=$$host"
 
@@ -186,12 +190,12 @@ host-bootstrap: vault-init hostkey-init agent-fallback ## Create the iac automat
 	$(SSH_AGENT_RUN) $(ANS_PLAY) -i $(INVENTORY) playbooks/bootstrap.yml $(if $(HOST),-e bootstrap_host=$(HOST),)
 
 .PHONY: hostkey-init
-hostkey-init: vault-init ## Refresh every managed host's SSH host key in known_hosts (FORCE=1 replaces a changed key)
+hostkey-init: vault-init ## Refresh every managed host's SSH host key (HOST=<name> limits it; FORCE=1 replaces a changed key)
 	@set -e; \
-	nh="$(KNOWN_HOSTS)"; mkdir -p "$$(dirname "$$nh")"; tmp=$$(mktemp); targets=$$(mktemp); tsv=$$(mktemp); pub=$$(mktemp); failures=0; \
+	nh="$(KNOWN_HOSTS)"; mkdir -p "$$(dirname "$$nh")"; tmp=$$(mktemp); targets=$$(mktemp); tsv=$$(mktemp); pub=$$(mktemp); failures=0; strict="$(if $(HOST),1,0)"; \
 	trap 'rm -f "$$tmp" "$$targets" "$$tsv" "$$pub"' EXIT; \
 	if [ -f "$$nh" ]; then cp "$$nh" "$$tmp"; else : > "$$tmp"; fi; \
-	$(ANS_PLAY) -i $(INVENTORY) playbooks/host_keys.yml -e host_keys_out="$$targets" >/dev/null; \
+	$(ANS_PLAY) -i $(INVENTORY) playbooks/host_keys.yml -e host_keys_out="$$targets" $(if $(HOST),-e '{"host_keys_hosts":["$(HOST)"]}',) >/dev/null; \
 	python3 -c 'import json,sys; [print("{}\t{}\t{}".format(t["name"],t["host"],t["port"])) for t in json.load(open(sys.argv[1]))]' "$$targets" > "$$tsv"; \
 	mv "$$tsv" "$$targets"; \
 	test -s "$$targets" || { echo "ERROR: no hosts resolved from the inventory."; exit 1; }; \
@@ -213,7 +217,13 @@ hostkey-init: vault-init ## Refresh every managed host's SSH host key in known_h
 		printf '%s\n' "$$keys" >> "$$tmp"; \
 	done < "$$targets"; \
 	chmod 600 "$$tmp"; mv "$$tmp" "$$nh"; \
-	[ "$$failures" -eq 0 ] || { echo "some host keys were not refreshed; known_hosts updated for the rest" >&2; exit 1; }; \
+	if [ "$$failures" -ne 0 ]; then \
+		if [ "$$strict" = "1" ]; then \
+			echo "ERROR: the selected host key was not refreshed; known_hosts is unchanged for it" >&2; exit 1; \
+		else \
+			echo "WARNING: some host keys were not refreshed; known_hosts updated for the rest" >&2; \
+		fi; \
+	fi; \
 	echo "host keys refreshed in $$nh"
 
 .PHONY: vault-init
@@ -248,14 +258,14 @@ require-inventory:
 vault-edit: vault-init require-inventory ## Edit one host's vault (plaintext auto-encrypted first, keys re-sorted alphabetically; HOST=<name>; auto when a single host)
 	@host="$(HOST)"; \
 	if [ -z "$$host" ]; then \
-		host="$$(ansible-inventory -i $(INVENTORY) --list 2>/dev/null \
-			| python3 -c 'import json,sys; h=list(json.load(sys.stdin).get("_meta",{}).get("hostvars",{})); print(h[0] if len(h)==1 else "")')"; \
+		hosts="$$($(INVENTORY_HOSTS))"; \
+		set -- $$hosts; \
+		[ "$$#" -eq 1 ] && host="$$1"; \
 	fi; \
 	if [ -z "$$host" ]; then \
 		echo "Usage: make vault-edit HOST=<hostname> (required when the inventory has more than one host)" >&2; \
 		echo "Available hosts:" >&2; \
-		ansible-inventory -i $(INVENTORY) --list 2>/dev/null \
-			| python3 -c 'import json,sys; [print("  "+h) for h in sorted(json.load(sys.stdin).get("_meta",{}).get("hostvars",{}))]' >&2; \
+		printf '  %s\n' $$hosts >&2; \
 		exit 1; \
 	fi; \
 	p="$(INVENTORY_DIR)/host_vars/$$host/vault.yml"; \
@@ -284,10 +294,7 @@ vault-edit: vault-init require-inventory ## Edit one host's vault (plaintext aut
 .PHONY: vault-view
 vault-view: vault-init require-inventory ## View vault.yml for EVERY host, or one with HOST=<name> (read-only)
 	@hosts="$(HOST)"; \
-	if [ -z "$$hosts" ]; then \
-		hosts="$$(ansible-inventory -i $(INVENTORY) --list 2>/dev/null \
-			| python3 -c 'import json,sys; print("\n".join(sorted(json.load(sys.stdin).get("_meta",{}).get("hostvars",{}))))')"; \
-	fi; \
+	[ -n "$$hosts" ] || hosts="$$($(INVENTORY_HOSTS))"; \
 	if [ -z "$$hosts" ]; then \
 		echo "No hosts found in $(INVENTORY)." >&2; exit 1; \
 	fi; \
@@ -312,6 +319,9 @@ lint: vault-init validate-knobs
 	$(ANS_PLAY) --syntax-check playbooks/agent.yml
 	$(ANS_PLAY) --syntax-check playbooks/monitoring.yml
 	ansible-lint playbooks/site.yml playbooks/bootstrap.yml playbooks/agent.yml playbooks/monitoring.yml
+	python3 -m unittest discover -s tests -v
+	$(ANS_PLAY) --syntax-check tests/knob_contract.yml
+	$(ANS_PLAY) -i localhost, tests/knob_contract.yml
 	python3 scripts/audit_example_knobs.py
 	python3 scripts/check_host_keys.py
 
@@ -345,15 +355,16 @@ agent: vault-init agent-fallback ## Join the nodes to the NetBird overlay (agent
 	$(SSH_AGENT_RUN) $(ANS_PLAY) -i $(INVENTORY) playbooks/agent.yml
 
 .PHONY: monitoring
-monitoring: vault-init agent-fallback ## Host monitoring + host security (CrowdSec + node_exporter); opt-in via monitoring_enabled
+monitoring: vault-init agent-fallback ## Overlay join + host monitoring/security (CrowdSec + node_exporter); opt-in via monitoring_enabled
 	$(SSH_AGENT_RUN) $(ANS_PLAY) -i $(INVENTORY) playbooks/monitoring.yml
 
 .PHONY: print
 print: vault-init require-inventory ## Print resolved host vars (incl. decrypted vault)
 	@host="$(HOST)"; \
 	if [ -z "$$host" ]; then \
-		host="$$(ansible-inventory -i $(INVENTORY) --list 2>/dev/null \
-			| python3 -c 'import json,sys; h=list(json.load(sys.stdin).get("_meta",{}).get("hostvars",{})); print(h[0] if len(h)==1 else "")')"; \
+		hosts="$$($(INVENTORY_HOSTS))"; \
+		set -- $$hosts; \
+		[ "$$#" -eq 1 ] && host="$$1"; \
 	fi; \
 	if [ -z "$$host" ]; then \
 		echo "Usage: make print HOST=<hostname> (required when the inventory has no single host)" >&2; exit 1; \
