@@ -38,8 +38,8 @@ remnanode_node_port: ""     # e.g. 2222: the port the Panel dials in on
 # ==============================================================================
 # prometheus-node-exporter + CrowdSec (+ the nftables firewall bouncer) and the
 # NetBird overlay join, so the central Prometheus/Alloy scrapes the host over the
-# overlay with no public port. Enabled by default for this group; set
-# monitoring_enabled false to opt out (each component can be disabled on its own).
+# overlay with no public port. Opt-in per host; set monitoring_enabled true to
+# enable it (each component can be disabled on its own).
 monitoring_enabled: false
 node_exporter_enabled: false
 crowdsec_enabled: false
@@ -58,8 +58,9 @@ alloy_journal_extras: []
 # ==============================================================================
 # Host firewall
 # ==============================================================================
-# Default-deny inbound (a dedicated nftables table; enabled by default for this
-# group). SSH, the NetBird overlay and the WireGuard UDP port stay open; NODE_PORT
+# Default-deny inbound (a dedicated nftables table). Opt-in per host; set
+# firewall_enabled true to apply it. SSH, the NetBird overlay and the WireGuard
+# UDP port stay open; NODE_PORT
 # and everything else are reachable only over the overlay. The Panel owns the Xray
 # inbounds, so declare the ports it pushes here (empty = no proxy service yet).
 # Each entry is a single port or a `start-end` range, so the Panel's own value can
