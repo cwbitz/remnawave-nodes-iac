@@ -63,24 +63,32 @@ the Remnawave Node). `HOST=<name>` restricts the bootstrap to that node.
   (idempotent; HOST defaults to `remnanode-1`). `HOST_IP`/`HOST_PORT` write that
   entry's `ansible_host`/`ansible_port`; an empty `HOST_IP` leaves the
   `CHANGE_ME_HOST_IP` placeholder the site preflight rejects, and a differing
-  existing entry is only overwritten with `FORCE_IP=1`. Files are rendered
+  existing entry is only overwritten with `FORCE=1`. Files are rendered
   comment-free from the committed `example/` templates by
   `scripts/render_clean_template.py` (the scaffolded `vault.yml` also drops every
   blank line, via `--strip-blank-lines`); the inventory edit is line-based and
   comment-preserving (`scripts/ensure_inventory_host.py`).
 - `make host-bootstrap [HOST=]` — refresh the host keys (`make hostkey-init`)
   and bootstrap one host; `make deploy` does the same for every node first (only
-  `HOST` when set).
+  `HOST` when set). When `HOST` is set the host-key refresh covers only that
+  host and a scan failure is fatal; a full deploy downgrades a failed host key
+  scan to a warning and updates the rest.
 - `make agent` / `make monitoring` — the overlay join and the host
-  monitoring/security parts. The host firewall (`roles/firewall`) and key-only SSH
-  (`roles/sshd`) are part of `site.yml`; `make deploy TAGS=firewall` /
-  `TAGS=sshd` runs only one of them.
-- `make dry-run` / `make deploy` — preview / one-shot deploy.
-- The internal `make lint` (`--syntax-check` + `ansible-lint` +
-  `scripts/audit_example_knobs.py` + `scripts/check_host_keys.py`) is run by CI
-  and hidden from `make help`. The audit keeps `host_vars/example/main.yml` a
-  complete, value-accurate mirror of every operator knob; the host-key guard
-  rejects any tracked SSH host-key verification bypass.
+  monitoring/security parts (`make monitoring` joins the overlay first). The host
+  firewall (`roles/firewall`), key-only SSH (`roles/sshd`) and the agent
+  (`roles/agent`, `netbird_enabled`) are part of `site.yml`; `make deploy
+  TAGS=firewall` / `TAGS=sshd` runs only one of them.
+- `make dry-run` / `make deploy` — preview / one-shot deploy. The first
+  `make dry-run` needs `make host-bootstrap` first (the `iac` account and its key
+  must exist); check mode skips the overlay wait, so it also works before the
+  first agent deployment.
+- The internal `make lint` (`--syntax-check` + `ansible-lint` + the unit tests +
+  `tests/knob_contract.yml` + `scripts/audit_example_knobs.py` +
+  `scripts/check_host_keys.py`) is run by CI and hidden from `make help`. The
+  audit keeps `host_vars/example/main.yml` a complete, value-accurate mirror of
+  every operator knob; the contract playbook checks the schema against the role
+  domains; the host-key guard rejects any tracked SSH host-key verification
+  bypass.
 - `make print [HOST=]` — resolved host vars incl. decrypted vault.
 
 ## Important gotchas
@@ -96,7 +104,8 @@ the Remnawave Node). `HOST=<name>` restricts the bootstrap to that node.
   refused after printing its fingerprint — verify it out of band, then re-run
   `make hostkey-init FORCE=1`.
 - Keep a node's `NODE_PORT` off the public internet — the Panel is the TLS client
-  and reaches the node over the NetBird overlay (`roles/firewall` enforces it; see
+  and reaches the node over the NetBird overlay (enable `firewall_enabled` so
+  `roles/firewall` enforces it; see
   `docs/components/panel-contract.md`).
 - The Remnawave Node image only publishes moving tags (`latest` / `sha-*`), so
   `remnanode_version` cannot be pinned; Renovate tracks it for manual review.
@@ -126,8 +135,8 @@ Shared by the `*-iac` repos; keep this chain statically resolvable so
   it never creates a play target.
 - **The probe must verify escalation, not just login.** An identity other than
   `root` is usable only when it can actually become root: proven with
-  `sudo -n true` for a password-less (NOPASSWD) identity, while a password-sudo
-  identity proves it at deploy time via `ansible_become_password`. A
+  `sudo -n true` for the NOPASSWD `iac` account, while a password-sudo identity
+  (`admin`) is proven with `sudo -S` before it is chosen. A
   half-provisioned account (login OK, sudoers not yet written) must never be
   chosen, or the bootstrap can no longer repair that host.
 

@@ -25,9 +25,10 @@ truth; never edit the file on the host.
 - The rendered compose file holds the live `SECRET_KEY`; it is mode `0600` and the
   render task is `no_log`. It is gitignored — never commit it.
 - The container is `network_mode: host`, so `NODE_PORT` is exposed on every
-  interface. `roles/firewall` closes it to the public internet (reachable over the
-  NetBird overlay only) — see [`firewall.md`](firewall.md). The Xray inbounds the
-  Panel pushes are public by design; declare their ports there.
+  interface unless `firewall_enabled` is set. `roles/firewall` then closes it to
+  the public internet (reachable over the NetBird overlay only) — see
+  [`firewall.md`](firewall.md). The Xray inbounds the Panel pushes are public by
+  design; declare their ports there.
 
 ## Changing inputs
 

@@ -39,20 +39,22 @@ management URL + a setup key for the overlay).
    the SSH identities `iac → admin → root`, creates the
    least-privilege `iac` automation account (NOPASSWD sudo) when needed, and installs Docker
    Engine + the Compose v2 plugin. Optionally sets APT/Docker registry mirrors.
-2. **Overlay + monitoring** (`roles/monitoring`, which includes `roles/agent`):
-   installs `prometheus-node-exporter`, `crowdsec` and the
-   `crowdsec-firewall-bouncer` (nftables), and joins the host to the NetBird
-   overlay so the central Prometheus/Alloy reaches the exporters with no public
+2. **Overlay** (`roles/agent`, `netbird_enabled`): joins the host to the NetBird
+   mesh so the Panel and the central Prometheus/Alloy reach it with no public
    port.
-3. **Host firewall** (`roles/firewall`): a default-deny inbound base firewall (a
-   dedicated nftables table), so `NODE_PORT` — and everything else — is reachable
-   only over the overlay. The overlay, the WireGuard UDP port and the declared
-   public ports (the SSH/admin port included) stay open.
-4. **SSH hardening** (`roles/sshd`, opt-in): a drop-in that closes password login
+3. **Host monitoring + security** (`roles/monitoring`): installs
+   `prometheus-node-exporter`, `crowdsec` and the `crowdsec-firewall-bouncer`
+   (nftables) when `monitoring_enabled` is true.
+4. **Host firewall** (`roles/firewall`, opt-in via `firewall_enabled`): a
+   default-deny inbound base firewall (a dedicated nftables table), so
+   `NODE_PORT` — and everything else — is reachable only over the overlay. The
+   overlay, the WireGuard UDP port and the declared public ports (the SSH/admin
+   port included) stay open.
+5. **SSH hardening** (`roles/sshd`, opt-in): a drop-in that closes password login
    and applies `sshd_permit_root_login` (key-only administration via the `iac`
    key; `no` by default), verified against the effective configuration and rolled
    back when the key login cannot be proven.
-5. **Remnawave Node** (`roles/remnanode`): renders `/opt/remnanode/docker-compose.yml`
+6. **Remnawave Node** (`roles/remnanode`): renders `/opt/remnanode/docker-compose.yml`
    and runs the `remnawave/node` container with `NODE_PORT` / `SECRET_KEY`.
 
 ## Remnawave Node inputs
@@ -95,8 +97,9 @@ The rest of that compose file is the committed template
 source of truth; never edit the file on the host.
 
 > Keep the node's `NODE_PORT` **off the public internet**: the Panel is the TLS
-> client and reaches the node over the NetBird overlay. `roles/firewall` enforces
-> this (default-deny inbound). See `docs/components/panel-contract.md`.
+> client and reaches the node over the NetBird overlay. Enable
+> `firewall_enabled` (opt-in, default `false`) so `roles/firewall` drops
+> `NODE_PORT`; see `docs/components/panel-contract.md`.
 
 ## NetBird overlay inputs
 
@@ -106,7 +109,8 @@ and the enrollment setup key in the vault:
 
 ```yaml
 # inventory/host_vars/<host>/main.yml
-netbird_management_url: "https://netbird.example.com"
+netbird_enabled: true
+netbird_management_url: ""   # empty = NetBird Cloud; a self-hosted mesh sets its URL
 
 # inventory/host_vars/<host>/vault.yml
 vault_netbird_setup_key: "..."   # this node's enrollment key
@@ -144,7 +148,8 @@ make host-init HOST=remnanode-1 HOST_IP=203.0.113.10
 make vault-edit HOST=remnanode-1
 #      (SSH creds, NetBird setup key, SECRET_KEY)
 
-# 3. Dry-run, deploy
+# 3. Bootstrap once, then dry-run and deploy
+make host-bootstrap
 make dry-run
 make deploy
 ```
@@ -162,13 +167,14 @@ bootstrap to that single node.
 |---|---|---|
 | `make host-bootstrap` | `bootstrap.yml` | Probe SSH identities, create the `iac` account, install Docker. `HOST=<name>` targets one host. |
 | `make agent` | `agent.yml` | Join the nodes to the NetBird overlay only. |
-| `make monitoring` | `monitoring.yml` | node_exporter + CrowdSec + firewall bouncer (+ overlay agent). |
-| `make deploy` | `bootstrap.yml` (every node) + `site.yml` | Bootstrap every node, then the full node stack: monitoring/agent + Remnawave Node. `HOST=<name>` bootstraps only that node. |
+| `make monitoring` | `monitoring.yml` | overlay join + node_exporter + CrowdSec + firewall bouncer. |
+| `make deploy` | `bootstrap.yml` (every node) + `site.yml` | Bootstrap every node, then the full node stack: agent/monitoring + Remnawave Node. `HOST=<name>` bootstraps only that node. |
 | `make dry-run` | `site.yml --check --diff` | Safe preview. |
 | `make print [HOST=]` | — | Resolved host vars incl. decrypted vault. |
 
 `make deploy TAGS=remnanode` (or `TAGS=monitoring`, `TAGS=firewall`, `TAGS=sshd`)
-runs only that role. The internal `make lint` (syntax check + `ansible-lint`) is
+runs only that role. The internal `make lint` (syntax check + `ansible-lint` +
+unit tests + the knob contract) is
 hidden from `make help`.
 
 ## Secrets

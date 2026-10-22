@@ -15,9 +15,10 @@ the Panel.
 **Keep `NODE_PORT` off the public internet.** The Panel is the TLS client and
 reaches the node over the NetBird overlay, so no public port and no static
 Panel-IP allowlist is needed — and a static allowlist is impractical when the
-Panel sits behind a rotating home-broadband IP. `roles/firewall` enforces this
-with a default-deny inbound base firewall; the CrowdSec firewall bouncer only
-enforces CrowdSec decisions on top of it.
+Panel sits behind a rotating home-broadband IP. Enable `firewall_enabled` so
+`roles/firewall` enforces this with a default-deny inbound base firewall (it is
+opt-in and off in the example); the CrowdSec firewall bouncer only enforces
+CrowdSec decisions on top of it.
 
 The overlay path also needs the **tenant ACL** to allow it: the NetBird client on
 the node drops everything from `wt0` that the pushed policy does not list, and the

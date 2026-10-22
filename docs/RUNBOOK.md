@@ -38,20 +38,21 @@ conventions and gotchas.
    into `vault.yml` as `vault_remnanode_secret_key`. The rest of the
    file is already the committed template.
 4. Keep `NODE_PORT` **off the public internet** — the Panel reaches the node over
-   the NetBird overlay (`docs/components/panel-contract.md`). `roles/firewall`
-   enforces this; keep the SSH/admin port (22 by default) in
-   `firewall_public_tcp_ports` and declare the Xray inbounds the Panel pushes so
-   public proxy ports stay open.
+   the NetBird overlay (`docs/components/panel-contract.md`). Enable
+   `firewall_enabled` so `roles/firewall` drops it, keep the SSH/admin port
+   (22 by default) in `firewall_public_tcp_ports`, and declare the Xray inbounds
+   the Panel pushes so public proxy ports stay open.
 
 ## 2. Deploy
 
 ```bash
-make dry-run     # dry run (--check --diff)
-make deploy      # bootstrap every node, then deploy the node stack
+make host-bootstrap  # first run only: create the iac account + Docker
+make dry-run         # dry run (--check --diff)
+make deploy          # bootstrap every node, then deploy the node stack
 ```
 
-`make lint` (syntax check + `ansible-lint`) is an internal CI check, hidden from
-`make help`.
+`make lint` (syntax check + `ansible-lint` + the unit tests + the knob contract)
+is an internal CI check, hidden from `make help`.
 
 Focused tags: `monitoring`, `firewall`, `sshd`, `remnanode`
 (`make deploy TAGS=remnanode`).
@@ -90,7 +91,7 @@ push.
 
 ```bash
 make agent        # join/resync the NetBird overlay
-make monitoring   # node_exporter + CrowdSec + firewall bouncer (+ agent)
+make monitoring   # overlay + node_exporter + CrowdSec + firewall bouncer
 ```
 
 - The overlay setup key is `vault_netbird_setup_key`; its auto-group decides what
@@ -111,10 +112,10 @@ make monitoring   # node_exporter + CrowdSec + firewall bouncer (+ agent)
 make deploy TAGS=firewall   # apply the default-deny inbound firewall only
 ```
 
-- `roles/firewall` keeps `NODE_PORT` (and everything else) off the public
-  internet: only the overlay, the WireGuard UDP port and the declared public
-  ports (the SSH/admin port and the Xray inbounds) are reachable. Details:
-  `docs/components/firewall.md`.
+- With `firewall_enabled: true`, `roles/firewall` keeps `NODE_PORT` (and
+  everything else) off the public internet: only the overlay, the WireGuard UDP
+  port and the declared public ports (the SSH/admin port and the Xray inbounds)
+  are reachable. Details: `docs/components/firewall.md`.
 - When the Panel pushes an Xray inbound on a public port, declare it in
   `firewall_public_tcp_ports` (or `..._udp_ports`) in the host's `main.yml`
   and re-run; otherwise the proxy is unreachable from clients.
