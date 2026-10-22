@@ -68,8 +68,9 @@ the Remnawave Node). `HOST=<name>` restricts the bootstrap to that node.
   `scripts/render_clean_template.py` (the scaffolded `vault.yml` also drops every
   blank line, via `--strip-blank-lines`); the inventory edit is line-based and
   comment-preserving (`scripts/ensure_inventory_host.py`).
-- `make host-bootstrap [HOST=]` — bootstrap one host; `make deploy` bootstraps
-  every node first (only `HOST` when set).
+- `make host-bootstrap [HOST=]` — refresh the host keys (`make hostkey-init`)
+  and bootstrap one host; `make deploy` does the same for every node first (only
+  `HOST` when set).
 - `make agent` / `make monitoring` — the overlay join and the host
   monitoring/security parts. The host firewall (`roles/firewall`) and key-only SSH
   (`roles/sshd`) are part of `site.yml`; `make deploy TAGS=firewall` /
@@ -90,6 +91,9 @@ the Remnawave Node). `HOST=<name>` restricts the bootstrap to that node.
   `iac` account has a public key and a key-only login is proven — and it
   reverts itself when a verification fails. Enable it only after
   `make host-bootstrap` has authorized the key.
+- Host keys are refreshed before every bootstrap/deploy; a **changed** key is
+  refused after printing its fingerprint — verify it out of band, then re-run
+  `make hostkey-init FORCE=1`.
 - Keep a node's `NODE_PORT` off the public internet — the Panel is the TLS client
   and reaches the node over the NetBird overlay (`roles/firewall` enforces it; see
   `docs/components/panel-contract.md`).

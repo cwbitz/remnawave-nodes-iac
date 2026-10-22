@@ -182,8 +182,7 @@ host-init: vault-init ## Scaffold host_vars/<HOST> + the inventory entry (HOST d
 	echo "      verify: make print HOST=$$host"
 
 .PHONY: host-bootstrap
-host-bootstrap: vault-init agent-fallback ## Create the iac automation account on one host (HOST=<name>, default the first node); REFRESH=1 refreshes host keys first
-	@if [ -n "$(REFRESH)" ]; then $(MAKE) --no-print-directory hostkey-init; fi; \
+host-bootstrap: vault-init hostkey-init agent-fallback ## Create the iac automation account on one host (HOST=<name>, default the first node); refreshes host keys first
 	$(SSH_AGENT_RUN) $(ANS_PLAY) -i $(INVENTORY) playbooks/bootstrap.yml $(if $(HOST),-e bootstrap_host=$(HOST),)
 
 .PHONY: hostkey-init
@@ -321,8 +320,7 @@ dry-run: vault-init validate-knobs agent-fallback ## Dry-run (--check --diff); R
 	$(SSH_AGENT_RUN) $(ANS_PLAY) -i $(INVENTORY) $(PLAYBOOK) --check --diff $(if $(TAGS),--tags $(TAGS),)
 
 .PHONY: deploy
-deploy: vault-init validate-knobs agent-fallback ## One-shot: bootstrap every node, then deploy the Remnawave node stack; HOST=<name> bootstraps only that node; TAGS=... runs only tagged roles; REFRESH=1 refreshes host keys first
-	@if [ -n "$(REFRESH)" ]; then $(MAKE) --no-print-directory hostkey-init; fi
+deploy: vault-init hostkey-init validate-knobs agent-fallback ## One-shot: bootstrap every node, then deploy the Remnawave node stack; HOST=<name> bootstraps only that node; TAGS=... runs only tagged roles; refreshes host keys first
 	@set -e; \
 	hosts="$(HOST)"; \
 	if [ -z "$$hosts" ]; then \
