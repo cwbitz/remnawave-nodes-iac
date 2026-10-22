@@ -54,7 +54,7 @@
     - name: "[Docker] Install Docker Engine, CLI, containerd and Compose v2"
       ansible.builtin.command:
         cmd: sh /tmp/get-docker.sh
-        creates: /usr/bin/docker
+      changed_when: true
 
     - name: "[Docker] Remove the downloaded install script"
       ansible.builtin.file:
