@@ -187,3 +187,50 @@ ssh <host> 'systemctl status firewall && nft list table inet basefw'
 - `SECRET_KEY` authenticates the node to the Panel — treat `vault.yml` as a live
   credential store and keep `NODE_PORT` off the public internet (the Panel reaches
   the node over the overlay).
+
+## 8. Manual verification on a disposable host
+
+The cases `tests/` cannot cover: they need a real node, the Panel and destructive
+steps. Run them on a disposable host with its own inventory and vault password
+file, read-only checks first, destructive ones last, and evidence under
+`/tmp/opencode/test-run-<stamp>/artifacts/<case>/`, redacted. The expected result
+is the contract — a deviation is a defect to record, not a reason to skip.
+
+### Bootstrap and deploy
+
+- [ ] `make host-init HOST=<node> HOST_IP=<addr>` scaffolds the inventory entry,
+      `host_vars/<node>/` and an encrypted vault; the `CHANGE_ME_HOST_IP`
+      placeholder is refused until replaced.
+- [ ] `make host-bootstrap`: `iac` created with passwordless sudo and the configured
+      keys, Docker Engine and Compose v2 present; a second run changes nothing.
+- [ ] `make deploy` converges the node and a second run reports `changed=0` outside
+      the documented non-idempotent steps.
+- [ ] The node appears in the Panel and its container is healthy
+      (`docker compose ps`, Panel API/UI).
+
+### Overlay, monitoring and firewall
+
+- [ ] The agent joins with the node's own `vault_netbird_setup_key`, the peer lands
+      in the documented groups, and it carries no routes it did not declare.
+- [ ] node_exporter listens on the overlay only (`ss -lntp`, plus a probe from
+      off-host); both CrowdSec units are active and the bouncer is loaded.
+- [ ] With `alloy_enabled`: SSH journal events arrive at the central Loki; an
+      unreachable Loki is a warning, not a failure.
+- [ ] With `firewall_enabled`: default deny, only the declared public/admin ports
+      open, and the rule set is identical on a re-run.
+- [ ] With `sshd_hardening_enabled`: password login refused, keyed login works, and
+      a broken verification rolls the config back.
+
+### Upgrade, rebuild and secrets
+
+- [ ] An upgrade to the pinned node version restarts the container and the node
+      stays connected to the Panel; a rollback to the previous version does the
+      same.
+- [ ] A reimaged host: deleting the host-returned vault keys before the first
+      deploy makes the run regenerate them instead of failing on a stale secret.
+- [ ] Secrets are generated once and never rotated on a second run; the vault is
+      `0600` and encrypted; `-vvv` shows no value.
+- [ ] `make lint` and `make test` are green; `git ls-files` shows only `example/`
+      under `inventory/host_vars`.
+- [ ] `AGENTS.md`, `docs/` and this runbook match observed behaviour; a
+      contradiction is recorded as a defect.
