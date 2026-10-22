@@ -142,6 +142,11 @@
         bootstrap_hostname_short: "{{ bootstrap_hostname.stdout.split('.') | first }}"
       when: bootstrap_hostname_lookup.rc | default(1) != 0
 
+    - name: "[Bootstrap] Set the system timezone"
+      community.general.timezone:
+        name: "{{ timezone }}"
+      when: timezone | default('', true) | trim | length > 0
+
     - name: "[Bootstrap] Validate the APT mirror settings"
       ansible.builtin.assert:
         that:

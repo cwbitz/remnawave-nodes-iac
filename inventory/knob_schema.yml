@@ -1,5 +1,8 @@
 ---
 operator_knob_schema:
+  timezone: >-
+    (timezone | default('', true) | string | trim) == ''
+    or (timezone | string) is match('^[A-Za-z0-9_+/-]+$')
   host_admin_username: "host_admin_username is not defined or host_admin_username is string"
   host_iac_ssh_pubkey_file: "host_iac_ssh_pubkey_file is not defined or host_iac_ssh_pubkey_file is string"
   host_iac_ssh_privkey_file: "host_iac_ssh_privkey_file is not defined or host_iac_ssh_privkey_file is string"

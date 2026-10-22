@@ -89,6 +89,9 @@ sshd_permit_root_login: "no"
 # install_docker false requires a preinstalled Docker. Mirrors for hosts where the
 # defaults are slow or blocked; the security repo follows apt_mirror.
 install_docker: true
+# IANA timezone for the host clock and journal timestamps (empty keeps the
+# image's setting).
+timezone: "UTC"
 apt_mirror: ""
 docker_registry_mirrors: []
 # The optional human 'admin' operator account: console login + sudo, always with
