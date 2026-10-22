@@ -3,6 +3,7 @@
   hosts: localhost
   gather_facts: false
   connection: local
+  become: false
   vars:
     host_keys_out: "host_keys.json"
   tasks:

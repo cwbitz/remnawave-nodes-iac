@@ -2,6 +2,7 @@
 - name: Probe the SSH identities (iac -> admin -> root)
   hosts: localhost
   connection: local
+  become: false
   gather_facts: false
   vars:
     bootstrap_target: "{{ bootstrap_host | default(groups['remnanodes'] | default([]) | first | default('', true)) }}"
