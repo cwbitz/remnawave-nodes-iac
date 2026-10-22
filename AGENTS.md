@@ -84,11 +84,14 @@ the Remnawave Node). `HOST=<name>` restricts the bootstrap to that node.
   first agent deployment.
 - The internal `make lint` (`--syntax-check` + `ansible-lint` + the unit tests +
   `tests/knob_contract.yml` + `scripts/audit_example_knobs.py` +
-  `scripts/check_host_keys.py`) is run by CI and hidden from `make help`. The
-  audit keeps `host_vars/example/main.yml` a complete, value-accurate mirror of
-  every operator knob; the contract playbook checks the schema against the role
+  `scripts/check_host_keys.py`, `scripts/check_repo_privacy.py` and a `gitleaks`
+  tree scan) is run by CI and hidden from `make help`. The audit keeps
+  `host_vars/example/main.yml` a complete, value-accurate mirror of every
+  operator knob; the contract playbook checks the schema against the role
   domains; the host-key guard rejects any tracked SSH host-key verification
-  bypass.
+  bypass; the privacy check rejects tracked local-only trees, credential files
+  and real addresses or host names (allowlist in `.privacy-allowlist`), and CI
+  repeats the gitleaks scan over the full history.
 - `make print [HOST=]` — resolved host vars incl. decrypted vault.
 
 ## Important gotchas
