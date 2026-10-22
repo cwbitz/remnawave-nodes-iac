@@ -313,6 +313,7 @@ lint: vault-init validate-knobs
 	$(ANS_PLAY) --syntax-check playbooks/monitoring.yml
 	ansible-lint playbooks/site.yml playbooks/bootstrap.yml playbooks/agent.yml playbooks/monitoring.yml
 	python3 scripts/audit_example_knobs.py
+	python3 scripts/check_host_keys.py
 
 .PHONY: dry-run
 dry-run: vault-init validate-knobs agent-fallback ## Dry-run (--check --diff); REFRESH=1 refreshes host keys first

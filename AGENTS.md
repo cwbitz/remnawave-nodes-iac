@@ -77,9 +77,10 @@ the Remnawave Node). `HOST=<name>` restricts the bootstrap to that node.
   `TAGS=sshd` runs only one of them.
 - `make dry-run` / `make deploy` — preview / one-shot deploy.
 - The internal `make lint` (`--syntax-check` + `ansible-lint` +
-  `scripts/audit_example_knobs.py`) is run by CI and hidden from `make help`. The
-  audit keeps `host_vars/example/main.yml` a complete, value-accurate mirror of
-  every operator knob.
+  `scripts/audit_example_knobs.py` + `scripts/check_host_keys.py`) is run by CI
+  and hidden from `make help`. The audit keeps `host_vars/example/main.yml` a
+  complete, value-accurate mirror of every operator knob; the host-key guard
+  rejects any tracked SSH host-key verification bypass.
 - `make print [HOST=]` — resolved host vars incl. decrypted vault.
 
 ## Important gotchas
