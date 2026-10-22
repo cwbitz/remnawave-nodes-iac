@@ -149,10 +149,12 @@ make dry-run
 make deploy
 ```
 
-`make deploy` is the one-shot entry point: it bootstraps the host, then deploys
-the node stack (`playbooks/site.yml`). On a fresh host the `iac` automation
-account does not exist yet, so `deploy` runs the same host bootstrap as
-`make host-bootstrap` first.
+`make deploy` is the one-shot entry point: it bootstraps **every** host in the
+`remnanodes` group (one `playbooks/bootstrap.yml` run per host, stopping at the
+first failure), then deploys the node stack (`playbooks/site.yml`). On a fresh
+host the `iac` automation account does not exist yet, so `deploy` runs the same
+host bootstrap as `make host-bootstrap` first; `HOST=<name>` restricts the
+bootstrap to that single node.
 
 ## Entry points
 
@@ -161,7 +163,7 @@ account does not exist yet, so `deploy` runs the same host bootstrap as
 | `make host-bootstrap` | `bootstrap.yml` | Probe SSH identities, create the `iac` account, install Docker. `HOST=<name>` targets one host. |
 | `make agent` | `agent.yml` | Join the nodes to the NetBird overlay only. |
 | `make monitoring` | `monitoring.yml` | node_exporter + CrowdSec + firewall bouncer (+ overlay agent). |
-| `make deploy` | `bootstrap.yml` + `site.yml` | Full node stack: monitoring/agent + Remnawave Node. |
+| `make deploy` | `bootstrap.yml` (every node) + `site.yml` | Bootstrap every node, then the full node stack: monitoring/agent + Remnawave Node. `HOST=<name>` bootstraps only that node. |
 | `make dry-run` | `site.yml --check --diff` | Safe preview. |
 | `make print [HOST=]` | — | Resolved host vars incl. decrypted vault. |
 

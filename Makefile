@@ -307,10 +307,23 @@ dry-run: vault-init validate-knobs agent-fallback ## Dry-run (--check --diff); R
 	$(SSH_AGENT_RUN) $(ANS_PLAY) -i $(INVENTORY) $(PLAYBOOK) --check --diff $(if $(TAGS),--tags $(TAGS),)
 
 .PHONY: deploy
-deploy: vault-init validate-knobs agent-fallback ## One-shot: bootstrap the host, then deploy the Remnawave node stack; TAGS=... runs only tagged roles; REFRESH=1 refreshes host keys first
+deploy: vault-init validate-knobs agent-fallback ## One-shot: bootstrap every node, then deploy the Remnawave node stack; HOST=<name> bootstraps only that node; TAGS=... runs only tagged roles; REFRESH=1 refreshes host keys first
 	@if [ -n "$(REFRESH)" ]; then $(MAKE) --no-print-directory hostkey-init; fi
-	@echo "==> Bootstrapping the host (playbooks/bootstrap.yml: service account, Docker)..."
-	$(SSH_AGENT_RUN) $(ANS_PLAY) -i $(INVENTORY) playbooks/bootstrap.yml $(if $(HOST),-e bootstrap_host=$(HOST),)
+	@set -e; \
+	hosts="$(HOST)"; \
+	if [ -z "$$hosts" ]; then \
+		hosts="$$(ansible -i $(INVENTORY) --list-hosts remnanodes 2>/dev/null \
+			| tail -n +2 | awk '$$1=$$1' | sed '/^$$/d')"; \
+	fi; \
+	if [ -z "$$hosts" ]; then \
+		echo "ERROR: no remnanodes host resolved from $(INVENTORY)." >&2; \
+		echo "Scaffold one with: make host-init HOST=<hostname> HOST_IP=<management-ip>" >&2; \
+		exit 1; \
+	fi; \
+	for host in $$hosts; do \
+		echo "==> Bootstrapping $$host (playbooks/bootstrap.yml: service account, Docker)..."; \
+		$(SSH_AGENT_RUN) $(ANS_PLAY) -i $(INVENTORY) playbooks/bootstrap.yml -e bootstrap_host="$$host"; \
+	done
 	@echo "==> Deploying the Remnawave node stack (playbooks/site.yml)..."
 	$(SSH_AGENT_RUN) $(ANS_PLAY) -i $(INVENTORY) $(PLAYBOOK) $(if $(TAGS),--tags $(TAGS),)
 

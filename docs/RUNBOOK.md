@@ -47,7 +47,7 @@ conventions and gotchas.
 
 ```bash
 make dry-run     # dry run (--check --diff)
-make deploy      # bootstrap the host, then deploy the node stack
+make deploy      # bootstrap every node, then deploy the node stack
 ```
 
 `make lint` (syntax check + `ansible-lint`) is an internal CI check, hidden from
@@ -56,8 +56,10 @@ make deploy      # bootstrap the host, then deploy the node stack
 Focused tags: `monitoring`, `firewall`, `sshd`, `remnanode`
 (`make deploy TAGS=remnanode`).
 
-`make deploy` runs `playbooks/bootstrap.yml` (service account + Docker), then
-`playbooks/site.yml` (overlay join + monitoring, then the Remnawave Node).
+`make deploy` runs `playbooks/bootstrap.yml` once per host in the `remnanodes`
+group (service account + Docker, in inventory order, stopping at the first
+failure; `HOST=<name>` limits it to that node), then `playbooks/site.yml` (overlay
+join + monitoring, then the Remnawave Node).
 
 Verify:
 

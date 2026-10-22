@@ -20,8 +20,10 @@ for every playbook. The shared SSH connection wiring lives in
 `inventory/group_vars/all/main.yml`; every per-host knob (bootstrap, monitoring,
 firewall, SSH hardening) lives in `inventory/host_vars/<hostname>/main.yml`.
 
-`make deploy` is the one-shot entry point: it bootstraps the host, then runs
-`playbooks/site.yml` (overlay join + monitoring, then the Remnawave Node).
+`make deploy` is the one-shot entry point: it bootstraps every host in the
+`remnanodes` group (one `playbooks/bootstrap.yml` run per host, stopping at the
+first failure), then runs `playbooks/site.yml` (overlay join + monitoring, then
+the Remnawave Node). `HOST=<name>` restricts the bootstrap to that node.
 
 ## Secrets and local-only files
 
@@ -66,7 +68,8 @@ firewall, SSH hardening) lives in `inventory/host_vars/<hostname>/main.yml`.
   `scripts/render_clean_template.py` (the scaffolded `vault.yml` also drops every
   blank line, via `--strip-blank-lines`); the inventory edit is line-based and
   comment-preserving (`scripts/ensure_inventory_host.py`).
-- `make host-bootstrap [HOST=]` — bootstrap one host; `make deploy` runs it first.
+- `make host-bootstrap [HOST=]` — bootstrap one host; `make deploy` bootstraps
+  every node first (only `HOST` when set).
 - `make agent` / `make monitoring` — the overlay join and the host
   monitoring/security parts. The host firewall (`roles/firewall`) and key-only SSH
   (`roles/sshd`) are part of `site.yml`; `make deploy TAGS=firewall` /
