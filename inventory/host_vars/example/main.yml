@@ -8,7 +8,11 @@
 
 # --- SSH connection identities ------------------------------------------------
 # Account name and key paths are non-secret (passwords stay in vault.yml).
-# The optional human `admin` account may be renamed; `iac` is a fixed name.
+# The optional human `admin` account may be renamed; `iac` is a fixed name. It is
+# created only while create_admin_account is true: console login + sudo, always
+# with a password (generated into vault_host_admin_password when empty) plus any
+# configured public key.
+create_admin_account: false
 host_admin_username: "admin"
 host_iac_ssh_pubkey_file: ""
 host_iac_ssh_privkey_file: ""
@@ -97,10 +101,6 @@ install_docker: true
 timezone: "UTC"
 apt_mirror: ""
 docker_registry_mirrors: []
-# The optional human 'admin' operator account: console login + sudo, always with
-# a password (generated into vault_host_admin_password when empty) plus any
-# configured public key. Created only when enabled.
-create_admin_account: false
 # Escape hatch: run the deploy as root instead of the service account (not
 # recommended).
 allow_root_login: false
