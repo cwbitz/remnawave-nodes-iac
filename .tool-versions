@@ -9,3 +9,6 @@ ansible-core 2.19.11
 # ansible-lint runs the CI lint gate (`make lint`); pinned here so local and CI
 # use one version.
 pipx:ansible-lint 26.6.0
+
+# Secret scanning in `make lint` and CI (pinned for local/CI parity).
+gitleaks 8.30.1

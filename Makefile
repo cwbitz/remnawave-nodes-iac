@@ -324,6 +324,7 @@ lint: vault-init validate-knobs
 	$(ANS_PLAY) -i localhost, tests/knob_contract.yml
 	python3 scripts/audit_example_knobs.py
 	python3 scripts/check_host_keys.py
+	gitleaks dir . --config .gitleaks.toml --no-banner --redact
 
 .PHONY: dry-run
 dry-run: vault-init validate-knobs agent-fallback ## Dry-run (--check --diff); REFRESH=1 refreshes host keys first

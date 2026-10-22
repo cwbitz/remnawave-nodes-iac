@@ -1,0 +1,17 @@
+# Secret scanning for `make lint` and CI. The default ruleset stays complete;
+# only committed placeholders and vendored trees are excluded.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Committed placeholders and installed collections"
+paths = [
+  '''(^|/)host_vars/example/''',
+  '''\.example$''',
+  '''^collections/''',
+  '''^backup/''',
+  '''^\.cache/''',
+]
+regexes = [
+  '''CHANGE_ME_[A-Z_]*''',
+]
