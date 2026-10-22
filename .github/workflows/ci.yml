@@ -32,5 +32,7 @@ jobs:
         run: ansible-lint --version
       - name: Lint (syntax check + ansible-lint)
         run: make lint
+      - name: Unit tests (pytest)
+        run: make test
       - name: Secret scan (gitleaks, full history)
         run: gitleaks git . --config .gitleaks.toml --no-banner --redact --log-opts="--all"

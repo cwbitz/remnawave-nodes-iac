@@ -312,6 +312,10 @@ vault-view: vault-init require-inventory ## View vault.yml for EVERY host, or on
 validate-knobs: vault-init
 	@if [ -f $(INVENTORY) ]; then $(ANS_PLAY) -i $(INVENTORY) playbooks/validate_knobs.yml; else echo "validate-knobs: $(INVENTORY) missing, skipped"; fi
 
+.PHONY: test
+test: ## Run the unit tests for the control-node helpers
+	pytest -q tests
+
 .PHONY: lint
 lint: vault-init validate-knobs
 	$(ANS_PLAY) --syntax-check playbooks/site.yml
@@ -319,7 +323,6 @@ lint: vault-init validate-knobs
 	$(ANS_PLAY) --syntax-check playbooks/agent.yml
 	$(ANS_PLAY) --syntax-check playbooks/monitoring.yml
 	ansible-lint playbooks/site.yml playbooks/bootstrap.yml playbooks/agent.yml playbooks/monitoring.yml
-	python3 -m unittest discover -s tests -v
 	$(ANS_PLAY) --syntax-check tests/knob_contract.yml
 	$(ANS_PLAY) -i localhost, tests/knob_contract.yml
 	python3 scripts/audit_example_knobs.py
