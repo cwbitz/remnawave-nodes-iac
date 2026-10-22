@@ -62,6 +62,9 @@
   hosts: remnanodes
   gather_facts: true
   roles:
+    - role: agent
+      tags: [agent, monitoring]
+      when: netbird_enabled | default(true) | bool
     - role: monitoring
       tags: [monitoring]
       when: monitoring_enabled | default(false) | bool
@@ -80,3 +83,10 @@
         tasks_from: cleanup
       tags: [monitoring]
       when: not (monitoring_enabled | default(false) | bool)
+
+    - name: "[Agent] Retire the overlay agent when disabled"
+      ansible.builtin.include_role:
+        name: agent
+        tasks_from: cleanup
+      tags: [agent, monitoring]
+      when: not (netbird_enabled | default(true) | bool)

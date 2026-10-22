@@ -17,7 +17,9 @@ services:
       - /dev/net/tun
     environment:
       NB_SETUP_KEY: "{{ netbird_peer_setup_key }}"
+{% if (netbird_management_url | default('', true) | string | trim) | length > 0 %}
       NB_MANAGEMENT_URL: "{{ netbird_management_url }}"
+{% endif %}
       NB_HOSTNAME: "{{ inventory_hostname }}"
     volumes:
       - netbird_config:/var/lib/netbird

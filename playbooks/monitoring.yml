@@ -1,4 +1,17 @@
 ---
+- name: Join the Remnawave nodes to the NetBird overlay
+  hosts: remnanodes
+  gather_facts: true
+  roles:
+    - role: agent
+      when: netbird_enabled | default(true) | bool
+  tasks:
+    - name: "[Agent] Retire the overlay agent when disabled"
+      ansible.builtin.include_role:
+        name: agent
+        tasks_from: cleanup
+      when: not (netbird_enabled | default(true) | bool)
+
 - name: Optional host monitoring and host security
   hosts: remnanodes
   gather_facts: false

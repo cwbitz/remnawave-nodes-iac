@@ -2,14 +2,13 @@
 - name: "[Agent] Assert the overlay join credentials"
   ansible.builtin.assert:
     that:
-      - (netbird_management_url | default('', true) | length) > 0
       - (netbird_peer_setup_key | default('', true) | length) > 0
     fail_msg: >-
-      The overlay agent requires the management URL and a setup key so it joins
-      the mesh. Set netbird_management_url (host_vars/<host>/main.yml) and
-      vault_netbird_setup_key in
-      inventory/host_vars/<host>/vault.yml (both are inputs owned by THIS
-      project; the management server itself lives in the sibling netbird-iac).
+      The overlay agent requires a setup key so it joins the mesh. Set
+      vault_netbird_setup_key in inventory/host_vars/<host>/vault.yml (both the
+      key and the management URL are inputs owned by THIS project; the
+      management server itself lives in the sibling netbird-iac). Leave
+      netbird_management_url empty for NetBird Cloud.
 
 - name: "[Agent] Ensure Docker Engine and the Compose v2 plugin are present"
   ansible.builtin.include_role:
@@ -62,8 +61,8 @@
   until: >-
     agent_wt0_addr.rc == 0
     and (agent_wt0_addr.stdout | regex_findall('inet [0-9.]+/') | length > 0)
-  retries: 30
-  delay: 5
+  retries: "{{ 1 if ansible_check_mode else 30 }}"
+  delay: "{{ 0 if ansible_check_mode else 5 }}"
   changed_when: false
   failed_when: false
   check_mode: false
@@ -71,7 +70,7 @@
 - name: "[Agent] Record the overlay address"
   ansible.builtin.set_fact:
     overlay_ip: >-
-      {{ (agent_wt0_addr.stdout | default('') | regex_findall('inet ([0-9.]+)/') | first)
+      {{ ((agent_wt0_addr | default({})).stdout | default('') | regex_findall('inet ([0-9.]+)/') | first)
          | default('', true) }}
 
 - name: "[Agent] Fail when the overlay peer did not come up"
@@ -81,4 +80,6 @@
     fail_msg: >-
       The NetBird overlay agent did not obtain an address on wt0 within the
       timeout. Check the setup key (vault_netbird_setup_key), the management URL
-      (netbird_management_url), and `docker logs netbird`.
+      (netbird_management_url; empty means NetBird Cloud), and
+      `docker logs netbird`.
+  when: not ansible_check_mode

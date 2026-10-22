@@ -28,9 +28,11 @@ registers its LAPI key against the local LAPI on install.
 
 ## Overlay + discovery
 
-The role **includes `roles/agent`** so the exporters are reachable over the
-overlay. The sibling `docker-stack-iac` Prometheus discovers peers from the NetBird
-API and scrapes `:9100` and `:6060`.
+The exporters are reachable over the overlay: `site.yml` and `monitoring.yml`
+run `roles/agent` before this role, and `netbird_enabled` (default `true`) keeps
+every node joined.
+The sibling `docker-stack-iac` Prometheus discovers peers from the NetBird API and
+scrapes `:9100` and `:6060`.
 
 ## Disabling
 
@@ -47,4 +49,4 @@ untouched.
 
 The role gathers facts itself, so it does not depend on a prior fact-gathering
 pass. A host with `monitoring_enabled: false` is cleaned up without installing
-anything and without including the overlay agent.
+anything; the overlay is controlled separately by `netbird_enabled`.

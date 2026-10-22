@@ -10,6 +10,18 @@
       monitoring is Debian-family only (apt). Set monitoring_enabled: false on
       unsupported hosts.
 
+- name: "[Monitoring] Assert the overlay is available"
+  ansible.builtin.assert:
+    that:
+      - (overlay_ip | default('', true) | length) > 0
+    fail_msg: >-
+      node_exporter and CrowdSec bind the NetBird overlay address, so the agent
+      must be enabled (netbird_enabled, default true) and joined before the
+      monitoring components can start.
+  when:
+    - (node_exporter_enabled | bool or crowdsec_enabled | bool)
+    - not ansible_check_mode
+
 - name: "[Monitoring] Select the packages to install"
   ansible.builtin.set_fact:
     monitoring_packages: >-
@@ -24,10 +36,6 @@
     update_cache: true
     cache_valid_time: 3600
   when: monitoring_packages | length > 0
-
-- name: "[Monitoring] Join the host to the overlay"
-  ansible.builtin.include_role:
-    name: agent
 
 - name: "[Monitoring] Assert a central Loki URL when shipping logs"
   ansible.builtin.assert:
@@ -116,7 +124,9 @@
   ansible.builtin.set_fact:
     node_exporter_listen_args:
       - "--web.listen-address={{ overlay_ip }}:{{ node_exporter_port }}"
-  when: node_exporter_enabled | bool
+  when:
+    - node_exporter_enabled | bool
+    - (overlay_ip | default('', true) | length) > 0
 
 - name: "[Monitoring] Configure the node_exporter listen address"
   ansible.builtin.copy:
@@ -126,7 +136,9 @@
     owner: root
     group: root
     mode: "0644"
-  when: node_exporter_enabled | bool
+  when:
+    - node_exporter_enabled | bool
+    - (overlay_ip | default('', true) | length) > 0
   notify: "[Monitoring] Restart node_exporter"
 
 - name: "[Monitoring] Ensure the node_exporter drop-in directory exists"
@@ -136,7 +148,9 @@
     owner: root
     group: root
     mode: "0755"
-  when: node_exporter_enabled | bool
+  when:
+    - node_exporter_enabled | bool
+    - (overlay_ip | default('', true) | length) > 0
 
 - name: "[Monitoring] Render the node_exporter overlay-wait drop-in"
   ansible.builtin.template:
@@ -145,7 +159,9 @@
     owner: root
     group: root
     mode: "0644"
-  when: node_exporter_enabled | bool
+  when:
+    - node_exporter_enabled | bool
+    - (overlay_ip | default('', true) | length) > 0
   notify: "[Monitoring] Restart node_exporter"
 
 - name: "[Monitoring] Point the CrowdSec metrics listener at the overlay"

@@ -2,12 +2,16 @@
 
 `roles/agent/` — joins a node to the NetBird mesh by running the
 `netbirdio/netbird` agent container in `agent_dir` = `/opt/netbird-agent`. Reached
-via `make agent`, or as part of `roles/monitoring` / `site.yml`.
+via `make agent`, `site.yml` or `monitoring.yml`; `netbird_enabled` (default
+`true`) controls it, and the role carries a cleanup path for the opt-out (the
+container is removed, while the `netbird_config` volume is kept so re-enabling
+keeps the peer identity).
 
 ## Inputs (owned by this project)
 
 - `netbird_management_url` — non-secret; host `main.yml` (full URL with scheme and
-  no trailing slash, e.g. `https://netbird.example.com`; empty = NetBird Cloud).
+  no trailing slash, e.g. `https://netbird.example.com`; empty = NetBird Cloud,
+  where the container env is omitted so the agent uses its built-in default).
 - `netbird_peer_setup_key` — this node's enrollment key, resolved by
   `roles/agent/defaults` from `vault_netbird_setup_key` (never set in `main.yml`).
 

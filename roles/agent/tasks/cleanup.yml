@@ -1,0 +1,17 @@
+---
+- name: "[Agent] Check for a rendered agent stack"
+  ansible.builtin.stat:
+    path: "{{ agent_dir }}/docker-compose.yml"
+  register: agent_compose
+
+- name: "[Agent] Remove the agent stack"
+  community.docker.docker_compose_v2:
+    project_src: "{{ agent_dir }}"
+    state: absent
+  when: agent_compose.stat.exists
+
+- name: "[Agent] Remove a leftover agent container"
+  community.docker.docker_container:
+    name: netbird
+    state: absent
+  when: not agent_compose.stat.exists
