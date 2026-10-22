@@ -187,20 +187,34 @@ host-bootstrap: vault-init agent-fallback ## Create the iac automation account o
 	$(SSH_AGENT_RUN) $(ANS_PLAY) -i $(INVENTORY) playbooks/bootstrap.yml $(if $(HOST),-e bootstrap_host=$(HOST),)
 
 .PHONY: hostkey-init
-hostkey-init: vault-init ## Refresh every managed host's SSH host key in known_hosts
+hostkey-init: vault-init ## Refresh every managed host's SSH host key in known_hosts (FORCE=1 replaces a changed key)
 	@set -e; \
-	nh="$(KNOWN_HOSTS)"; mkdir -p "$$(dirname "$$nh")"; tmp=$$(mktemp); \
-	$(ANS_PLAY) -i $(INVENTORY) playbooks/host_keys.yml -e host_keys_out="$$tmp" >/dev/null; \
-	mapfile -t lines < <(python3 -c "import json; [print(f\"{t['name']}\t{t['host']}\t{t['port']}\") for t in json.load(open('$$tmp'))]"); \
-	rm -f "$$tmp"; \
-	if [ "$${#lines[@]}" -eq 0 ]; then echo "ERROR: no hosts resolved from the inventory."; exit 1; fi; \
-	for line in "$${lines[@]}"; do \
-		name=$$(printf '%s' "$$line" | cut -f1); host=$$(printf '%s' "$$line" | cut -f2); port=$$(printf '%s' "$$line" | cut -f3); \
+	nh="$(KNOWN_HOSTS)"; mkdir -p "$$(dirname "$$nh")"; tmp=$$(mktemp); targets=$$(mktemp); tsv=$$(mktemp); pub=$$(mktemp); failures=0; \
+	trap 'rm -f "$$tmp" "$$targets" "$$tsv" "$$pub"' EXIT; \
+	if [ -f "$$nh" ]; then cp "$$nh" "$$tmp"; else : > "$$tmp"; fi; \
+	$(ANS_PLAY) -i $(INVENTORY) playbooks/host_keys.yml -e host_keys_out="$$targets" >/dev/null; \
+	python3 -c 'import json,sys; [print("{}\t{}\t{}".format(t["name"],t["host"],t["port"])) for t in json.load(open(sys.argv[1]))]' "$$targets" > "$$tsv"; \
+	mv "$$tsv" "$$targets"; \
+	test -s "$$targets" || { echo "ERROR: no hosts resolved from the inventory."; exit 1; }; \
+	while IFS=$$'\t' read -r name host port; do \
+		[ -n "$$name" ] || continue; \
 		echo "host key: $$name ($$host:$$port)"; \
-		ssh-keygen -R "$$host" -f "$$nh" >/dev/null 2>&1 || true; \
-		if [ "$$port" != "22" ]; then ssh-keygen -R "[$$host]:$$port" -f "$$nh" >/dev/null 2>&1 || true; fi; \
-		ssh-keyscan -T 5 -p "$$port" -t rsa,ecdsa,ed25519 "$$host" >> "$$nh" 2>/dev/null || { echo "ERROR: ssh-keyscan failed for $$host:$$port"; exit 1; }; \
-	done; \
+		if ! keys="$$(ssh-keyscan -T 5 -p "$$port" "$$host" 2>/dev/null)" || [ -z "$$keys" ]; then \
+			echo "ERROR: ssh-keyscan returned no host key for $$host:$$port; entry left unchanged" >&2; failures=1; continue; \
+		fi; \
+		if [ "$$port" = "22" ]; then key="$$host"; else key="[$$host]:$$port"; fi; \
+		old=$$(ssh-keygen -F "$$key" -f "$$tmp" 2>/dev/null | awk '!/^#/ && NF {print $$2" "$$3}' | sort); \
+		new=$$(printf '%s\n' "$$keys" | awk '{print $$2" "$$3}' | sort); \
+		printf '%s\n' "$$keys" | awk '{print $$2" "$$3}' > "$$pub"; \
+		ssh-keygen -lf "$$pub" 2>/dev/null | sed 's/^/  fingerprint: /' >&2 || true; \
+		if [ -n "$$old" ] && [ -n "$$(comm -23 <(printf '%s\n' "$$old") <(printf '%s\n' "$$new"))" ] && [ "$(FORCE)" != "1" ]; then \
+			echo "ERROR: host key changed for $$key; verify the fingerprint, then re-run with FORCE=1" >&2; failures=1; continue; \
+		fi; \
+		ssh-keygen -R "$$key" -f "$$tmp" >/dev/null 2>&1 || true; \
+		printf '%s\n' "$$keys" >> "$$tmp"; \
+	done < "$$targets"; \
+	chmod 600 "$$tmp"; mv "$$tmp" "$$nh"; \
+	[ "$$failures" -eq 0 ] || { echo "some host keys were not refreshed; known_hosts updated for the rest" >&2; exit 1; }; \
 	echo "host keys refreshed in $$nh"
 
 .PHONY: vault-init
