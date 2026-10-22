@@ -58,35 +58,6 @@
       firewall_public_tcp_ports, so applying this ruleset would close SSH. Add it
       to inventory/host_vars/{{ inventory_hostname }}/main.yml.
 
-- name: "[Firewall] Stop the previous unit"
-  ansible.builtin.systemd_service:
-    name: "{{ item }}"
-    state: stopped
-    enabled: false
-  loop: "{{ firewall_legacy_services | default([]) }}"
-  failed_when: false
-  when: not ansible_check_mode
-
-- name: "[Firewall] Retire the previous unit file and ruleset"
-  ansible.builtin.file:
-    path: "{{ item }}"
-    state: absent
-  loop: "{{ firewall_legacy_paths | default([]) }}"
-  when: not ansible_check_mode
-
-- name: "[Firewall] Drop the previous table still loaded in the kernel"
-  ansible.builtin.command:
-    argv:
-      - "{{ firewall_nft }}"
-      - delete
-      - table
-      - inet
-      - "{{ item }}"
-  loop: "{{ firewall_legacy_tables | default([]) }}"
-  changed_when: true
-  failed_when: false
-  when: not ansible_check_mode
-
 - name: "[Firewall] Ensure the nftables config directory exists"
   ansible.builtin.file:
     path: "{{ firewall_conf_dir }}"

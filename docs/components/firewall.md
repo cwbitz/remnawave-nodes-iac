@@ -88,8 +88,8 @@ Operator knobs live in `inventory/host_vars/<host>/main.yml` (see
   cannot leave the host unfirewalled. The unit reloads only when the rendered
   ruleset differs.
 - Port knobs are validated (list shape, `port` / `start-end` syntax, 1–65535,
-  `start <= end`, and the SSH/admin port covered) **before** the role stops or
-  retires the previous ruleset, so a typo or a missing SSH entry fails while the
+  `start <= end`, and the SSH/admin port covered) **before** the role validates
+  and applies the new ruleset, so a typo or a missing SSH entry fails while the
   host is still protected by its existing table.
 - It never enables Debian's `nftables.service` (whose stock config does
   `flush ruleset`, which would race with Docker/CrowdSec/NetBird at boot).
@@ -98,6 +98,12 @@ Operator knobs live in `inventory/host_vars/<host>/main.yml` (see
   lockout does happen, recover via
   the provider console: `systemctl stop firewall` (or delete the table with
   `nft delete table inet basefw`).
+
+## Upgrading from the earlier table
+
+A host that still carries the previous `inet hostfw` table needs it removed once:
+`nft delete table inet hostfw`. The role no longer runs that migration on every
+deploy.
 
 ## Rollback
 

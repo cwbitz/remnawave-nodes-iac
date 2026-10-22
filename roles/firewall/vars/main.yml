@@ -7,13 +7,3 @@ firewall_service_name: "firewall.service"
 firewall_service_path: "/etc/systemd/system/firewall.service"
 firewall_overlay_iface: "wt0"
 firewall_netbird_wg_port: 51820
-
-firewall_legacy_paths:
-  - "/etc/systemd/system/host-firewall.service"
-  - "{{ firewall_conf_dir }}/90-host-firewall.nft"
-
-firewall_legacy_services:
-  - "host-firewall.service"
-
-firewall_legacy_tables:
-  - "hostfw"
