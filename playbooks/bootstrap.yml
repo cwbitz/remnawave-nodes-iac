@@ -24,6 +24,7 @@
     - name: "[Probe] Try each identity over SSH"
       ansible.builtin.shell: |
         set -u
+        set -o pipefail
         HOST="{{ probe_host }}"; PORT="{{ probe_port }}"
         # Hard per-attempt cap: ConnectTimeout only bounds the TCP connect, not
         # the auth exchange, so a stalled link can otherwise hang the probe.
@@ -37,16 +38,24 @@
           kopt=""; [ -n "$key" ] && kopt="-i $key"
           base="-o StrictHostKeyChecking=accept-new -o ConnectTimeout=8 -o Port=$PORT"
           base="$base -o PreferredAuthentications=publickey,password -o NumberOfPasswordPrompts=1"
-          # An identity other than root must also be able to escalate: a
-          # half-provisioned account can log in before its sudo access exists, and
-          # choosing it then blocks the bootstrap from repairing the host. The
-          # NOPASSWD service account is proven with `sudo -n true`; a password-sudo
-          # identity (the `admin` account) proves escalation at deploy time via
-          # ansible_become_password, so login is enough for it.
+          # A non-root account must prove it can escalate: `iac` is NOPASSWD by
+          # contract, and `admin` may use password sudo, so each is probed before
+          # it is chosen over root.
           remote="true"
-          if [ "$id" != "ROOT" ] && [ -z "$pw" ]; then remote="sudo -n true"; fi
+          if [ "$id" = "IAC" ]; then
+            remote="sudo -n true"
+          elif [ "$id" = "ADMIN" ] && [ -z "$pw" ]; then
+            remote="sudo -n true"
+          fi
           if [ -n "$pw" ]; then
-            SSHPASS="$pw" timeout "$CMD_TIMEOUT" sshpass -e ssh $base $kopt "$user@$HOST" "$remote" >/dev/null 2>&1 && return 0
+            if [ "$id" = "ADMIN" ]; then
+              printf '%s\n' "$pw" \
+                | SSHPASS="$pw" timeout "$CMD_TIMEOUT" \
+                  sshpass -e ssh $base $kopt "$user@$HOST" \
+                  "sudo -S -p '' true" >/dev/null 2>&1 && return 0
+            else
+              SSHPASS="$pw" timeout "$CMD_TIMEOUT" sshpass -e ssh $base $kopt "$user@$HOST" "$remote" >/dev/null 2>&1 && return 0
+            fi
           else
             timeout "$CMD_TIMEOUT" ssh $base -o BatchMode=yes $kopt "$user@$HOST" "$remote" >/dev/null 2>&1 && return 0
           fi
@@ -141,6 +150,21 @@
       vars:
         bootstrap_hostname_short: "{{ bootstrap_hostname.stdout.split('.') | first }}"
       when: bootstrap_hostname_lookup.rc | default(1) != 0
+
+    - name: "[Bootstrap] Stat the requested timezone"
+      ansible.builtin.stat:
+        path: "/usr/share/zoneinfo/{{ timezone }}"
+      register: bootstrap_timezone
+      when: timezone | default('', true) | trim | length > 0
+
+    - name: "[Bootstrap] Fail when the timezone is unknown"
+      ansible.builtin.assert:
+        that:
+          - bootstrap_timezone.stat.isreg | default(false)
+        fail_msg: >-
+          timezone '{{ timezone }}' is not an IANA zone present under
+          /usr/share/zoneinfo on {{ inventory_hostname }}.
+      when: timezone | default('', true) | trim | length > 0
 
     - name: "[Bootstrap] Set the system timezone"
       community.general.timezone:

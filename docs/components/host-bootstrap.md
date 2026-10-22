@@ -7,7 +7,9 @@ host at a time.
 ## What it does
 
 1. **Probes the SSH identities** `[iac, admin, root]` (key first,
-   then password) and uses the first that works.
+   then password) and uses the first that can also escalate: `iac` is proven with
+   `sudo -n`, `admin` with its password through `sudo -S`, and `root` needs no
+   escalation.
 2. **Creates/repairs the `iac` automation account** with NOPASSWD sudo, unless it
    already connected as `iac`. Password mode hashes with a per-account random
    salt and applies `update_password=on_create`, so re-runs are idempotent and a
@@ -17,8 +19,10 @@ host at a time.
    `helpers/install_docker` task (Docker's official install script,
    `https://get.docker.com`). `install_docker: false` skips the install and fails
    with guidance when Docker is missing.
-4. **Optionally sets mirrors** (each a no-op unless set): `apt_mirror` (the
-   security suite derives from it) and `docker_registry_mirrors`.
+4. **Optionally sets the clock and mirrors** (each a no-op unless set):
+   `timezone` (an existing IANA zone), `apt_mirror` (the Debian suite root,
+   ending in `/debian`; the security suite derives from it) and
+   `docker_registry_mirrors`.
 5. **Authorizes configured SSH public keys** (`host_<id>_ssh_pubkey_file` in the
    host's `main.yml`).
 
