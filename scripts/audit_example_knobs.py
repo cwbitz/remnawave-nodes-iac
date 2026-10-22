@@ -145,6 +145,38 @@ def declared_knobs(root: str) -> dict[str, tuple[object, str]]:
     return knobs
 
 
+def schema_keys(root: str) -> set[str]:
+    """Return the top-level keys of operator_knob_schema (stdlib only)."""
+    path = os.path.join(root, "inventory/knob_schema.yml")
+    if not os.path.isfile(path):
+        return set()
+    keys = set()
+    in_schema = False
+    with open(path, encoding="utf-8") as handle:
+        for line in handle:
+            if line.startswith("operator_knob_schema:"):
+                in_schema = True
+                continue
+            if not in_schema:
+                continue
+            if line.strip() and not line[0].isspace():
+                break
+            match = re.match(r"^  ([A-Za-z_][A-Za-z0-9_]*):", line)
+            if match:
+                keys.add(match.group(1))
+    return keys
+
+
+def example_top_keys(path: str) -> set[str]:
+    keys = set()
+    with open(path, encoding="utf-8") as handle:
+        for line in handle:
+            match = re.match(r"^([A-Za-z_][A-Za-z0-9_]*):", line)
+            if match:
+                keys.add(match.group(1))
+    return keys
+
+
 def main(argv: list[str]) -> int:
     root = argv[1] if len(argv) > 1 else os.getcwd()
     example = os.path.join(root, "inventory/host_vars/example/main.yml")
@@ -154,6 +186,12 @@ def main(argv: list[str]) -> int:
     active, commented = scan(example)
 
     problems: list[str] = []
+    schema = schema_keys(root)
+    example_top = example_top_keys(example)
+    for key in sorted(example_top - schema):
+        problems.append(f"{key}: present in the example but missing from inventory/knob_schema.yml")
+    for key in sorted(schema - example_top):
+        problems.append(f"{key}: in inventory/knob_schema.yml but not the example")
     knobs = declared_knobs(root)
     for key, (default, source) in sorted(knobs.items()):
         if key in WIRING or key in INTERNAL:
