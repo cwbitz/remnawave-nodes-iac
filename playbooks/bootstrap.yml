@@ -5,6 +5,7 @@
   become: false
   gather_facts: false
   vars:
+    ansible_become: false
     bootstrap_target: "{{ bootstrap_host | default(groups['remnanodes'] | default([]) | first | default('', true)) }}"
     remnawave_target: "{{ hostvars[bootstrap_target] | default({}) }}"
     probe_host: "{{ remnawave_target.ansible_host | default('') }}"
@@ -301,6 +302,8 @@
       register: bootstrap_pubkey_files
       delegate_to: localhost
       become: false
+      vars:
+        ansible_become: false
       loop: "{{ bootstrap_pubkey_specs }}"
       loop_control:
         loop_var: pubkey_spec
