@@ -290,8 +290,7 @@ vault-view: vault-init require-inventory ## View vault.yml for EVERY host, or on
 
 .PHONY: validate-knobs
 validate-knobs: vault-init
-	@test -f $(INVENTORY) || { echo "validate-knobs: $(INVENTORY) missing, skipped"; exit 0; }
-	$(ANS_PLAY) -i $(INVENTORY) playbooks/validate_knobs.yml
+	@if [ -f $(INVENTORY) ]; then $(ANS_PLAY) -i $(INVENTORY) playbooks/validate_knobs.yml; else echo "validate-knobs: $(INVENTORY) missing, skipped"; fi
 
 .PHONY: lint
 lint: vault-init validate-knobs
