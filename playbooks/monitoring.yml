@@ -2,6 +2,14 @@
 - name: Optional host monitoring and host security
   hosts: remnanodes
   gather_facts: false
-  roles:
-    - role: monitoring
+  tasks:
+    - name: "[Monitoring] Converge the disabled components off"
+      ansible.builtin.include_role:
+        name: monitoring
+        tasks_from: cleanup
+      when: not (monitoring_enabled | default(false) | bool)
+
+    - name: "[Monitoring] Apply the monitoring stack"
+      ansible.builtin.include_role:
+        name: monitoring
       when: monitoring_enabled | default(false) | bool

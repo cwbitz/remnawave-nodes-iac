@@ -32,8 +32,19 @@ The role **includes `roles/agent`** so the exporters are reachable over the
 overlay. The sibling `docker-stack-iac` Prometheus discovers peers from the NetBird
 API and scrapes `:9100` and `:6060`.
 
-## Skipping
+## Disabling
 
-The play sets `gather_facts: false` and the role gathers facts itself, so hosts
-that did not opt in (`monitoring_enabled: false`) are skipped without any
-connection being made.
+`playbooks/site.yml` includes the role while `monitoring_enabled` is true and runs
+its `cleanup` tasks when it is false; `roles/monitoring/tasks/main.yml` runs the
+same cleanup for a component disabled on its own. Cleanup stops and disables
+`prometheus-node-exporter` (`node_exporter_enabled: false`), stops and disables
+`crowdsec` and `crowdsec-firewall-bouncer` (`crowdsec_enabled: false`), and takes
+the Alloy compose stack down (`alloy_enabled: false`, only when a rendered
+`/opt/monitoring/docker-compose.yml` exists). Packages and rendered configuration
+stay in place, so re-enabling a component needs only `make deploy`; units are
+guarded on `ansible_facts.services`, so a host that never installed them is
+untouched.
+
+The role gathers facts itself, so it does not depend on a prior fact-gathering
+pass. A host with `monitoring_enabled: false` is cleaned up without installing
+anything and without including the overlay agent.

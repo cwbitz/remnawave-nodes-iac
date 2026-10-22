@@ -69,3 +69,10 @@
       when: sshd_hardening_enabled | default(false) | bool
     - role: remnanode
       tags: [remnanode]
+  tasks:
+    - name: "[Monitoring] Retire the monitoring and security slice when disabled"
+      ansible.builtin.include_role:
+        name: monitoring
+        tasks_from: cleanup
+      tags: [monitoring]
+      when: not (monitoring_enabled | default(false) | bool)

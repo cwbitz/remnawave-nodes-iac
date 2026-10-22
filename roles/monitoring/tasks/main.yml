@@ -199,3 +199,10 @@
     enabled: true
     state: started
   loop: "{{ monitoring_services }}"
+
+- name: "[Monitoring] Retire the components that are disabled"
+  ansible.builtin.include_tasks: cleanup.yml
+  when: >-
+    not (node_exporter_enabled | default(false) | bool)
+    or not (crowdsec_enabled | default(false) | bool)
+    or not (alloy_enabled | default(false) | bool)

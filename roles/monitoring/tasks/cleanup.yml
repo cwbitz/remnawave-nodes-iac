@@ -1,0 +1,39 @@
+---
+- name: "[Monitoring] Gather the service facts"
+  ansible.builtin.service_facts:
+
+- name: "[Monitoring] Stop and disable the node_exporter service"
+  ansible.builtin.systemd_service:
+    name: "{{ svc_node_exporter }}"
+    state: stopped
+    enabled: false
+  when:
+    - (svc_node_exporter ~ '.service') in ansible_facts.services
+    - ansible_facts.services[svc_node_exporter ~ '.service'].status | default('') != 'not-found'
+    - not (monitoring_enabled | default(false) | bool) or not (node_exporter_enabled | default(false) | bool)
+
+- name: "[Monitoring] Stop and disable the CrowdSec services"
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    state: stopped
+    enabled: false
+  loop:
+    - "{{ svc_crowdsec_firewall_bouncer }}"
+    - "{{ svc_crowdsec }}"
+  when:
+    - (item ~ '.service') in ansible_facts.services
+    - ansible_facts.services[item ~ '.service'].status | default('') != 'not-found'
+    - not (monitoring_enabled | default(false) | bool) or not (crowdsec_enabled | default(false) | bool)
+
+- name: "[Monitoring] Check for a rendered Alloy stack"
+  ansible.builtin.stat:
+    path: "{{ monitoring_dir }}/docker-compose.yml"
+  register: monitoring_compose
+
+- name: "[Monitoring] Remove the Alloy stack"
+  community.docker.docker_compose_v2:
+    project_src: "{{ monitoring_dir }}"
+    state: absent
+  when:
+    - monitoring_compose.stat.exists
+    - not (monitoring_enabled | default(false) | bool) or not (alloy_enabled | default(false) | bool)
