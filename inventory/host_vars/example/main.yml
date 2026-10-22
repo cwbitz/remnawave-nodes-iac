@@ -23,7 +23,8 @@ host_root_ssh_privkey_file: ""
 # The node joins the mesh as a peer. Pick a setup key whose group the central
 # observability stack discovers (`endpoint` by default; it grants no exit/LAN
 # routes).
-netbird_management_url: ""   # empty = NetBird Cloud; a self-hosted mesh sets its URL
+netbird_enabled: true
+netbird_management_url: ""   # empty = NetBird Cloud (the agent env is omitted); a self-hosted mesh sets its URL
 
 # ==============================================================================
 # Remnawave Node
@@ -59,10 +60,11 @@ alloy_journal_extras: []
 # Host firewall
 # ==============================================================================
 # Default-deny inbound (a dedicated nftables table). Opt-in per host; set
-# firewall_enabled true to apply it. SSH, the NetBird overlay and the WireGuard
-# UDP port stay open; NODE_PORT
-# and everything else are reachable only over the overlay. The Panel owns the Xray
-# inbounds, so declare the ports it pushes here (empty = no proxy service yet).
+# firewall_enabled true to apply it, especially before the Panel dials
+# NODE_PORT. SSH, the NetBird overlay and the WireGuard UDP port stay open;
+# NODE_PORT and everything else are reachable only over the overlay. The Panel
+# owns the Xray inbounds, so declare the ports it pushes here (empty = no proxy
+# service yet).
 # Each entry is a single port or a `start-end` range, so the Panel's own value can
 # be copied verbatim, e.g. ["443"] and ["20000-20100"]. The two projects are
 # decoupled: keep these in step with the Panel's inbound ports by hand.
@@ -78,16 +80,17 @@ firewall_allow_icmp: true
 # `iac` (or root when that is the only admin path); the role verifies that
 # and fails otherwise.
 sshd_hardening_enabled: false
-# Root SSH policy, independent of the toggle above: "no" disables root SSH;
-# "prohibit-password" keeps root reachable by public key only (needed on a host
-# administered only through root).
+# Root SSH policy, applied only while the hardening toggle above is true: "no"
+# disables root SSH; "prohibit-password" keeps root reachable by public key only
+# (needed on a host administered only through root).
 sshd_permit_root_login: "no"
 
 # ==============================================================================
 # Host bootstrap (make host-bootstrap; NOT part of make deploy)
 # ==============================================================================
 # install_docker false requires a preinstalled Docker. Mirrors for hosts where the
-# defaults are slow or blocked; the security repo follows apt_mirror.
+# defaults are slow or blocked; apt_mirror is the Debian suite root and must end
+# in /debian (the security repo follows apt_mirror).
 install_docker: true
 # IANA timezone for the host clock and journal timestamps (empty keeps the
 # image's setting).

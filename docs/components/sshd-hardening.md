@@ -31,7 +31,7 @@ policy:
 | `PasswordAuthentication` | `no` | the ssh password auth method |
 | `KbdInteractiveAuthentication` | `no` | PAM keyboard-interactive otherwise still accepts a password |
 | `PermitEmptyPasswords` | `no` | unchanged default, pinned explicitly |
-| `PermitRootLogin` | `no` \| `prohibit-password` | `sshd_permit_root_login`, independent of the toggle: `no` disables root SSH, `prohibit-password` keeps it by key only |
+| `PermitRootLogin` | `no` \| `prohibit-password` | `sshd_permit_root_login`, applied while hardening is enabled: `no` disables root SSH, `prohibit-password` keeps it by key only |
 
 A drop-in is used so the provider's cloud-init config and the operator's
 `sshd_config` are never edited. The file is named `00-` because sshd keeps the
@@ -70,8 +70,8 @@ Operator knobs live in `inventory/host_vars/<host>/main.yml` (see
 - `sshd_hardening_enabled` — per-host opt-in (role default `false`; nothing is
   written until it is set).
 - `sshd_permit_root_login` — root-login policy, default `no`: `no` disables root
-  SSH, `prohibit-password` keeps it reachable by public key only. Independent of
-  the toggle above.
+  SSH, `prohibit-password` keeps it reachable by public key only. Applied only
+  while `sshd_hardening_enabled` is true.
 
 Password login itself is not configurable: it is closed on every path. `iac`
 (public key) is the default SSH identity; with `sshd_permit_root_login:

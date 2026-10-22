@@ -11,7 +11,7 @@ operator_knob_schema:
   host_root_ssh_pubkey_file: "host_root_ssh_pubkey_file is not defined or host_root_ssh_pubkey_file is string"
   host_root_ssh_privkey_file: "host_root_ssh_privkey_file is not defined or host_root_ssh_privkey_file is string"
   install_docker: "install_docker is not defined or install_docker is boolean"
-  apt_mirror: "(apt_mirror | default('', true) | string | trim) == '' or (apt_mirror | string) is match('^https?://[^\\s]+$')"
+  apt_mirror: "(apt_mirror | default('', true) | string | trim) == '' or (apt_mirror | string) is match('^https?://[^\\s]+/debian/?$')"
   docker_registry_mirrors: >-
     docker_registry_mirrors is not defined or ((docker_registry_mirrors is sequence) and not (docker_registry_mirrors is string) and not
     (docker_registry_mirrors is mapping))
@@ -19,7 +19,7 @@ operator_knob_schema:
   allow_root_login: "allow_root_login is not defined or allow_root_login is boolean"
   sshd_hardening_enabled: "sshd_hardening_enabled is not defined or sshd_hardening_enabled is boolean"
   sshd_permit_root_login: >-
-    sshd_permit_root_login is not defined or (sshd_permit_root_login | string) in ["yes", "no", "prohibit-password", "without-password"]
+    sshd_permit_root_login is not defined or (sshd_permit_root_login | string) in ["no", "prohibit-password"]
   firewall_enabled: "firewall_enabled is not defined or firewall_enabled is boolean"
   firewall_public_tcp_ports: >-
     firewall_public_tcp_ports is not defined or (((firewall_public_tcp_ports is sequence) and not (firewall_public_tcp_ports is string) and not
@@ -41,10 +41,10 @@ operator_knob_schema:
   alloy_journal_extras: >-
     alloy_journal_extras is not defined or ((alloy_journal_extras is sequence) and not (alloy_journal_extras is string) and not
     (alloy_journal_extras is mapping))
+  netbird_enabled: "netbird_enabled is not defined or netbird_enabled is boolean"
   netbird_management_url: >-
-    ((netbird_management_url | default('', true) | string | trim) == '' or (netbird_management_url | string) is match('^https?://[^\s]+$')) and
-    (netbird_management_url is defined) and ((netbird_management_url | default('', true) | string | trim | length) > 0)
+    (netbird_management_url | default('', true) | string | trim) == ''
+    or (netbird_management_url | string) is match('^https?://[^\s]+$')
   remnanode_node_port: >-
-    ((remnanode_node_port | default('', true) | string | trim) == '' or (((remnanode_node_port | string) is match('^[0-9]+(-[0-9]+)?$')) and
-    ((remnanode_node_port | string | regex_replace('-[0-9]+$', '') | int) >= 1) and ((remnanode_node_port | string | regex_replace('^[0-9]+-',
-    '') | int) <= 65535))) and (remnanode_node_port is defined) and ((remnanode_node_port | default('', true) | string | trim | length) > 0)
+    (remnanode_node_port | default('', true) | string | trim) is match('^[0-9]{1,5}$')
+    and (remnanode_node_port | int) >= 1 and (remnanode_node_port | int) <= 65535

@@ -1,0 +1,145 @@
+---
+- name: Validate the knob schema against the role domains
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars_files:
+    - ../inventory/knob_schema.yml
+  tasks:
+    - name: Set a single node port
+      ansible.builtin.set_fact:
+        remnanode_node_port: "2222"
+    - name: Assert the schema accepts a single node port
+      ansible.builtin.assert:
+        that: "{{ operator_knob_schema.remnanode_node_port }}"
+        quiet: true
+
+    - name: Set a ranged node port
+      ansible.builtin.set_fact:
+        remnanode_node_port: "2222-2223"
+    - name: Evaluate the schema with a ranged node port
+      ansible.builtin.assert:
+        that: "{{ operator_knob_schema.remnanode_node_port }}"
+        quiet: true
+      register: ranged_node_port
+      ignore_errors: true
+    - name: Assert the schema rejects a ranged node port
+      ansible.builtin.assert:
+        that:
+          - ranged_node_port.failed | default(false)
+        quiet: true
+
+    - name: Set an empty node port
+      ansible.builtin.set_fact:
+        remnanode_node_port: ""
+    - name: Evaluate the schema with an empty node port
+      ansible.builtin.assert:
+        that: "{{ operator_knob_schema.remnanode_node_port }}"
+        quiet: true
+      register: empty_node_port
+      ignore_errors: true
+    - name: Assert the schema rejects an empty node port
+      ansible.builtin.assert:
+        that:
+          - empty_node_port.failed | default(false)
+        quiet: true
+
+    - name: Set a key-only root policy
+      ansible.builtin.set_fact:
+        sshd_permit_root_login: "prohibit-password"
+    - name: Assert the schema accepts a key-only root policy
+      ansible.builtin.assert:
+        that: "{{ operator_knob_schema.sshd_permit_root_login }}"
+        quiet: true
+
+    - name: Set a password root policy
+      ansible.builtin.set_fact:
+        sshd_permit_root_login: "yes"
+    - name: Evaluate the schema with a password root policy
+      ansible.builtin.assert:
+        that: "{{ operator_knob_schema.sshd_permit_root_login }}"
+        quiet: true
+      register: password_root_login
+      ignore_errors: true
+    - name: Assert the schema rejects a password root policy
+      ansible.builtin.assert:
+        that:
+          - password_root_login.failed | default(false)
+        quiet: true
+
+    - name: Set the NetBird Cloud default
+      ansible.builtin.set_fact:
+        netbird_management_url: ""
+    - name: Assert the schema accepts the NetBird Cloud default
+      ansible.builtin.assert:
+        that: "{{ operator_knob_schema.netbird_management_url }}"
+        quiet: true
+
+    - name: Set a self-hosted NetBird URL
+      ansible.builtin.set_fact:
+        netbird_management_url: "https://netbird.example.com"
+    - name: Assert the schema accepts a self-hosted NetBird URL
+      ansible.builtin.assert:
+        that: "{{ operator_knob_schema.netbird_management_url }}"
+        quiet: true
+
+    - name: Set a bare NetBird host
+      ansible.builtin.set_fact:
+        netbird_management_url: "netbird.example.com"
+    - name: Evaluate the schema with a bare NetBird host
+      ansible.builtin.assert:
+        that: "{{ operator_knob_schema.netbird_management_url }}"
+        quiet: true
+      register: bare_netbird_host
+      ignore_errors: true
+    - name: Assert the schema rejects a bare NetBird host
+      ansible.builtin.assert:
+        that:
+          - bare_netbird_host.failed | default(false)
+        quiet: true
+
+    - name: Set a Debian suite root
+      ansible.builtin.set_fact:
+        apt_mirror: "https://mirror.example.com/debian"
+    - name: Assert the schema accepts a Debian suite root
+      ansible.builtin.assert:
+        that: "{{ operator_knob_schema.apt_mirror }}"
+        quiet: true
+
+    - name: Set a mirror URL without the suite path
+      ansible.builtin.set_fact:
+        apt_mirror: "https://mirror.example.com"
+    - name: Evaluate the schema with a mirror URL without the suite path
+      ansible.builtin.assert:
+        that: "{{ operator_knob_schema.apt_mirror }}"
+        quiet: true
+      register: mirror_without_suite
+      ignore_errors: true
+    - name: Assert the schema rejects a mirror URL without the suite path
+      ansible.builtin.assert:
+        that:
+          - mirror_without_suite.failed | default(false)
+        quiet: true
+
+    - name: Set a boolean overlay toggle
+      ansible.builtin.set_fact:
+        netbird_enabled: true
+    - name: Assert the schema accepts a boolean overlay toggle
+      ansible.builtin.assert:
+        that: "{{ operator_knob_schema.netbird_enabled }}"
+        quiet: true
+
+    - name: Set a string overlay toggle
+      ansible.builtin.set_fact:
+        netbird_enabled: "yes"
+    - name: Evaluate the schema with a string overlay toggle
+      ansible.builtin.assert:
+        that: "{{ operator_knob_schema.netbird_enabled }}"
+        quiet: true
+      register: string_overlay_toggle
+      ignore_errors: true
+    - name: Assert the schema rejects a string overlay toggle
+      ansible.builtin.assert:
+        that:
+          - string_overlay_toggle.failed | default(false)
+        quiet: true

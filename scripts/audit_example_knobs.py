@@ -49,6 +49,7 @@ DERIVED = {
 }
 EXTRA = {
     "apt_mirror", "docker_registry_mirrors", "allow_root_login",
+    "netbird_enabled", "timezone",
 }
 
 KEY_RE = re.compile(r"^\s*([A-Za-z_][A-Za-z0-9_]*):\s*(.*)$")
