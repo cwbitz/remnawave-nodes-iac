@@ -16,8 +16,8 @@
             (hostvars[item].ansible_host | default('', true) | string | trim)
             is not match('(?i)^(change_?me|todo)')
         fail_msg: |-
-          { item }: ansible_host is
-          '{ hostvars[item].ansible_host | default('<unset>', true) }', which is not a
+          {{ item }}: ansible_host is
+          '{{ hostvars[item].ansible_host | default('<unset>', true) }}', which is not a
           usable management address. Set the real address in the gitignored
           inventory/hosts.yml, or re-scaffold the host:
             make host-init HOST={{ item }} HOST_IP=<management-ip>
