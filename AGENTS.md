@@ -82,7 +82,9 @@ the Remnawave Node). `HOST=<name>` restricts the bootstrap to that node.
   `make dry-run` needs `make host-bootstrap` first (the `iac` account and its key
   must exist); check mode skips the overlay wait, so it also works before the
   first agent deployment.
-- The internal `make lint` (`--syntax-check` + `ansible-lint` + `tests/knob_contract.yml` + `scripts/audit_example_knobs.py` +
+- The internal `make lint` (`--syntax-check` + `ansible-lint` + `yamllint` +
+  `shellcheck` + Python syntax + `tests/knob_contract.yml` +
+  `scripts/audit_example_knobs.py` +
   `scripts/check_host_keys.py`, `scripts/check_repo_privacy.py` and a `gitleaks`
   tree scan) is run by CI and hidden from `make help`. The audit keeps
   `host_vars/example/main.yml` a complete, value-accurate mirror of every

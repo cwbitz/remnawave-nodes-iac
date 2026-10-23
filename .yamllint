@@ -7,3 +7,4 @@ ignore:
   - "collections/"
   - ".ansible/"
   - ".cache/"
+  - "inventory/host_vars/*/vault.yml"

@@ -323,6 +323,9 @@ lint: vault-init validate-knobs
 	$(ANS_PLAY) --syntax-check playbooks/agent.yml
 	$(ANS_PLAY) --syntax-check playbooks/monitoring.yml
 	ansible-lint playbooks/site.yml playbooks/bootstrap.yml playbooks/agent.yml playbooks/monitoring.yml
+	yamllint .
+	shellcheck scripts/*.sh
+	python3 -m compileall -q scripts
 	$(ANS_PLAY) --syntax-check tests/knob_contract.yml
 	$(ANS_PLAY) -i localhost, tests/knob_contract.yml
 	python3 scripts/audit_example_knobs.py
