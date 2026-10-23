@@ -28,6 +28,7 @@
     name: netbird
   register: agent_existing_container
   failed_when: false
+  no_log: true
 
 - name: "[Agent] Remove an overlay container owned by another compose project"
   community.docker.docker_container:
