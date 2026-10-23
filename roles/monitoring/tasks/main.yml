@@ -206,12 +206,16 @@
          + ([svc_crowdsec, svc_crowdsec_firewall_bouncer]
             if crowdsec_enabled | bool else []) }}
 
+- name: "[Monitoring] Gather the installed service facts"
+  ansible.builtin.service_facts:
+
 - name: "[Monitoring] Enable and start the monitoring services"
   ansible.builtin.systemd_service:
     name: "{{ item }}"
     enabled: true
     state: started
   loop: "{{ monitoring_services }}"
+  when: (item ~ '.service') in ansible_facts.services
 
 - name: "[Monitoring] Retire the components that are disabled"
   ansible.builtin.include_tasks: cleanup.yml

@@ -62,11 +62,11 @@
   until: >-
     agent_wt0_addr.rc == 0
     and (agent_wt0_addr.stdout | regex_findall('inet [0-9.]+/') | length > 0)
-  retries: "{{ 1 if ansible_check_mode else 30 }}"
-  delay: "{{ 0 if ansible_check_mode else 5 }}"
+  retries: 30
+  delay: 5
   changed_when: false
   failed_when: false
-  check_mode: false
+  when: not ansible_check_mode
 
 - name: "[Agent] Record the overlay address"
   ansible.builtin.set_fact:
