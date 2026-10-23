@@ -81,6 +81,8 @@
       ansible.builtin.include_role:
         name: monitoring
         tasks_from: cleanup
+        apply:
+          tags: [monitoring]
       tags: [monitoring]
       when: not (monitoring_enabled | default(false) | bool)
 
@@ -88,5 +90,7 @@
       ansible.builtin.include_role:
         name: agent
         tasks_from: cleanup
+        apply:
+          tags: [agent, monitoring]
       tags: [agent, monitoring]
       when: not (netbird_enabled | default(true) | bool)
