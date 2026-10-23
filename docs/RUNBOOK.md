@@ -192,47 +192,121 @@ ssh <host> 'systemctl status firewall && nft list table inet basefw'
 
 ## 8. Manual verification on a disposable host
 
-The cases `tests/` cannot cover: they need a real node, the Panel and destructive
-steps. Run them on a disposable host with its own inventory and vault password
-file, read-only checks first, destructive ones last, and evidence under
+The cases `tests/` cannot cover: they need a real node, the Panel, the overlay and
+destructive steps. Run them on a disposable host with its own inventory and vault
+password file, read-only checks first, destructive ones last, and evidence under
 `/tmp/opencode/test-run-<stamp>/artifacts/<case>/`, redacted. The expected result
 is the contract — a deviation is a defect to record, not a reason to skip.
+`AGENTS.md` holds the environment boundaries, execution rules and defect
+severity; `tests/` holds the automated suite.
 
-### Bootstrap and deploy
+### Bootstrap, deploy and host lifecycle
 
 - [ ] `make host-init HOST=<node> HOST_IP=<addr>` scaffolds the inventory entry,
-      `host_vars/<node>/` and an encrypted vault; the `CHANGE_ME_HOST_IP`
-      placeholder is refused until replaced.
-- [ ] `make host-bootstrap`: `iac` created with passwordless sudo and the configured
-      keys, Docker Engine and Compose v2 present; a second run changes nothing.
-- [ ] `make deploy` converges the node and a second run reports `changed=0` outside
-      the documented non-idempotent steps.
-- [ ] The node appears in the Panel and its container is healthy
-      (`docker compose ps`, Panel API/UI).
+      `host_vars/<node>/` and an encrypted `0600` vault; the
+      `CHANGE_ME_HOST_IP` placeholder is refused until replaced; a second run is
+      idempotent and `FORCE=1` is required to replace an existing address.
+- [ ] `make hostkey-init` refuses a changed host key after printing its
+      fingerprint and leaves `known_hosts` intact; `FORCE=1` replaces it. One
+      unreachable host does not truncate or partially write the file.
+- [ ] `make host-bootstrap`: `iac` created with passwordless sudo and the
+      configured keys, the admin account with password sudo, Docker Engine and
+      Compose v2 present. A second run leaves the host `changed=0` (`add_host` on
+      the probe play is the documented non-idempotent step).
+- [ ] `make dry-run` on a bootstrapped host **before** the monitoring packages are
+      installed completes: the check-mode guard skips absent units instead of
+      failing on `systemctl start`.
+- [ ] `make deploy` converges the overlay, monitoring, firewall, SSH hardening
+      and the node; a second run reports `changed=0` on the managed host.
+- [ ] The node appears in the Panel, its container is running, and the Panel
+      pushes configuration over the overlay (`docker logs remnanode`).
+- [ ] A host-side `SIGKILL` of the container PID restarts it (`RestartCount`
+      increments, listener returns). `docker kill` is a manual stop and does not
+      trigger `restart: always`; do not use it as a crash test.
+- [ ] After a reboot, SSH, the overlay, the firewall, the monitoring units and
+      all containers return, and the node reconnects to the Panel.
 
-### Overlay, monitoring and firewall
+### Roles
 
-- [ ] The agent joins with the node's own `vault_netbird_setup_key`, the peer lands
-      in the documented groups, and it carries no routes it did not declare.
-- [ ] node_exporter listens on the overlay only (`ss -lntp`, plus a probe from
-      off-host); both CrowdSec units are active and the bouncer is loaded.
-- [ ] With `alloy_enabled`: SSH journal events arrive at the central Loki; an
+- [ ] Agent: the key comes from the host's own `vault_netbird_setup_key`, the peer
+      joins the documented groups, carries no unexpected routes, gets `wt0`, and
+      the status shows the FQDN and overlay address. Without a key it fails before
+      starting the container.
+- [ ] Monitoring: packages and units are installed; node_exporter and CrowdSec
+      listen on the overlay only (`ss -lntp`, plus an off-host probe); the bouncer
+      is loaded in nftables. With `alloy_enabled`, all containers run and an
       unreachable Loki is a warning, not a failure.
-- [ ] With `firewall_enabled`: default deny, only the declared public/admin ports
-      open, and the rule set is identical on a re-run.
-- [ ] With `sshd_hardening_enabled`: password login refused, keyed login works, and
-      a broken verification rolls the config back.
+- [ ] Monitoring component off: disabling `node_exporter` (or CrowdSec) stops and
+      disables only that unit. Master off (untagged `playbooks/monitoring.yml`)
+      stops and disables all units and removes the Alloy stack, keeping packages;
+      re-enabling restores them without reinstalling.
+- [ ] `make deploy TAGS=monitoring` with `monitoring_enabled: false` retires the
+      slice (the cleanup tasks inherit the tag); the same holds for
+      `TAGS=agent` with `netbird_enabled: false` on a disposable host.
+- [ ] Firewall: default drop; only loopback, overlay, WireGuard, established,
+      ICMP and the declared public/admin ports are accepted; `NODE_PORT` is not
+      reachable from the public internet; a list without the SSH port is refused
+      before applying; the rule set is identical on a re-run (the agent's own
+      `wt0` rule is expected).
+- [ ] SSH hardening: key-only login is proven, password and keyboard-interactive
+      login are refused, the effective `sshd -T` policy matches the knobs, and a
+      broken verification rolls the drop-in back. The refusal path (no keyed
+      login available) is exercised on a host without an authorized key.
+- [ ] Remnanode: the compose file is rendered `0600`; the container runs with
+      `restart: always` and `NET_ADMIN`; the listener answers on `NODE_PORT`.
+- [ ] Helpers: missing secrets are generated once, existing values are never
+      rotated, the vault stays encrypted and sorted, and the rendered files are
+      mode-restricted.
 
-### Upgrade, rebuild and secrets
+### End-to-end and external contract
 
-- [ ] An upgrade to the pinned node version restarts the container and the node
-      stays connected to the Panel; a rollback to the previous version does the
-      same.
-- [ ] A reimaged host: deleting the host-returned vault keys before the first
-      deploy makes the run regenerate them instead of failing on a stale secret.
-- [ ] Secrets are generated once and never rotated on a second run; the vault is
-      `0600` and encrypted; `-vvv` shows no value.
-- [ ] `make lint` and `make test` are green; `git ls-files` shows only `example/`
-      under `inventory/host_vars`.
+- [ ] Preflight: a placeholder address, `ssh_user: root` and an out-of-range
+      ansible-core each fail with an actionable message and the override flag.
+- [ ] External probes: SSH and the declared Xray ports are reachable, `NODE_PORT`
+      is not, the overlay path reaches the node, and the Panel sees the node
+      healthy after a config push.
+- [ ] Vault: `make vault-view` decrypts, a no-op `make vault-edit` keeps the keys
+      alphabetical and the file encrypted, and a plaintext vault is re-encrypted
+      on the next write.
+- [ ] Upgrade and rollback: `make deploy TAGS=remnanode` with the pinned
+      `remnanode_version` recreates the container; rolling back to the previous
+      version tag and re-running does the same. Never use `latest`.
+
+### Negative and destructive
+
+- [ ] A changed host key is refused; `FORCE=1` replaces it; the file is not
+      truncated when one host is unreachable.
+- [ ] An empty `vault_netbird_setup_key`, an empty `vault_remnanode_secret_key`
+      and a firewall list without the inventory SSH port each fail with a
+      message naming the variable and the fix.
+- [ ] A missing vault fails with the scaffold/recovery instruction; a plaintext
+      vault is encrypted on the next write.
+- [ ] A container crash (host-side SIGKILL) is recovered; a full disk and an
+      interrupted write fail safely without leaving half-written state.
+
+### Security
+
+- [ ] `git ls-files` shows only `example/` under `inventory/host_vars`; `gitleaks`
+      finds nothing in the tree or history.
+- [ ] The vault is encrypted and `0600`; `iac` has NOPASSWD sudo and the admin
+      account requires a password.
+- [ ] The effective sshd policy closes password and keyboard-interactive login;
+      root follows `sshd_permit_root_login`; the `iac` key still works.
+- [ ] A `-vvv` run of the secret-bearing roles contains no vault value and no
+      `NB_SETUP_KEY` (the container-info probe is `no_log`).
+- [ ] Containers are not privileged, do not mount the Docker socket, and carry
+      only the needed capabilities; nothing listens outside the overlay (the
+      CrowdSec bouncer on loopback is expected).
+- [ ] Stack directories are `0700`, secret-bearing files `0600`, and
+      `<node-ip>:NODE_PORT` times out from outside. Never capture `make print`
+      into a log, ticket or transcript.
+
+### Convergence and contracts
+
+- [ ] Monitoring converges off and back on through the untagged and the
+      tag-scoped paths, per component and as a master switch.
+- [ ] The full site and the firewall converge to `changed=0` on a re-run.
+- [ ] The overlay peer reports its FQDN, address and a connected state; the
+      Panel path still works after the convergence runs.
 - [ ] `AGENTS.md`, `docs/` and this runbook match observed behaviour; a
       contradiction is recorded as a defect.

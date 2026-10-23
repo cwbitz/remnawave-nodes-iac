@@ -161,23 +161,33 @@ Every tag is a role constant in `roles/*/vars/`, each with a
 
 Two layers, and only one of them is executable:
 
-- **Automated** — `make lint` (playbook syntax check, `ansible-lint`, the
-  knob-schema/example audit, the host-key and repository-privacy checks,
-  `gitleaks`) and `make test` (the helper suite under `tests/`). Both run in CI on
-  every change.
-- **Manual** — the cases that need a disposable host and destructive steps; they
-  are a checklist in `docs/RUNBOOK.md` and are re-run when a role, the bootstrap
-  or the backup path changes. `tests/` covers the helpers, not a live SSH session
-  or a running stack.
+- **Automated** — `make lint` (playbook syntax check, `ansible-lint`, `yamllint`,
+  `shellcheck`, Python syntax, the knob-schema/example audit, the host-key and
+  repository-privacy checks, `gitleaks`) and `make test` (the helper suite under
+  `tests/`). Both run in CI on every change.
+- **Manual** — the cases that need a real node, the Panel, the overlay and
+  destructive steps. They are a checklist in `docs/RUNBOOK.md` and are re-run when
+  a role, the bootstrap, the firewall/SSH path or the vault lifecycle changes.
+  `tests/` covers the helpers, not a live SSH session or a running stack.
+
+Scope: every playbook (`site`, `agent`, `monitoring`, `bootstrap`, `host_keys`,
+`ssh_agent_load`, `validate_knobs`), every role (`agent`, `monitoring`,
+`firewall`, `sshd`, `remnanode`, `helpers`), the control-node helpers, the
+Makefile interface and the per-host vault lifecycle.
 
 ### Environment and safety boundaries
 
-- **Live hosts are read-only.** Inspect them with `make print`, `make print
-  HOST=<name>`, `docker inspect`, `systemctl status` and external probes. No
-  deploy, bootstrap, backup, restore or hardening run targets a live host.
-- **Every state-changing or destructive case runs on a disposable Docker host**
-  (systemd, Docker Engine with Compose v2, nftables, sshd) whose data can be thrown
-  away; multi-host behaviour needs at least two of them.
+- **Live hosts are read-only by default.** Inspect them with `make print`,
+  `make print HOST=<name>`, `docker inspect`, `systemctl status` and external
+  probes. A state-changing run needs explicit operator authorization, a recovery
+  path, and an acknowledgement that the service may be interrupted; treat the
+  authorized host as disposable for the run and back up before destructive steps.
+- **Prefer a disposable host** (systemd, Docker Engine with Compose v2, nftables,
+  sshd, Debian-family) whose data can be thrown away; multi-host behaviour needs
+  at least two of them.
+- **External dependencies**: the NetBird overlay and the Remnawave Panel are
+  separate systems. Joining the real mesh or letting the Panel see a test node is
+  a state change in those systems and needs explicit consent.
 - **Isolate the test environment**: its own inventory (never the real
   `inventory/hosts.yml`) and its own vault password file.
 - **Ask before creating resources** — hosts, DNS records, storage paths — and
@@ -189,13 +199,15 @@ Two layers, and only one of them is executable:
 
 ### Execution rules
 
-- Write the expected result before running a case; never backfill it.
+- Write the expected result before running a case; never backfill it. A plan
+  written from the results is not a plan.
 - Cases are independently runnable; declare prerequisites where order matters.
 - A defect gets a reproducing case before anything else happens.
 - Separate product defects from environment failures, and state the evidence for
   that call.
 - Skip only with a recorded reason; never count an unexecuted case as a pass.
 - No change to the product to make a case pass; no drive-by fixes.
+- Re-run the affected cases after a fix, on the same level, before closing it.
 
 ### Recording and defects
 
@@ -206,6 +218,9 @@ Two layers, and only one of them is executable:
   docs contradict behaviour), `minor`, `nit`. Each entry carries a minimal
   reproduction, expected vs actual, impact, evidence path and a suggested fix;
   merge entries that share a root cause.
+- A one-off run log does not live in the repo. A conclusion that changes the
+  contract is folded into this file or `docs/RUNBOOK.md`; the automated cases stay
+  in `tests/`.
 
 ### Definition of done
 
