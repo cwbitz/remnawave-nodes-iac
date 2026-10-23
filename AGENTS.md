@@ -110,8 +110,9 @@ the Remnawave Node). `HOST=<name>` restricts the bootstrap to that node.
   and reaches the node over the NetBird overlay (enable `firewall_enabled` so
   `roles/firewall` enforces it; see
   `docs/components/panel-contract.md`).
-- The Remnawave Node image only publishes moving tags (`latest` / `sha-*`), so
-  `remnanode_version` cannot be pinned; Renovate tracks it for manual review.
+- The Remnawave Node image publishes version tags (e.g. `3.4.3`) as well as
+  `latest`; `remnanode_version` is pinned to a version tag and Renovate tracks it.
+  Never use `latest` — a moving tag makes a rollback impossible.
 - Never commit a rendered `docker-compose.yml` (gitignored): it holds the live
   `SECRET_KEY`.
 
@@ -150,7 +151,7 @@ Every tag is a role constant in `roles/*/vars/`, each with a
 
 | Component | Registry | Version var |
 |---|---|---|
-| remnawave/node | dockerhub | `remnanode_version` (upstream has no pinned tags) |
+| remnawave/node | dockerhub | `remnanode_version` (pinned version tag) |
 | netbird-agent | ghcr.io | `netbird_agent_version` |
 | alloy | dockerhub | `alloy_version` |
 

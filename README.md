@@ -67,7 +67,7 @@ services:
   remnanode:
     container_name: remnanode
     hostname: remnanode
-    image: remnawave/node:latest
+    image: remnawave/node:3.4.3
     network_mode: host
     restart: always
     cap_add:
@@ -82,7 +82,9 @@ services:
 ```
 
 Only the two environment values are needed: `NODE_PORT` is a plain per-host
-setting and `SECRET_KEY` is the only node-specific secret:
+setting and `SECRET_KEY` is the only node-specific secret. The Panel's sample may
+show `latest`; the role renders the pinned `remnanode_version`
+(`roles/remnanode/vars/main.yml`).
 
 ```yaml
 # inventory/host_vars/<host>/main.yml

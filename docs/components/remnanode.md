@@ -37,6 +37,7 @@ container; keep the vault in sync with the Panel's node definition.
 
 ## Image
 
-`remnanode_version` defaults to `latest` (the Panel generates
-`remnawave/node:latest`). Upstream publishes no pinned tags, so Renovate tracks it
-for manual review (see the baseline table in [`AGENTS.md`](../../AGENTS.md)).
+`remnanode_version` is pinned to an upstream version tag (currently `3.4.3`); the
+Panel's generated compose may say `latest`, but the role renders the pinned tag.
+Renovate tracks the tag for review (see the baseline table in
+[`AGENTS.md`](../../AGENTS.md)); never use `latest` in production.

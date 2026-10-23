@@ -81,9 +81,10 @@ push.
 
 - Edit `inventory/host_vars/<host>/main.yml` (non-secret) or the vault (secret),
   then `make deploy`.
-- Image versions live in `roles/remnanode/defaults/main.yml`,
-  `roles/agent/defaults/main.yml`, `roles/monitoring/defaults/main.yml`
-  (Renovate-tracked); `remnanode_version` follows `latest`.
+- Image versions live in `roles/remnanode/vars/main.yml`,
+  `roles/agent/vars/main.yml`, `roles/monitoring/vars/main.yml`
+  (Renovate-tracked); `remnanode_version` is pinned to a version tag, never
+  `latest`.
 - Never edit rendered files under `/opt/remnanode` or `/opt/netbird-agent` on the
   host — rendering is the source of truth.
 

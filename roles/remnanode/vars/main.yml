@@ -1,6 +1,6 @@
 ---
 # renovate: datasource=docker depName=remnawave/node
-remnanode_version: "latest"
+remnanode_version: "3.4.3"
 
 remnanode_dir: "/opt/remnanode"
 remnanode_image: "remnawave/node"
