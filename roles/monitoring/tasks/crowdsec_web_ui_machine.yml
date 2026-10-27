@@ -5,23 +5,20 @@
   register: monitoring_web_ui_machines
   changed_when: false
   failed_when: false
-  when: crowdsec_web_ui_machine_enabled | bool
-  tags: [crowdsec_web_ui_machine]
+  when: crowdsec_generate_webui_machine_password | bool
+  tags: [crowdsec_generate_webui_machine_password]
 
-- name: "[CrowdSecWebUI] Provision the web UI machine credential"
+- name: "[CrowdSecWebUI] Generate the web UI machine password when the vault has none"
   ansible.builtin.include_role:
     name: helpers
     tasks_from: dispatch_secrets
   vars:
-    secrets_component: "crowdsec_web_ui_machine"
+    secrets_component: "crowdsec_generate_webui_machine_password"
     secrets_vault_file: "vault.yml"
     secrets_list:
       - {var: "vault_crowdsec_webui_machine_password", type: "hex", length: 32}
-  when:
-    - crowdsec_web_ui_machine_enabled | bool
-    - (crowdsec_web_ui_machine_rotate | bool)
-      or ('crowdsec-web-ui' not in (monitoring_web_ui_machines.stdout | default('')))
-  tags: [crowdsec_web_ui_machine]
+  when: crowdsec_generate_webui_machine_password | bool
+  tags: [crowdsec_generate_webui_machine_password]
 
 - name: "[CrowdSecWebUI] Register the web UI machine account"
   ansible.builtin.command:
@@ -30,24 +27,20 @@
       - -c
       - >-
         cscli machines add crowdsec-web-ui
-        --password "$CROWDSEC_MACHINE_PASSWORD" {{ '--force' if (crowdsec_web_ui_machine_rotate | bool) else '' }}
-        -f /dev/null
-    chdir: /tmp
+        --password "$CROWDSEC_MACHINE_PASSWORD" -f /dev/null
   environment:
     CROWDSEC_MACHINE_PASSWORD: "{{ vault_crowdsec_webui_machine_password }}"
   changed_when: true
   no_log: true
   when:
-    - crowdsec_web_ui_machine_enabled | bool
-    - (crowdsec_web_ui_machine_rotate | bool)
-      or ('crowdsec-web-ui' not in (monitoring_web_ui_machines.stdout | default('')))
-  tags: [crowdsec_web_ui_machine]
+    - crowdsec_generate_webui_machine_password | bool
+    - "'crowdsec-web-ui' not in (monitoring_web_ui_machines.stdout | default(''))"
+  tags: [crowdsec_generate_webui_machine_password]
 
 - name: "[CrowdSecWebUI] Point the operator at the shared credential"
   ansible.builtin.debug:
     msg: >-
-      crowdsec-web-ui machine ready on this LAPI. Copy
-      vault_crowdsec_webui_machine_password from this host's vault.yml into the
-      reading project's vault mapping under the key {{ inventory_hostname }}.
-  when: crowdsec_web_ui_machine_enabled | bool
-  tags: [crowdsec_web_ui_machine]
+      Copy vault_crowdsec_webui_machine_password from this host's vault.yml into
+      the reading project's vault mapping under the key {{ inventory_hostname }}.
+  when: crowdsec_generate_webui_machine_password | bool
+  tags: [crowdsec_generate_webui_machine_password]

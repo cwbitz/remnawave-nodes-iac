@@ -349,7 +349,7 @@
 - name: "[Monitoring] Converge the CrowdSec web UI machine"
   ansible.builtin.include_tasks: crowdsec_web_ui_machine.yml
   when: crowdsec_enabled | bool
-  tags: [crowdsec_web_ui_machine]
+  tags: [crowdsec_generate_webui_machine_password]
 
 - name: "[Monitoring] Converge the CrowdSec blocklist importer"
   ansible.builtin.include_tasks: crowdsec_blocklist_import.yml
