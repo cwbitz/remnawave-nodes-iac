@@ -21,6 +21,8 @@ node_exporter_collectors:
   - xfrm
   - zoneinfo
 crowdsec_enabled: false
+crowdsec_web_ui_machine_enabled: false
+crowdsec_web_ui_machine_rotate: false
 crowdsec_blocklist_import_enabled: false
 crowdsec_blocklist_import_preset: "server"
 crowdsec_blocklist_import_interval: 3600

@@ -346,6 +346,11 @@
     - (overlay_ip | default('')) | length > 0
   notify: "[Monitoring] Restart crowdsec"
 
+- name: "[Monitoring] Converge the CrowdSec web UI machine"
+  ansible.builtin.include_tasks: crowdsec_web_ui_machine.yml
+  when: crowdsec_enabled | bool
+  tags: [crowdsec_web_ui_machine]
+
 - name: "[Monitoring] Converge the CrowdSec blocklist importer"
   ansible.builtin.include_tasks: crowdsec_blocklist_import.yml
   when: crowdsec_enabled | bool

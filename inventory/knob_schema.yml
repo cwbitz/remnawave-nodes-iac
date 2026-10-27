@@ -37,6 +37,10 @@ operator_knob_schema:
     or (node_exporter_collectors is sequence and not (node_exporter_collectors is string)
         and not (node_exporter_collectors is mapping))
   crowdsec_enabled: "crowdsec_enabled is not defined or crowdsec_enabled is boolean"
+  crowdsec_web_ui_machine_enabled: >-
+    crowdsec_web_ui_machine_enabled is not defined or crowdsec_web_ui_machine_enabled is boolean
+  crowdsec_web_ui_machine_rotate: >-
+    crowdsec_web_ui_machine_rotate is not defined or crowdsec_web_ui_machine_rotate is boolean
   crowdsec_blocklist_import_enabled: >-
     crowdsec_blocklist_import_enabled is not defined or crowdsec_blocklist_import_enabled is boolean
   crowdsec_blocklist_import_preset: >-

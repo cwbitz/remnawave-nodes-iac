@@ -68,6 +68,12 @@ node_exporter_collectors:
   - xfrm
   - zoneinfo
 crowdsec_enabled: false
+# Serve the central CrowdSec web UI: create its read-only machine account on this
+# LAPI with a password generated into this host's vault
+# (vault_crowdsec_webui_machine_password). rotate=true re-issues that password and
+# rewrites the account, for a deliberate rotation.
+crowdsec_web_ui_machine_enabled: false
+crowdsec_web_ui_machine_rotate: false
 
 # CrowdSec blocklist importer (optional; runs next to the local LAPI).
 # embedded ~= 20k high-confidence IPs, server = conservative server set,
