@@ -20,25 +20,6 @@ node_exporter_collectors:
   - wifi
   - xfrm
   - zoneinfo
-node_exporter_collectors:
-  - buddyinfo
-  - cgroups
-  - drm
-  - ethtool
-  - interrupts
-  - ksmd
-  - lnstat
-  - logind
-  - mountstats
-  - perf
-  - processes
-  - qdisc
-  - softirqs
-  - sysctl
-  - tcpstat
-  - wifi
-  - xfrm
-  - zoneinfo
 crowdsec_enabled: false
 crowdsec_blocklist_import_enabled: false
 crowdsec_blocklist_import_preset: "server"
