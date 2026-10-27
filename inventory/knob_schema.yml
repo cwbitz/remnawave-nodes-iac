@@ -32,9 +32,30 @@ operator_knob_schema:
   firewall_allow_icmp: "firewall_allow_icmp is not defined or firewall_allow_icmp is boolean"
   monitoring_enabled: "monitoring_enabled is not defined or monitoring_enabled is boolean"
   node_exporter_enabled: "node_exporter_enabled is not defined or node_exporter_enabled is boolean"
+  node_exporter_collectors: >-
+    node_exporter_collectors is not defined
+    or (node_exporter_collectors is sequence and not (node_exporter_collectors is string)
+        and not (node_exporter_collectors is mapping))
   crowdsec_enabled: "crowdsec_enabled is not defined or crowdsec_enabled is boolean"
+  crowdsec_blocklist_import_enabled: >-
+    crowdsec_blocklist_import_enabled is not defined or crowdsec_blocklist_import_enabled is boolean
+  crowdsec_blocklist_import_preset: >-
+    (crowdsec_blocklist_import_preset | default('server', true) | string) in ['embedded', 'server', 'max']
+  crowdsec_blocklist_import_interval: >-
+    (crowdsec_blocklist_import_interval | default(3600, true) | int) >= 0
+  crowdsec_blocklist_import_max_decisions: >-
+    (crowdsec_blocklist_import_max_decisions | default(15000, true) | int) >= 0
+  crowdsec_blocklist_import_batch_size: >-
+    (crowdsec_blocklist_import_batch_size | default(1000, true) | int) >= 1
+  crowdsec_blocklist_import_decision_duration: >-
+    (crowdsec_blocklist_import_decision_duration | default('24h', true) | string) is match('^[0-9]+[smh]$')
+  crowdsec_blocklist_import_extra_env: >-
+    crowdsec_blocklist_import_extra_env is not defined or crowdsec_blocklist_import_extra_env is mapping
   alloy_enabled: "alloy_enabled is not defined or alloy_enabled is boolean"
   loki_push_url: "(loki_push_url | default('', true) | string | trim) == '' or (loki_push_url | string) is match('^https?://[^\\s]+$')"
+  prometheus_remote_write_url: >-
+    (prometheus_remote_write_url | default('', true) | string | trim) == '' or (prometheus_remote_write_url | string) is
+    match('^https?://[^\\s]+$')
   alloy_journal_presets: >-
     alloy_journal_presets is not defined or ((alloy_journal_presets is sequence) and not (alloy_journal_presets is string) and not
     (alloy_journal_presets is mapping))

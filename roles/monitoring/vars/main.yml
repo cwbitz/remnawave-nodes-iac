@@ -4,7 +4,8 @@ alloy_version: "v1.18.1"
 
 pkg_node_exporter: "prometheus-node-exporter"
 pkg_crowdsec: "crowdsec"
-pkg_crowdsec_firewall_bouncer: "crowdsec-firewall-bouncer"
+pkg_crowdsec_firewall_bouncer: "crowdsec-firewall-bouncer-nftables"
+crowdsec_firewall_bouncer_version: "0.0.36"
 svc_node_exporter: "prometheus-node-exporter"
 node_exporter_port: 9100
 node_exporter_dropin_dir: "/etc/systemd/system/prometheus-node-exporter.service.d"
@@ -15,3 +16,11 @@ svc_crowdsec: "crowdsec"
 svc_crowdsec_firewall_bouncer: "crowdsec-firewall-bouncer"
 monitoring_dir: "/opt/monitoring"
 alloy_image: "grafana/alloy"
+
+# CrowdSec engine is pinned to the packagecloud build; Debian trixie ships 1.4.x.
+crowdsec_version: "1.8.1"
+crowdsec_apt_keyring: "/etc/apt/keyrings/crowdsec_crowdsec-archive-keyring.gpg"
+crowdsec_apt_key_url: "https://packagecloud.io/crowdsec/crowdsec/gpgkey"
+crowdsec_apt_repo: "deb [signed-by={{ crowdsec_apt_keyring }}] https://packagecloud.io/crowdsec/crowdsec/debian/ bookworm main"
+crowdsec_blocklist_import_image: "ghcr.io/wolffcatskyy/crowdsec-blocklist-import"
+crowdsec_blocklist_import_version: "3.9.0"

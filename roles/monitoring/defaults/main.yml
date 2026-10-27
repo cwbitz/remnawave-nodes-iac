@@ -1,8 +1,37 @@
 ---
 monitoring_enabled: false
 node_exporter_enabled: false
+node_exporter_collectors:
+  - buddyinfo
+  - cgroups
+  - drm
+  - ethtool
+  - interrupts
+  - ksmd
+  - lnstat
+  - logind
+  - mountstats
+  - perf
+  - processes
+  - qdisc
+  - softirqs
+  - sysctl
+  - tcpstat
+  - wifi
+  - xfrm
+  - zoneinfo
 crowdsec_enabled: false
+crowdsec_blocklist_import_enabled: false
+crowdsec_blocklist_import_preset: "server"
+crowdsec_blocklist_import_interval: 3600
+crowdsec_blocklist_import_max_decisions: 15000
+crowdsec_blocklist_import_batch_size: 1000
+crowdsec_blocklist_import_decision_duration: "24h"
+crowdsec_blocklist_import_extra_env: {}
 alloy_enabled: false
 loki_push_url: ""
+# Central Prometheus remote-write receiver ("http://<peer>.netbird.selfhosted:9090/api/v1/write").
+# Empty = metrics are not pushed (log shipping is unaffected).
+prometheus_remote_write_url: ""
 alloy_journal_presets: [ssh, security, kernel, services]
 alloy_journal_extras: []

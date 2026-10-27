@@ -7,8 +7,8 @@
       The overlay agent requires a setup key so it joins the mesh. Set
       vault_netbird_setup_key in inventory/host_vars/<host>/vault.yml (both the
       key and the management URL are inputs owned by THIS project; the
-      management server itself lives in the sibling netbird-iac). Leave
-      netbird_management_url empty for NetBird Cloud.
+      management server itself lives in the sibling netbird-management-iac).
+      Leave netbird_management_url empty for NetBird Cloud.
 
 - name: "[Agent] Ensure Docker Engine and the Compose v2 plugin are present"
   ansible.builtin.include_role:

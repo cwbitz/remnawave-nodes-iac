@@ -47,13 +47,48 @@ remnanode_node_port: ""     # e.g. 2222: the port the Panel dials in on
 # enable it (each component can be disabled on its own).
 monitoring_enabled: false
 node_exporter_enabled: false
+# node_exporter collector toggles enabled on top of the package defaults.
+node_exporter_collectors:
+  - buddyinfo
+  - cgroups
+  - drm
+  - ethtool
+  - interrupts
+  - ksmd
+  - lnstat
+  - logind
+  - mountstats
+  - perf
+  - processes
+  - qdisc
+  - softirqs
+  - sysctl
+  - tcpstat
+  - wifi
+  - xfrm
+  - zoneinfo
 crowdsec_enabled: false
+
+# CrowdSec blocklist importer (optional; runs next to the local LAPI).
+# embedded ~= 20k high-confidence IPs, server = conservative server set,
+# max = all 32 feeds. Lower MAX_DECISIONS and raise INTERVAL on small VPSes.
+crowdsec_blocklist_import_enabled: false
+crowdsec_blocklist_import_preset: "server"
+crowdsec_blocklist_import_interval: 3600
+crowdsec_blocklist_import_max_decisions: 15000
+crowdsec_blocklist_import_batch_size: 1000
+crowdsec_blocklist_import_decision_duration: "24h"
+crowdsec_blocklist_import_extra_env: {}
 # Optionally ship host logs to a central Loki reachable over the overlay
 # (alloy_enabled requires loki_push_url): an overlay IP, or preferably the central
 # peer's NetBird name ("http://<peer>.netbird.selfhosted:3100"), which survives a
 # re-enrolled central peer.
 alloy_enabled: false
 loki_push_url: ""
+# Central Prometheus remote-write receiver over the overlay (an overlay IP or the
+# peer's NetBird name). Empty = metrics are not pushed; log shipping is
+# unaffected.
+prometheus_remote_write_url: ""
 
 # Journal sources Alloy ships to the central Loki; raw extra matches go in
 # alloy_journal_extras.

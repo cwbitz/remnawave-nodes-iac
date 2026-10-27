@@ -1,0 +1,109 @@
+---
+- name: "[BlocklistImport] Provision the importer credentials"
+  ansible.builtin.include_role:
+    name: helpers
+    tasks_from: dispatch_secrets
+  vars:
+    secrets_component: "crowdsec_blocklist_import"
+    secrets_vault_file: "vault.yml"
+    secrets_list:
+      - {var: "vault_crowdsec_blocklist_machine_password", type: "hex", length: 32}
+      - {var: "vault_crowdsec_blocklist_bouncer_key", type: "hex", length: 32}
+  when: crowdsec_blocklist_import_enabled | bool
+  tags: [crowdsec_blocklist_import]
+
+- name: "[BlocklistImport] List the LAPI machine accounts"
+  ansible.builtin.command:
+    argv: [cscli, machines, list, -o, json]
+  register: monitoring_blocklist_machines
+  changed_when: false
+  failed_when: false
+  when: crowdsec_blocklist_import_enabled | bool
+  tags: [crowdsec_blocklist_import]
+
+- name: "[BlocklistImport] Register the importer machine account"
+  ansible.builtin.command:
+    argv:
+      - sh
+      - -c
+      - >-
+        cscli machines add crowdsec-blocklist-import
+        --password "$CROWDSEC_MACHINE_PASSWORD" -f /dev/null
+  environment:
+    CROWDSEC_MACHINE_PASSWORD: "{{ vault_crowdsec_blocklist_machine_password }}"
+  when:
+    - crowdsec_blocklist_import_enabled | bool
+    - "'crowdsec-blocklist-import' not in (monitoring_blocklist_machines.stdout | default(''))"
+  changed_when: true
+  no_log: true
+  tags: [crowdsec_blocklist_import]
+
+- name: "[BlocklistImport] List the LAPI bouncers"
+  ansible.builtin.command:
+    argv: [cscli, bouncers, list, -o, json]
+  register: monitoring_blocklist_bouncers
+  changed_when: false
+  failed_when: false
+  when: crowdsec_blocklist_import_enabled | bool
+  tags: [crowdsec_blocklist_import]
+
+- name: "[BlocklistImport] Register the importer bouncer"
+  ansible.builtin.command:
+    argv:
+      - sh
+      - -c
+      - >-
+        cscli bouncers add crowdsec-blocklist-import
+        --key "$CROWDSEC_BOUNCER_KEY"
+  environment:
+    CROWDSEC_BOUNCER_KEY: "{{ vault_crowdsec_blocklist_bouncer_key }}"
+  when:
+    - crowdsec_blocklist_import_enabled | bool
+    - "'crowdsec-blocklist-import' not in (monitoring_blocklist_bouncers.stdout | default(''))"
+  changed_when: true
+  no_log: true
+  tags: [crowdsec_blocklist_import]
+
+- name: "[BlocklistImport] Pull the importer image"
+  community.docker.docker_image:
+    name: "{{ crowdsec_blocklist_import_image }}:{{ crowdsec_blocklist_import_version }}"
+    source: pull
+  when: crowdsec_blocklist_import_enabled | bool
+  tags: [crowdsec_blocklist_import]
+
+- name: "[BlocklistImport] Run the importer"
+  community.docker.docker_container:
+    name: crowdsec_blocklist_import
+    image: "{{ crowdsec_blocklist_import_image }}:{{ crowdsec_blocklist_import_version }}"
+    state: started
+    restart_policy: unless-stopped
+    network_mode: host
+    security_opts:
+      - no-new-privileges:true
+    env: >-
+      {{ {
+        'CROWDSEC_LAPI_URL': 'http://127.0.0.1:8080',
+        'CROWDSEC_MACHINE_ID': 'crowdsec-blocklist-import',
+        'CROWDSEC_MACHINE_PASSWORD': vault_crowdsec_blocklist_machine_password,
+        'CROWDSEC_LAPI_KEY': vault_crowdsec_blocklist_bouncer_key,
+        'DECISION_DURATION': crowdsec_blocklist_import_decision_duration,
+        'INTERVAL': crowdsec_blocklist_import_interval | string,
+        'PRESET': crowdsec_blocklist_import_preset,
+        'MAX_DECISIONS': crowdsec_blocklist_import_max_decisions | string,
+        'BATCH_SIZE': crowdsec_blocklist_import_batch_size | string,
+        'CONSOLIDATE_ALERTS': 'false',
+        'METRICS_ENABLED': 'false',
+        'TELEMETRY_ENABLED': 'false',
+        'LOG_LEVEL': 'INFO',
+        'TZ': timezone
+      } | combine(crowdsec_blocklist_import_extra_env | default({})) }}
+  when: crowdsec_blocklist_import_enabled | bool
+  no_log: true
+  tags: [crowdsec_blocklist_import]
+
+- name: "[BlocklistImport] Remove the importer when disabled"
+  community.docker.docker_container:
+    name: crowdsec_blocklist_import
+    state: absent
+  when: not (crowdsec_blocklist_import_enabled | bool)
+  tags: [crowdsec_blocklist_import]

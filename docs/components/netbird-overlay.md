@@ -15,10 +15,10 @@ keeps the peer identity).
 - `netbird_peer_setup_key` — this node's enrollment key, resolved by
   `roles/agent/defaults` from `vault_netbird_setup_key` (never set in `main.yml`).
 
-The management server is owned by the sibling `netbird-iac` project and is never
-read from as source. The setup key's auto-group decides which peers the central
-observability stack discovers — the route-less `endpoint` key (the default) grants
-no exit/LAN routes.
+The management server is owned by the sibling `netbird-management-iac` project
+and is never read from as source. The setup key's auto-group decides which peers
+the central observability stack discovers — the route-less `endpoint` key (the
+default) grants no exit/LAN routes.
 
 ## DNS and routing
 

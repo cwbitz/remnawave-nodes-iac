@@ -61,3 +61,29 @@ loki.write "central" {
     url = "{{ loki_push_url }}/loki/api/v1/push"
   }
 }
+
+{% if (prometheus_remote_write_url | default('', true) | length) > 0
+      and (overlay_ip | default('', true) | length) > 0
+      and ((node_exporter_enabled | bool) or (crowdsec_enabled | bool)) %}
+// Host metrics -> the central Prometheus remote-write receiver. Scraped locally
+// (no inbound port is published) and tagged with the inventory name so the
+// series join the log `host` label; `source="agent"` separates them from the
+// central host's own scrape.
+prometheus.scrape "host" {
+  targets = [
+{% if node_exporter_enabled | bool %}
+    { "__address__" = "{{ overlay_ip }}:9100", "instance" = "{{ inventory_hostname }}", "job" = "node-exporter", "source" = "agent" },
+{% endif %}
+{% if crowdsec_enabled | bool %}
+    { "__address__" = "{{ overlay_ip }}:6060", "instance" = "{{ inventory_hostname }}", "job" = "crowdsec", "source" = "agent" },
+{% endif %}
+  ]
+  forward_to = [prometheus.remote_write.central.receiver]
+}
+
+prometheus.remote_write "central" {
+  endpoint {
+    url = "{{ prometheus_remote_write_url }}"
+  }
+}
+{% endif %}

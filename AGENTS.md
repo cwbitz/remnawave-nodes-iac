@@ -8,8 +8,9 @@ the Remnawave Node. Idempotent and version-controlled.
 
 This project owns **only the nodes**. The Remnawave Panel and the central
 observability stack live in the sibling `docker-stack-iac` project and the NetBird
-management server in `netbird-iac`; both are consumed strictly through their public
-interfaces. Boundaries and scope are in `docs/components/panel-contract.md`.
+management server in `netbird-management-iac`; both are consumed strictly
+through their public interfaces. Boundaries and scope are in
+`docs/components/panel-contract.md`.
 
 Managed hosts live in the gitignored `inventory/hosts.yml` (committed template
 `inventory/hosts.yml.example`, topology only) and are never hardcoded into docs,

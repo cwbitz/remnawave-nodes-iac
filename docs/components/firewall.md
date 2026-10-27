@@ -14,9 +14,10 @@ is not a base firewall (it only enforces CrowdSec decisions), and the upstream
 Node image offers no bind-address option, so packet filtering is the only way to
 close the port.
 
-The other half of the overlay path is the **tenant ACL** (owned by `netbird-iac`):
-the node's NetBird client drops everything from `wt0` that the pushed policy does
-not list, so `NODE_PORT` must be allowed there from the Panel peer's group.
+The other half of the overlay path is the **tenant ACL** (owned by
+`netbird-management-iac`): the node's NetBird client drops everything from `wt0`
+that the pushed policy does not list, so `NODE_PORT` must be allowed there from the
+Panel peer's group.
 
 ## How
 

@@ -16,9 +16,9 @@ From a blank VPS to a ready Remnawave node
 
 The **Panel** (control plane) and the central observability stack live in the
 sibling `docker-stack-iac` project; the **NetBird management server** lives in
-`netbird-iac`. This project owns only the nodes and consumes those control planes
-through their public interfaces (`NODE_PORT` / `SECRET_KEY` for the Panel, the
-management URL + a setup key for the overlay).
+`netbird-management-iac`. This project owns only the nodes and consumes those
+control planes through their public interfaces (`NODE_PORT` / `SECRET_KEY` for the
+Panel, the management URL + a setup key for the overlay).
 
 ## What it manages
 
@@ -105,9 +105,9 @@ source of truth; never edit the file on the host.
 
 ## NetBird overlay inputs
 
-The management server is owned by the sibling `netbird-iac` project; this project
-holds both inputs itself — the non-secret management URL in the host's `main.yml`
-and the enrollment setup key in the vault:
+The management server is owned by the sibling `netbird-management-iac` project;
+this project holds both inputs itself — the non-secret management URL in the
+host's `main.yml` and the enrollment setup key in the vault:
 
 ```yaml
 # inventory/host_vars/<host>/main.yml

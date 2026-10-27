@@ -24,14 +24,14 @@ The overlay path also needs the **tenant ACL** to allow it: the NetBird client o
 the node drops everything from `wt0` that the pushed policy does not list, and the
 policy only carries the exporters by default (`tcp/9100`, `tcp/6060`). `NODE_PORT`
 must be allowed to the node's group from the Panel peer's group in the tenant
-config-as-code (`netbird-iac`), or the Panel cannot reach the node once the public
-port is closed.
+config-as-code (`netbird-management-iac`), or the Panel cannot reach the node
+once the public port is closed.
 
-## NetBird management server (`netbird-iac`)
+## NetBird management server (`netbird-management-iac`)
 
 The self-hosted mesh control plane. A node joins as a peer with a **management URL
 + a setup key** — the URL (non-secret) in the host's `main.yml`, the setup key in
-the vault; neither is resolved from netbird-iac's vars/vault. See
+the vault; neither is resolved from netbird-management-iac's vars/vault. See
 [`netbird-overlay.md`](netbird-overlay.md).
 
 ## Central observability (`docker-stack-iac`)

@@ -310,3 +310,26 @@ severity; `tests/` holds the automated suite.
       Panel path still works after the convergence runs.
 - [ ] `AGENTS.md`, `docs/` and this runbook match observed behaviour; a
       contradiction is recorded as a defect.
+
+### CrowdSec engine and blocklist importer
+
+The engine is pinned to `crowdsec_version` (currently 1.8.1) from the packagecloud
+bookworm repository; Debian's own trixie package is older. The pre-upgrade backup
+is written to `/var/backups/crowdsec-pre-<version>.tgz`.
+
+The optional blocklist importer runs next to the LAPI and is controlled by:
+
+- `crowdsec_blocklist_import_enabled` — deploy the importer;
+- `crowdsec_blocklist_import_preset` — `embedded` (~20k high-confidence IPs),
+  `server` (conservative server set), or `max` (all feeds);
+- `crowdsec_blocklist_import_interval` — seconds between runs;
+- `crowdsec_blocklist_import_max_decisions` — total decision cap (`0` = no cap);
+- `crowdsec_blocklist_import_batch_size` — API batch size;
+- `crowdsec_blocklist_import_decision_duration` — decision TTL;
+- `crowdsec_blocklist_import_extra_env` — extra importer environment variables
+  (for example per-feed `ENABLE_*` toggles).
+
+Credentials are generated into the host vault as
+`vault_crowdsec_blocklist_machine_password` and
+`vault_crowdsec_blocklist_bouncer_key`; the machine account writes decisions and
+the bouncer key reads existing decisions for deduplication.

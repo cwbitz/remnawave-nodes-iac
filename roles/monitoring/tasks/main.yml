@@ -22,12 +22,153 @@
     - (node_exporter_enabled | bool or crowdsec_enabled | bool)
     - not ansible_check_mode
 
+
+- name: "[Monitoring] Ensure gnupg is present"
+  ansible.builtin.apt:
+    name: gnupg
+    state: present
+    update_cache: true
+  when: crowdsec_enabled | bool
+  tags: [crowdsec]
+
+- name: "[Monitoring] Ensure the CrowdSec apt keyring directory exists"
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  when: crowdsec_enabled | bool
+  tags: [crowdsec]
+
+- name: "[Monitoring] Download the CrowdSec repository key"
+  ansible.builtin.get_url:
+    url: "{{ crowdsec_apt_key_url }}"
+    dest: /etc/apt/keyrings/crowdsec_crowdsec-archive-keyring.asc
+    owner: root
+    group: root
+    mode: "0644"
+  when: crowdsec_enabled | bool
+  tags: [crowdsec]
+
+- name: "[Monitoring] Dearmor the CrowdSec repository key"
+  ansible.builtin.command:
+    argv:
+      - gpg
+      - --batch
+      - --yes
+      - --dearmor
+      - --output
+      - "{{ crowdsec_apt_keyring }}"
+      - /etc/apt/keyrings/crowdsec_crowdsec-archive-keyring.asc
+    creates: "{{ crowdsec_apt_keyring }}"
+  when: crowdsec_enabled | bool
+  tags: [crowdsec]
+
+- name: "[Monitoring] Add the CrowdSec apt repository"
+  ansible.builtin.apt_repository:
+    repo: "{{ crowdsec_apt_repo }}"
+    filename: crowdsec
+    state: present
+    update_cache: true
+  when: crowdsec_enabled | bool
+  tags: [crowdsec]
+
+- name: "[Monitoring] Back up CrowdSec before the pinned upgrade"
+  ansible.builtin.command:
+    argv:
+      - tar
+      - czf
+      - "/var/backups/crowdsec-pre-{{ crowdsec_version }}.tgz"
+      - -C
+      - /
+      - etc/crowdsec
+      - var/lib/crowdsec
+    creates: "/var/backups/crowdsec-pre-{{ crowdsec_version }}.tgz"
+  when: crowdsec_enabled | bool
+  tags: [crowdsec]
+
+- name: "[Monitoring] Install the pinned CrowdSec engine"
+  ansible.builtin.apt:
+    name: "crowdsec={{ crowdsec_version }}"
+    state: present
+    update_cache: true
+  register: monitoring_crowdsec_install
+  when: crowdsec_enabled | bool
+  tags: [crowdsec]
+
+- name: "[Monitoring] Restart CrowdSec after the pinned install"
+  ansible.builtin.systemd_service:
+    name: "{{ svc_crowdsec }}"
+    state: restarted
+    daemon_reload: true
+  when:
+    - crowdsec_enabled | bool
+    - monitoring_crowdsec_install is changed
+  tags: [crowdsec]
+
+- name: "[Monitoring] Verify the pinned CrowdSec version"
+  ansible.builtin.command:
+    argv: [dpkg-query, -W, "-f=${Version}", crowdsec]
+  register: monitoring_crowdsec_version
+  changed_when: false
+  failed_when: not (monitoring_crowdsec_version.stdout | trim).startswith(crowdsec_version)
+  when: crowdsec_enabled | bool
+  tags: [crowdsec]
+
 - name: "[Monitoring] Select the packages to install"
   ansible.builtin.set_fact:
     monitoring_packages: >-
       {{ ([pkg_node_exporter] if node_exporter_enabled | bool else [])
-         + ([pkg_crowdsec, pkg_crowdsec_firewall_bouncer]
-            if crowdsec_enabled | bool else []) }}
+         }}
+
+- name: "[Monitoring] Back up the firewall bouncer configuration"
+  ansible.builtin.command:
+    argv:
+      - tar
+      - czf
+      - "/var/backups/crowdsec-firewall-bouncer-pre-{{ crowdsec_firewall_bouncer_version }}.tgz"
+      - -C
+      - /
+      - etc/crowdsec/bouncers
+    creates: "/var/backups/crowdsec-firewall-bouncer-pre-{{ crowdsec_firewall_bouncer_version }}.tgz"
+  when: crowdsec_enabled | bool
+  tags: [crowdsec]
+
+- name: "[Monitoring] Install the pinned CrowdSec firewall bouncer"
+  ansible.builtin.apt:
+    name: "{{ pkg_crowdsec_firewall_bouncer }}={{ crowdsec_firewall_bouncer_version }}"
+    state: present
+    update_cache: true
+  register: monitoring_bouncer_install
+  when: crowdsec_enabled | bool
+  tags: [crowdsec]
+
+- name: "[Monitoring] Remove the legacy Debian firewall bouncer package"
+  ansible.builtin.apt:
+    name: crowdsec-firewall-bouncer
+    state: absent
+  when: crowdsec_enabled | bool
+  tags: [crowdsec]
+
+- name: "[Monitoring] Restart the firewall bouncer after the pinned install"
+  ansible.builtin.systemd_service:
+    name: "{{ svc_crowdsec_firewall_bouncer }}"
+    state: restarted
+    daemon_reload: true
+  when:
+    - crowdsec_enabled | bool
+    - monitoring_bouncer_install is changed
+  tags: [crowdsec]
+
+- name: "[Monitoring] Verify the pinned firewall bouncer version"
+  ansible.builtin.command:
+    argv: [dpkg-query, -W, "-f=${Version}", "{{ pkg_crowdsec_firewall_bouncer }}"]
+  register: monitoring_bouncer_version
+  changed_when: false
+  failed_when: not (monitoring_bouncer_version.stdout | trim).startswith(crowdsec_firewall_bouncer_version)
+  when: crowdsec_enabled | bool
+  tags: [crowdsec]
 
 - name: "[Monitoring] Install the monitoring packages"
   ansible.builtin.apt:
@@ -119,8 +260,11 @@
 
 - name: "[Monitoring] Build the node_exporter listen arguments"
   ansible.builtin.set_fact:
-    node_exporter_listen_args:
-      - "--web.listen-address={{ overlay_ip }}:{{ node_exporter_port }}"
+    node_exporter_listen_args: >-
+      {{ (['--web.listen-address=' ~ overlay_ip ~ ':' ~ (node_exporter_port | string)])
+         | union(node_exporter_collectors | default([])
+                 | map('regex_replace', '^(.*)$', '--collector.\1') | list)
+         | sort }}
   when:
     - node_exporter_enabled | bool
     - (overlay_ip | default('', true) | length) > 0
@@ -168,6 +312,9 @@
       prometheus:
         listen_addr: "{{ overlay_ip }}"
         listen_port: 6060
+      api:
+        server:
+          listen_uri: "0.0.0.0:8080"
     owner: root
     group: root
     mode: "0640"
@@ -198,6 +345,11 @@
     - crowdsec_enabled | bool
     - (overlay_ip | default('')) | length > 0
   notify: "[Monitoring] Restart crowdsec"
+
+- name: "[Monitoring] Converge the CrowdSec blocklist importer"
+  ansible.builtin.include_tasks: crowdsec_blocklist_import.yml
+  when: crowdsec_enabled | bool
+  tags: [crowdsec_blocklist_import]
 
 - name: "[Monitoring] Select the services to manage"
   ansible.builtin.set_fact:
