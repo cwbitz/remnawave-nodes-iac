@@ -330,6 +330,6 @@ The optional blocklist importer runs next to the LAPI and is controlled by:
   (for example per-feed `ENABLE_*` toggles).
 
 Credentials are generated into the host vault as
-`vault_crowdsec_blocklist_machine_password` and
-`vault_crowdsec_blocklist_bouncer_key`; the machine account writes decisions and
+`vault_crowdsec_blocklist_import_machine_password` and
+`vault_crowdsec_blocklist_import_bouncer_key`; the machine account writes decisions and
 the bouncer key reads existing decisions for deduplication.

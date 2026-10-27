@@ -7,8 +7,8 @@
     secrets_component: "crowdsec_blocklist_import"
     secrets_vault_file: "vault.yml"
     secrets_list:
-      - {var: "vault_crowdsec_blocklist_machine_password", type: "hex", length: 32}
-      - {var: "vault_crowdsec_blocklist_bouncer_key", type: "hex", length: 32}
+      - {var: "vault_crowdsec_blocklist_import_machine_password", type: "hex", length: 32}
+      - {var: "vault_crowdsec_blocklist_import_bouncer_key", type: "hex", length: 32}
   when: crowdsec_blocklist_import_enabled | bool
   tags: [crowdsec_blocklist_import]
 
@@ -30,7 +30,7 @@
         cscli machines add crowdsec-blocklist-import
         --password "$CROWDSEC_MACHINE_PASSWORD" -f /dev/null
   environment:
-    CROWDSEC_MACHINE_PASSWORD: "{{ vault_crowdsec_blocklist_machine_password }}"
+    CROWDSEC_MACHINE_PASSWORD: "{{ vault_crowdsec_blocklist_import_machine_password }}"
   when:
     - crowdsec_blocklist_import_enabled | bool
     - "'crowdsec-blocklist-import' not in (monitoring_blocklist_machines.stdout | default(''))"
@@ -56,7 +56,7 @@
         cscli bouncers add crowdsec-blocklist-import
         --key "$CROWDSEC_BOUNCER_KEY"
   environment:
-    CROWDSEC_BOUNCER_KEY: "{{ vault_crowdsec_blocklist_bouncer_key }}"
+    CROWDSEC_BOUNCER_KEY: "{{ vault_crowdsec_blocklist_import_bouncer_key }}"
   when:
     - crowdsec_blocklist_import_enabled | bool
     - "'crowdsec-blocklist-import' not in (monitoring_blocklist_bouncers.stdout | default(''))"
@@ -84,8 +84,8 @@
       {{ {
         'CROWDSEC_LAPI_URL': 'http://127.0.0.1:8080',
         'CROWDSEC_MACHINE_ID': 'crowdsec-blocklist-import',
-        'CROWDSEC_MACHINE_PASSWORD': vault_crowdsec_blocklist_machine_password,
-        'CROWDSEC_LAPI_KEY': vault_crowdsec_blocklist_bouncer_key,
+        'CROWDSEC_MACHINE_PASSWORD': vault_crowdsec_blocklist_import_machine_password,
+        'CROWDSEC_LAPI_KEY': vault_crowdsec_blocklist_import_bouncer_key,
         'DECISION_DURATION': crowdsec_blocklist_import_decision_duration,
         'INTERVAL': crowdsec_blocklist_import_interval | string,
         'PRESET': crowdsec_blocklist_import_preset,
