@@ -8,7 +8,6 @@
   "packages": {
     ".": {
       "release-type": "simple",
-      "component": "remnawave-nodes-iac",
       "include-component-in-tag": false
     }
   }
