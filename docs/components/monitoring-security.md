@@ -20,7 +20,9 @@ only.
   central Loki reachable at `loki_push_url` over the overlay (an overlay IP, or
   preferably the central peer's NetBird name `<peer>.netbird.selfhosted`, which
   the alloy container resolves through the agent and which survives a
-  re-enrolled central peer).
+  re-enrolled central peer). With `prometheus_remote_write_url` set it also
+  scrapes `:9100`/`:6060` locally every `alloy_scrape_interval` (15s) and
+  remote-writes the samples to the central Prometheus, tagged `source="agent"`.
 
 The Debian packages self-configure: crowdsec enables `crowdsecurity/linux` +
 `crowdsecurity/sshd` and reads `ssh.service` from journald; the firewall bouncer
@@ -31,8 +33,9 @@ registers its LAPI key against the local LAPI on install.
 The exporters are reachable over the overlay: `site.yml` and `monitoring.yml`
 run `roles/agent` before this role, and `netbird_enabled` (default `true`) keeps
 every node joined.
-The sibling `docker-stack-iac` Prometheus discovers peers from the NetBird API and
-scrapes `:9100` and `:6060`.
+The sibling `docker-stack-iac` Prometheus receives the metrics through the Alloy
+remote-write push; nothing scrapes the node from outside, and the push cadence
+(`alloy_scrape_interval`) has to stay inside the dashboards' 60s `rate()` window.
 
 ## Disabling
 

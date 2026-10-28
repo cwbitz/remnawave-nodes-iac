@@ -59,6 +59,8 @@ operator_knob_schema:
   prometheus_remote_write_url: >-
     (prometheus_remote_write_url | default('', true) | string | trim) == '' or (prometheus_remote_write_url | string) is
     match('^https?://[^\\s]+$')
+  alloy_scrape_interval: >-
+    (alloy_scrape_interval | default('15s', true) | string) is match('^([1-9]|[12][0-9]|30)s$')
   alloy_journal_presets: >-
     alloy_journal_presets is not defined or ((alloy_journal_presets is sequence) and not (alloy_journal_presets is string) and not
     (alloy_journal_presets is mapping))

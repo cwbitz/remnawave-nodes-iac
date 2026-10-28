@@ -121,6 +121,37 @@
           - mirror_without_suite.failed | default(false)
         quiet: true
 
+    - name: Set the metric scrape cadence
+      ansible.builtin.set_fact:
+        alloy_scrape_interval: "15s"
+    - name: Assert the schema accepts the metric scrape cadence
+      ansible.builtin.assert:
+        that: "{{ operator_knob_schema.alloy_scrape_interval }}"
+        quiet: true
+
+    - name: Set the slowest usable metric scrape cadence
+      ansible.builtin.set_fact:
+        alloy_scrape_interval: "30s"
+    - name: Assert the schema accepts the slowest usable metric scrape cadence
+      ansible.builtin.assert:
+        that: "{{ operator_knob_schema.alloy_scrape_interval }}"
+        quiet: true
+
+    - name: Set a scrape cadence outside the rate window
+      ansible.builtin.set_fact:
+        alloy_scrape_interval: "60s"
+    - name: Evaluate the schema with a scrape cadence outside the rate window
+      ansible.builtin.assert:
+        that: "{{ operator_knob_schema.alloy_scrape_interval }}"
+        quiet: true
+      register: slow_scrape_interval
+      ignore_errors: true
+    - name: Assert the schema rejects a scrape cadence outside the rate window
+      ansible.builtin.assert:
+        that:
+          - slow_scrape_interval.failed | default(false)
+        quiet: true
+
     - name: Set a boolean overlay toggle
       ansible.builtin.set_fact:
         netbird_enabled: true

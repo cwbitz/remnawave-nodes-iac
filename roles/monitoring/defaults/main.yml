@@ -34,5 +34,9 @@ loki_push_url: ""
 # Central Prometheus remote-write receiver ("http://<peer>.netbird.selfhosted:9090/api/v1/write").
 # Empty = metrics are not pushed (log shipping is unaffected).
 prometheus_remote_write_url: ""
+# Metric scrape cadence behind the remote-write push. It has to stay inside the
+# dashboards' 60s `rate()` window (1s-30s); a 60s cadence leaves every `rate()`
+# panel empty.
+alloy_scrape_interval: "15s"
 alloy_journal_presets: [ssh, security, kernel, services]
 alloy_journal_extras: []
