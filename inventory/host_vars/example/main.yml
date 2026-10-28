@@ -94,6 +94,10 @@ loki_push_url: ""
 # peer's NetBird name). Empty = metrics are not pushed; log shipping is
 # unaffected.
 prometheus_remote_write_url: ""
+# Metric scrape cadence behind the remote-write push. It has to stay inside the
+# dashboards' 60s `rate()` window (1s-30s); a 60s cadence leaves every `rate()`
+# panel empty.
+alloy_scrape_interval: "15s"
 
 # Journal sources Alloy ships to the central Loki; raw extra matches go in
 # alloy_journal_extras.

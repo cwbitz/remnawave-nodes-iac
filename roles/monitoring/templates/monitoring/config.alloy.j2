@@ -70,6 +70,7 @@ loki.write "central" {
 // series join the log `host` label; `source="agent"` separates them from the
 // central host's own scrape.
 prometheus.scrape "host" {
+  scrape_interval = "{{ alloy_scrape_interval }}"
   targets = [
 {% if node_exporter_enabled | bool %}
     { "__address__" = "{{ overlay_ip }}:9100", "instance" = "{{ inventory_hostname }}", "job" = "node-exporter", "source" = "agent" },
