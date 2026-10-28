@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.1](https://github.com/cwbitz/remnawave-nodes-iac/compare/v1.1.0...v1.1.1) (2026-10-28)
+
+
+### Bug Fixes
+
+* **release:** drop the unused component from the release config ([#5](https://github.com/cwbitz/remnawave-nodes-iac/issues/5)) ([a5e0a23](https://github.com/cwbitz/remnawave-nodes-iac/commit/a5e0a23ef4ad4814902095428b3c6f791cdf63ae))
+
 ## [1.1.0](https://github.com/cwbitz/remnawave-nodes-iac/compare/v1.0.0...v1.1.0) (2026-10-28)
 
 
