@@ -9,7 +9,8 @@ services:
     restart: unless-stopped
     user: "0:0"
     # Host networking so the agent can scrape the host-bound exporters on the
-    # overlay address; the write endpoints are IP-literal URLs.
+    # overlay address; the write endpoints are an overlay IP or a NetBird peer
+    # name, resolved through the agent's host resolver.
     network_mode: host
     command:
       - run
