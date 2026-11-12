@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.3](https://github.com/cwbitz/remnawave-nodes-iac/compare/v1.1.2...v1.1.3) (2026-11-12)
+
+
+### Bug Fixes
+
+* **ci:** stream the SSH runner output instead of buffering it ([#10](https://github.com/cwbitz/remnawave-nodes-iac/issues/10)) ([db5dd46](https://github.com/cwbitz/remnawave-nodes-iac/commit/db5dd46c1ddf7ae74bb56b4f7f937e0029166a48))
+
 ## [1.1.2](https://github.com/cwbitz/remnawave-nodes-iac/compare/v1.1.1...v1.1.2) (2026-11-12)
 
 
