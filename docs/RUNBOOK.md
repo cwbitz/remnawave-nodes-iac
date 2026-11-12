@@ -268,7 +268,8 @@ severity; `tests/` holds the automated suite.
       healthy after a config push.
 - [ ] Vault: `make vault-view` decrypts, a no-op `make vault-edit` keeps the keys
       alphabetical and the file encrypted, and a plaintext vault is re-encrypted
-      on the next write.
+      on the next write; a save is refused when a deploy changed the vault during
+      the edit.
 - [ ] Upgrade and rollback: `make deploy TAGS=remnanode` with the pinned
       `remnanode_version` recreates the container; rolling back to the previous
       version tag and re-running does the same. Never use `latest`.
