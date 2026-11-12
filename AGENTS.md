@@ -55,8 +55,9 @@ the Remnawave Node). `HOST=<name>` restricts the bootstrap to that node.
 - `make vault-init` / `vault-view [HOST=]` / `vault-edit [HOST=]` — the vault
   password file and the per-host vault; `vault-view` covers every host (or one with
   HOST), and `vault-edit` targets HOST, or the single host when the inventory holds
-  exactly one (a plaintext vault is encrypted first, and the keys are re-sorted
-  alphabetically on save).
+  exactly one (a plaintext vault is encrypted first, the keys are re-sorted
+  alphabetically on save, and a save is refused when the vault changed while the
+  editor was open).
 - `make host-init HOST=<name> [HOST_IP=] [HOST_PORT=]` — scaffold
   `inventory/hosts.yml` (from the committed `example/` when absent) and
   `inventory/host_vars/<name>/`, encrypt the scaffolded `vault.yml`, and ensure
