@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.2](https://github.com/cwbitz/remnawave-nodes-iac/compare/v1.1.1...v1.1.2) (2026-11-12)
+
+
+### Bug Fixes
+
+* **vault:** refuse a vault edit that would drop newly written secrets ([#8](https://github.com/cwbitz/remnawave-nodes-iac/issues/8)) ([4722a22](https://github.com/cwbitz/remnawave-nodes-iac/commit/4722a2257e1f749b8daf9b4a9410954664185a85))
+
 ## [1.1.1](https://github.com/cwbitz/remnawave-nodes-iac/compare/v1.1.0...v1.1.1) (2026-10-28)
 
 
