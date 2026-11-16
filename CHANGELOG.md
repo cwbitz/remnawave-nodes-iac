@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.0](https://github.com/cwbitz/remnawave-nodes-iac/compare/v1.1.4...v1.2.0) (2026-11-16)
+
+
+### Features
+
+* **make:** add a rebuilt-host reset switch ([#15](https://github.com/cwbitz/remnawave-nodes-iac/issues/15)) ([b6b5f10](https://github.com/cwbitz/remnawave-nodes-iac/commit/b6b5f10a82a83d56c6b1e196d90da08c1fea2e94))
+
 ## [1.1.4](https://github.com/cwbitz/remnawave-nodes-iac/compare/v1.1.3...v1.1.4) (2026-11-16)
 
 
