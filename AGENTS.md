@@ -277,3 +277,13 @@ Makefile interface and the per-host vault lifecycle.
 | [`remnanode.md`](docs/components/remnanode.md) | The Remnawave Node container |
 | [`panel-contract.md`](docs/components/panel-contract.md) | Panel/NetBird interfaces, project boundaries and scope |
 | [`docs/RUNBOOK.md`](docs/RUNBOOK.md) | Operational procedures (deploy, verify, rollback) |
+
+## Rebuilt hosts
+
+A reinstalled host changes its SSH host key, and the cached facts belong to the
+old machine. Run the first deploy with `REBUILD=1`: `deploy`, `dry-run` and `host-bootstrap` then accept the
+changed key (printing the fingerprint), drop `.cache/facts` and print the reminder
+to delete host-returned secrets (tokens, setup keys) from `vault.yml`. The vault is
+never touched, and `REBUILD` is not a replacement for `FORCE` (the single,
+fingerprint-verified override). The convention is documented in
+`ansible-scaffold/docs/rebuild.md`.
