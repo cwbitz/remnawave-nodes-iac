@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.4](https://github.com/cwbitz/remnawave-nodes-iac/compare/v1.1.3...v1.1.4) (2026-11-16)
+
+
+### Bug Fixes
+
+* **privacy:** reject a tracked vault backup file ([#12](https://github.com/cwbitz/remnawave-nodes-iac/issues/12)) ([0ea7b66](https://github.com/cwbitz/remnawave-nodes-iac/commit/0ea7b662b8dd12157922eec8ae7785888042ff3e))
+
 ## [1.1.3](https://github.com/cwbitz/remnawave-nodes-iac/compare/v1.1.2...v1.1.3) (2026-11-12)
 
 
