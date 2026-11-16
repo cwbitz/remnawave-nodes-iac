@@ -16,6 +16,7 @@ HOST_PORT ?=
 
 $(foreach v,HOST HOST_IP HOST_PORT,$(if $(filter environment,$(origin $(v))),$(warning $(v) is inherited from the environment; pass $(v)=... explicitly if unintended)))
 REFRESH ?=
+REBUILD ?=
 KNOWN_HOSTS ?= $(HOME)/.ssh/known_hosts
 
 export ANSIBLE_VAULT_PASSWORD_FILE := $(HOME)/.config/projects/remnawave-nodes-iac/ansible_vault_password
@@ -186,8 +187,16 @@ host-init: vault-init ## Scaffold host_vars/<HOST> + the inventory entry (HOST d
 	echo "      verify: make print HOST=$$host"
 
 .PHONY: host-bootstrap
-host-bootstrap: vault-init hostkey-init agent-fallback ## Create the iac automation account on one host (HOST=<name>, default the first node); refreshes host keys first
+host-bootstrap: vault-init rebuild-reset hostkey-init agent-fallback ## Create the iac automation account on one host (HOST=<name>, default the first node); refreshes host keys first; REBUILD=1 after a host rebuild
 	$(SSH_AGENT_RUN) $(ANS_PLAY) -i $(INVENTORY) playbooks/bootstrap.yml $(if $(HOST),-e bootstrap_host=$(HOST),)
+
+.PHONY: rebuild-reset
+rebuild-reset:
+	@if [ -n "$(REBUILD)" ]; then \
+		echo "REBUILD=1: a changed host key will be accepted, cached facts and generated state are dropped"; \
+		echo "           delete host-returned secrets from vault.yml (tokens, setup keys) before the first run"; \
+		rm -rf .cache/facts; \
+	fi
 
 .PHONY: hostkey-init
 hostkey-init: vault-init ## Refresh every managed host's SSH host key (HOST=<name> limits it; FORCE=1 replaces a changed key)
@@ -210,8 +219,11 @@ hostkey-init: vault-init ## Refresh every managed host's SSH host key (HOST=<nam
 		new=$$(printf '%s\n' "$$keys" | awk '{print $$2" "$$3}' | sort); \
 		printf '%s\n' "$$keys" | awk '{print $$2" "$$3}' > "$$pub"; \
 		ssh-keygen -lf "$$pub" 2>/dev/null | sed 's/^/  fingerprint: /' >&2 || true; \
-		if [ -n "$$old" ] && [ -n "$$(comm -23 <(printf '%s\n' "$$old") <(printf '%s\n' "$$new"))" ] && [ "$(FORCE)" != "1" ]; then \
-			echo "ERROR: host key changed for $$key; verify the fingerprint, then re-run with FORCE=1" >&2; failures=1; continue; \
+		if [ -n "$$old" ] && [ -n "$$(comm -23 <(printf '%s\n' "$$old") <(printf '%s\n' "$$new"))" ]; then \
+			if [ "$(FORCE)" != "1" ] && [ "$(REBUILD)" != "1" ]; then \
+				echo "ERROR: host key changed for $$key; verify the fingerprint, then re-run with FORCE=1 (or REBUILD=1 after a host rebuild)" >&2; failures=1; continue; \
+			fi; \
+			echo "  changed: replacing the recorded key" >&2; \
 		fi; \
 		ssh-keygen -R "$$key" -f "$$tmp" >/dev/null 2>&1 || true; \
 		printf '%s\n' "$$keys" >> "$$tmp"; \
@@ -320,12 +332,12 @@ lint: vault-init validate-knobs
 	gitleaks dir . --config .gitleaks.toml --no-banner --redact
 
 .PHONY: dry-run
-dry-run: vault-init validate-knobs agent-fallback ## Dry-run (--check --diff); REFRESH=1 refreshes host keys first
+dry-run: vault-init rebuild-reset validate-knobs agent-fallback ## Dry-run (--check --diff); REFRESH=1 refreshes host keys first; REBUILD=1 after a host rebuild
 	@if [ -n "$(REFRESH)" ]; then $(MAKE) --no-print-directory hostkey-init; fi; \
 	$(SSH_AGENT_RUN) $(ANS_PLAY) -i $(INVENTORY) $(PLAYBOOK) --check --diff $(if $(TAGS),--tags $(TAGS),)
 
 .PHONY: deploy
-deploy: vault-init hostkey-init validate-knobs agent-fallback ## One-shot: bootstrap every node, then deploy the Remnawave node stack; HOST=<name> bootstraps only that node; TAGS=... runs only tagged roles; refreshes host keys first
+deploy: vault-init rebuild-reset hostkey-init validate-knobs agent-fallback ## One-shot: bootstrap every node, then deploy the Remnawave node stack; HOST=<name> bootstraps only that node; TAGS=... runs only tagged roles; refreshes host keys first; REBUILD=1 after a host rebuild
 	@set -e; \
 	hosts="$(HOST)"; \
 	if [ -z "$$hosts" ]; then \
