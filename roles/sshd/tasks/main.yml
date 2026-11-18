@@ -11,9 +11,8 @@
     that:
       - sshd_permit_root_login in ['no', 'prohibit-password']
     fail_msg: >-
-      sshd.permit_root_login must be 'no' (root SSH off) or
-      'prohibit-password' (root by public key only); got
-      '{{ sshd_permit_root_login }}'.
+      sshd_permit_root_login must be 'no' (root SSH off) or 'prohibit-password'
+      (root by public key only); got '{{ sshd_permit_root_login }}'.
 
 - name: "[SSHD] Does the service account have a public key?"
   ansible.builtin.set_fact:
@@ -36,10 +35,10 @@
     fail_msg: >-
       SSH hardening closes password login, so it needs at least one key-only
       login that still works afterwards: the `iac` automation account public key
-      (host.iac.ssh_pubkey_file), or — for a root-administered host —
-      root's public key (host.root.ssh_pubkey_file) with
-      sshd.permit_root_login=prohibit-password. Set one and run
-      `make host-bootstrap` to authorize it, or set sshd.hardening_enabled=false
+      (host_iac_ssh_pubkey_file), or — for a root-administered host —
+      root's public key (host_root_ssh_pubkey_file) with
+      sshd_permit_root_login=prohibit-password. Set one and run
+      `make host-bootstrap` to authorize it, or set sshd_hardening_enabled=false
       to keep password login.
 
 - name: "[SSHD] Read the current drop-in (for the rollback)"
@@ -139,8 +138,8 @@
           from the control node failed (exit {{ sshd_probe.rc | default('?') }}:
           {{ sshd_probe.stderr | default('') | trim }}), so password
           authentication must not stay closed. Check that the probed account's
-          public-key path (host.iac.ssh_pubkey_file, or
-          host.root.ssh_pubkey_file when root is the chosen identity) points
+          public-key path (host_iac_ssh_pubkey_file, or
+          host_root_ssh_pubkey_file when root is the chosen identity) points
           at the key authorized for it, and that OpenSSH accepts the configured
           private key (under WSL a /mnt/c key needs the Keychain agent:
           `make agent-load`).

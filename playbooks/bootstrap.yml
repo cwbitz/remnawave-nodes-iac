@@ -90,7 +90,7 @@
           Could not log in as iac, admin or root with
           the configured credentials. Check inventory/host_vars/<host>/vault.yml for the
           passwords (vault_{ansible,admin,root}_password) and the main.yml next to
-          it for the key paths (host.<id>.ssh_privkey_file), plus the host.
+          it for the key paths (host_<id>_ssh_privkey_file), plus the host.
 
     - name: "[Probe] Record the working identity"
       ansible.builtin.set_fact:
@@ -162,8 +162,8 @@
         that:
           - bootstrap_timezone.stat.isreg | default(false)
         fail_msg: >-
-          bootstrap.timezone '{{ timezone }}' is not an IANA zone present
-          under /usr/share/zoneinfo on {{ inventory_hostname }}.
+          timezone '{{ timezone }}' is not an IANA zone present under
+          /usr/share/zoneinfo on {{ inventory_hostname }}.
       when: timezone | default('', true) | trim | length > 0
 
     - name: "[Bootstrap] Set the system timezone"
@@ -176,8 +176,8 @@
         that:
           - ansible_os_family == 'Debian'
         fail_msg: >-
-          bootstrap.apt_mirror is set, but the host is not Debian-family.
-          Example: https://mirrors.tuna.tsinghua.edu.cn/debian
+          apt_mirror is set, but the host is not Debian-family.
+          Example: apt_mirror: https://mirrors.tuna.tsinghua.edu.cn/debian
       when: apt_mirror | default('', true) | length > 0
 
     - name: "[Bootstrap] Back up the current APT sources (once)"
@@ -223,8 +223,7 @@
         that:
           - bootstrap_docker.rc | default(1) == 0
         fail_msg: >-
-          bootstrap.docker_registry_mirrors is set but Docker is not
-          installed on
+          docker_registry_mirrors is set but Docker is not installed on
           {{ inventory_hostname }}; install Docker first.
       when: docker_registry_mirrors | default([]) | length > 0
 
@@ -356,7 +355,7 @@
           - bootstrap_pubkey_users.results | default([])
             | selectattr('msg', 'defined') | selectattr('msg', 'ne', '') | list | length == 0
         fail_msg: >-
-          host.<id>.ssh_pubkey_file is set for account(s) that are not managed
+          host_<id>_ssh_pubkey_file is set for account(s) that are not managed
           by this bootstrap and do not exist on {{ inventory_hostname }}:
           {{ bootstrap_pubkey_users.results | default([])
              | selectattr('msg', 'defined') | selectattr('msg', 'ne', '')

@@ -8,7 +8,7 @@
 Created in the Panel (**Nodes → Management**, then **Copy docker-compose.yml**).
 Only two values are needed:
 
-- `remnanode.node_port` — the `NODE_PORT` value (non-secret; host `main.yml`).
+- `remnanode_node_port` — the `NODE_PORT` value (non-secret; host `main.yml`).
 - `remnanode_secret_key` — the `SECRET_KEY` value, resolved by
   `roles/remnanode/defaults` from `vault_remnanode_secret_key` (never set in
   `main.yml`).
@@ -25,7 +25,7 @@ truth; never edit the file on the host.
 - The rendered compose file holds the live `SECRET_KEY`; it is mode `0600` and the
   render task is `no_log`. It is gitignored — never commit it.
 - The container is `network_mode: host`, so `NODE_PORT` is exposed on every
-  interface unless `firewall.enabled` is set. `roles/firewall` then closes it to
+  interface unless `firewall_enabled` is set. `roles/firewall` then closes it to
   the public internet (reachable over the NetBird overlay only) — see
   [`firewall.md`](firewall.md). The Xray inbounds the Panel pushes are public by
   design; declare their ports there.

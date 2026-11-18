@@ -1,2 +1,3 @@
 ---
+remnanode_node_port: ""
 remnanode_secret_key: "{{ vault_remnanode_secret_key | default('', true) }}"
