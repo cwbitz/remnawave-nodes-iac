@@ -7,8 +7,8 @@
     that:
       - ansible_os_family == 'Debian'
     fail_msg: >-
-      monitoring is Debian-family only (apt). Set monitoring.enabled: false on
-      unsupported hosts.
+      monitoring is Debian-family only (apt). Disable the monitoring
+      components on unsupported hosts.
 
 - name: "[Monitoring] Assert the overlay is available"
   ansible.builtin.assert:

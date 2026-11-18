@@ -44,7 +44,8 @@ Panel, the management URL + a setup key for the overlay).
    port.
 3. **Host monitoring + security** (`roles/monitoring`): installs
    `prometheus-node-exporter`, `crowdsec` and the `crowdsec-firewall-bouncer`
-   (nftables) when `monitoring.enabled` is true.
+   (nftables) when any of `monitoring.node_exporter.enabled`,
+   `monitoring.crowdsec.enabled` or `monitoring.alloy.enabled` is true.
 4. **Host firewall** (`roles/firewall`, opt-in via `firewall.enabled`): a
    default-deny inbound base firewall (a dedicated nftables table), so
    `NODE_PORT` — and everything else — is reachable only over the overlay. The

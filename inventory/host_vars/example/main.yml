@@ -74,10 +74,9 @@ sshd:
 # ==============================================================================
 # prometheus-node-exporter + CrowdSec (+ the nftables firewall bouncer) and the
 # NetBird overlay join, so the central Prometheus/Alloy scrapes the host over the
-# overlay with no public port. Opt-in per host; set monitoring.enabled true to
-# enable it (each component can be disabled on its own).
+# overlay with no public port. Opt-in per host: enable any component below and
+# the monitoring slice runs; disabling all three retires it.
 monitoring:
-  enabled: false
   node_exporter:
     enabled: false
     # node_exporter collector toggles enabled on top of the package defaults.

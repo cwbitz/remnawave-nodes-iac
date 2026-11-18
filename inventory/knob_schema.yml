@@ -50,8 +50,6 @@ operator_knob_nested:
   sshd.permit_root_login: >-
     ((sshd | default({}, true)).permit_root_login | default('no') | string)
     in ["no", "prohibit-password"]
-  monitoring.enabled: >-
-    ((monitoring | default({}, true)).enabled | default(false)) is boolean
   monitoring.node_exporter.enabled: >-
     (((monitoring | default({}, true)).node_exporter | default({})).enabled
      | default(false)) is boolean
