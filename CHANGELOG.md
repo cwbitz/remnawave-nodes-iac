@@ -1,5 +1,20 @@
 # Changelog
 
+## [2.0.0](https://github.com/cwbitz/remnawave-nodes-iac/compare/v1.2.0...v2.0.0) (2026-11-18)
+
+
+### ⚠ BREAKING CHANGES
+
+* **monitoring:** monitoring.enabled is no longer an operator knob; drop it from host_vars and toggle the components themselves.
+* **inventory:** every host_vars/<host>/main.yml must move its firewall, sshd, monitoring and netbird keys under the matching group, and the NetBird overlay must be enabled explicitly on each node.
+* **inventory:** every host_vars/<host>/main.yml must move its flat operator keys under the matching group.
+
+### Code Refactoring
+
+* **inventory:** cascade operator knobs into grouped mappings ([#18](https://github.com/cwbitz/remnawave-nodes-iac/issues/18)) ([b04d875](https://github.com/cwbitz/remnawave-nodes-iac/commit/b04d87588ab99e42d9b2e804adff0de752809d39))
+* **inventory:** cascade the service knobs into grouped mappings ([#21](https://github.com/cwbitz/remnawave-nodes-iac/issues/21)) ([9b45c0c](https://github.com/cwbitz/remnawave-nodes-iac/commit/9b45c0ca5cad5c9680e5bbebbdd5314a153f8815))
+* **monitoring:** derive the slice toggle from its components ([#22](https://github.com/cwbitz/remnawave-nodes-iac/issues/22)) ([58759ff](https://github.com/cwbitz/remnawave-nodes-iac/commit/58759ffbfd46b69a5af43c5042b54bef9c5b5bc0))
+
 ## [1.2.0](https://github.com/cwbitz/remnawave-nodes-iac/compare/v1.1.4...v1.2.0) (2026-11-16)
 
 
