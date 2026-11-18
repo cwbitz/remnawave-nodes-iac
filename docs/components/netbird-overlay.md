@@ -2,16 +2,18 @@
 
 `roles/agent/` — joins a node to the NetBird mesh by running the
 `netbirdio/netbird` agent container in `agent_dir` = `/opt/netbird-agent`. Reached
-via `make agent`, `site.yml` or `monitoring.yml`; `netbird_enabled` (default
-`true`) controls it, and the role carries a cleanup path for the opt-out (the
+via `make agent`, `site.yml` or `monitoring.yml`; `netbird.enabled` (default
+`false`) controls it, and the role carries a cleanup path for the opt-out (the
 container is removed, while the `netbird_config` volume is kept so re-enabling
-keeps the peer identity).
+keeps the peer identity). Enable it on every node the Panel and the central
+Prometheus/Alloy must reach.
 
 ## Inputs (owned by this project)
 
-- `netbird_management_url` — non-secret; host `main.yml` (full URL with scheme and
-  no trailing slash, e.g. `https://netbird.example.com`; empty = NetBird Cloud,
-  where the container env is omitted so the agent uses its built-in default).
+- `netbird.management_url` — non-secret; host `main.yml` (full URL with scheme
+  and no trailing slash, e.g. `https://netbird.example.com`; empty = NetBird
+  Cloud, where the container env is omitted so the agent uses its built-in
+  default).
 - `netbird_peer_setup_key` — this node's enrollment key, resolved by
   `roles/agent/defaults` from `vault_netbird_setup_key` (never set in `main.yml`).
 
@@ -26,7 +28,8 @@ The agent always serves the NetBird DNS zone (`<peer>.netbird.selfhosted`): it
 installs itself as the host resolver through systemd-resolved over D-Bus, and
 falls back to rewriting `/etc/resolv.conf` on hosts without systemd-resolved
 (hence the D-Bus **and** `/etc/resolv.conf` mounts in the agent compose). The host
-therefore resolves peer names — which is what makes a `loki_push_url` like
+therefore resolves peer names — which is what makes a
+`monitoring.alloy.loki_push_url` like
 `http://<central-peer>.netbird.selfhosted:3100` work — and containers that need
 the zone get it via a `dns: ["<overlay-ip>"]` override (the agent's embedded
 resolver), because Docker's embedded DNS does not forward to the host resolver.

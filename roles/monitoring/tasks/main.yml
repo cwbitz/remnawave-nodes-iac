@@ -7,7 +7,7 @@
     that:
       - ansible_os_family == 'Debian'
     fail_msg: >-
-      monitoring is Debian-family only (apt). Set monitoring_enabled: false on
+      monitoring is Debian-family only (apt). Set monitoring.enabled: false on
       unsupported hosts.
 
 - name: "[Monitoring] Assert the overlay is available"
@@ -16,7 +16,7 @@
       - (overlay_ip | default('', true) | length) > 0
     fail_msg: >-
       node_exporter and CrowdSec bind the NetBird overlay address, so the agent
-      must be enabled (netbird_enabled, default true) and joined before the
+      must be enabled (netbird.enabled, default false) and joined before the
       monitoring components can start.
   when:
     - (node_exporter_enabled | bool or crowdsec_enabled | bool)
@@ -183,7 +183,8 @@
     that:
       - (loki_push_url | default('', true) | length) > 0
     fail_msg: >-
-      alloy_enabled requires loki_push_url (logs are pushed to Loki over the overlay).
+      monitoring.alloy.enabled requires monitoring.alloy.loki_push_url (logs
+      are pushed to Loki over the overlay).
   when: alloy_enabled | bool
 
 - name: "[Monitoring] Assert the log presets are known"
@@ -191,10 +192,10 @@
     that:
       - (alloy_journal_presets | default([]) | difference(['ssh', 'security', 'kernel', 'services']) | length) == 0
     fail_msg: >-
-      Unknown alloy_journal_presets: {{
+      Unknown monitoring.alloy.journal_presets: {{
         alloy_journal_presets | default([]) | difference(['ssh', 'security', 'kernel', 'services']) | join(', ')
-      }}. Known presets: ssh, security, kernel, services (raw journal matches go in
-      alloy_journal_extras).
+      }}. Known presets: ssh, security, kernel, services (raw journal matches go
+      in monitoring.alloy.journal_extras).
   when: alloy_enabled | bool
 
 - name: "[Monitoring] Ensure the monitoring stack directory exists"

@@ -5,6 +5,11 @@
 # `make host-init` copies this file to inventory/host_vars/<hostname>/main.yml.
 # Every knob is listed with its default; secrets/PII go in the encrypted
 # vault.yml next to it.
+#
+# The service knobs are grouped mappings (firewall, sshd, monitoring, netbird).
+# Their defaults and the flat variables the roles consume are derived in
+# inventory/group_vars/all/knobs.yml, so a host overrides only the keys it
+# changes.
 
 # --- SSH connection identities ------------------------------------------------
 # Account name and key paths are non-secret (passwords stay in vault.yml).
@@ -22,118 +27,6 @@ host_root_ssh_pubkey_file: ""
 host_root_ssh_privkey_file: ""
 
 # ==============================================================================
-# NetBird overlay
-# ==============================================================================
-# The node joins the mesh as a peer. Pick a setup key whose group the central
-# observability stack discovers (`endpoint` by default; it grants no exit/LAN
-# routes).
-netbird_enabled: true
-netbird_management_url: ""   # empty = NetBird Cloud (the agent env is omitted); a self-hosted mesh sets its URL
-
-# ==============================================================================
-# Remnawave Node
-# ==============================================================================
-# Create the Node in the Remnawave Panel, then copy from its generated
-# docker-compose.yml: NODE_PORT here (not a secret) and SECRET_KEY into the vault
-# (vault_remnanode_secret_key).
-remnanode_node_port: ""     # e.g. 2222: the port the Panel dials in on
-
-# ==============================================================================
-# Host monitoring + host security (make monitoring)
-# ==============================================================================
-# prometheus-node-exporter + CrowdSec (+ the nftables firewall bouncer) and the
-# NetBird overlay join, so the central Prometheus/Alloy scrapes the host over the
-# overlay with no public port. Opt-in per host; set monitoring_enabled true to
-# enable it (each component can be disabled on its own).
-monitoring_enabled: false
-node_exporter_enabled: false
-# node_exporter collector toggles enabled on top of the package defaults.
-node_exporter_collectors:
-  - buddyinfo
-  - cgroups
-  - drm
-  - ethtool
-  - interrupts
-  - ksmd
-  - lnstat
-  - logind
-  - mountstats
-  - perf
-  - processes
-  - qdisc
-  - softirqs
-  - sysctl
-  - tcpstat
-  - wifi
-  - xfrm
-  - zoneinfo
-crowdsec_enabled: false
-# Serve the central CrowdSec web UI: create its read-only machine account on
-# this LAPI. The password is generated into this host's vault as
-# vault_crowdsec_webui_machine_password when the vault has none, and copied
-# into the reading project's vault mapping.
-crowdsec_generate_webui_machine_password: false
-
-# CrowdSec blocklist importer (optional; runs next to the local LAPI).
-# embedded ~= 20k high-confidence IPs, server = conservative server set,
-# max = all 32 feeds. Lower MAX_DECISIONS and raise INTERVAL on small VPSes.
-crowdsec_blocklist_import_enabled: false
-crowdsec_blocklist_import_preset: "server"
-crowdsec_blocklist_import_interval: 3600
-crowdsec_blocklist_import_max_decisions: 15000
-crowdsec_blocklist_import_batch_size: 1000
-crowdsec_blocklist_import_decision_duration: "24h"
-crowdsec_blocklist_import_extra_env: {}
-# Optionally ship host logs to a central Loki reachable over the overlay
-# (alloy_enabled requires loki_push_url): an overlay IP, or preferably the central
-# peer's NetBird name ("http://<peer>.netbird.selfhosted:3100"), which survives a
-# re-enrolled central peer.
-alloy_enabled: false
-loki_push_url: ""
-# Central Prometheus remote-write receiver over the overlay (an overlay IP or the
-# peer's NetBird name). Empty = metrics are not pushed; log shipping is
-# unaffected.
-prometheus_remote_write_url: ""
-# Metric scrape cadence behind the remote-write push. It has to stay inside the
-# dashboards' 60s `rate()` window (1s-30s); a 60s cadence leaves every `rate()`
-# panel empty.
-alloy_scrape_interval: "15s"
-
-# Journal sources Alloy ships to the central Loki; raw extra matches go in
-# alloy_journal_extras.
-alloy_journal_presets: [ssh, security, kernel, services]
-alloy_journal_extras: []
-
-# ==============================================================================
-# Host firewall
-# ==============================================================================
-# Default-deny inbound (a dedicated nftables table). Opt-in per host; set
-# firewall_enabled true to apply it, especially before the Panel dials
-# NODE_PORT. SSH, the NetBird overlay and the WireGuard UDP port stay open;
-# NODE_PORT and everything else are reachable only over the overlay. The Panel
-# owns the Xray inbounds, so declare the ports it pushes here (empty = no proxy
-# service yet).
-# Each entry is a single port or a `start-end` range, so the Panel's own value can
-# be copied verbatim, e.g. ["443"] and ["20000-20100"]. The two projects are
-# decoupled: keep these in step with the Panel's inbound ports by hand.
-firewall_enabled: false
-firewall_public_tcp_ports: ["22"]
-firewall_public_udp_ports: []
-firewall_allow_icmp: true
-
-# ==============================================================================
-# SSH hardening
-# ==============================================================================
-# Key-only SSH administration. Enable it only once a keyed login works for
-# `iac` (or root when that is the only admin path); the role verifies that
-# and fails otherwise.
-sshd_hardening_enabled: false
-# Root SSH policy, applied only while the hardening toggle above is true: "no"
-# disables root SSH; "prohibit-password" keeps root reachable by public key only
-# (needed on a host administered only through root).
-sshd_permit_root_login: "no"
-
-# ==============================================================================
 # Host bootstrap (make host-bootstrap; NOT part of make deploy)
 # ==============================================================================
 # install_docker false requires a preinstalled Docker. Mirrors for hosts where the
@@ -145,6 +38,130 @@ install_docker: true
 timezone: "UTC"
 apt_mirror: ""
 docker_registry_mirrors: []
+
+# ==============================================================================
+# Host firewall
+# ==============================================================================
+# Default-deny inbound (a dedicated nftables table). Opt-in per host; set
+# firewall.enabled true to apply it, especially before the Panel dials NODE_PORT.
+# SSH, the NetBird overlay and the WireGuard UDP port stay open; NODE_PORT and
+# everything else are reachable only over the overlay. The Panel owns the Xray
+# inbounds, so declare the ports it pushes here (empty = no proxy service yet).
+# Each entry is a single port or a `start-end` range, so the Panel's own value can
+# be copied verbatim, e.g. ["443"] and ["20000-20100"]. The two projects are
+# decoupled: keep these in step with the Panel's inbound ports by hand.
+firewall:
+  enabled: false
+  public_tcp_ports: ["22"]
+  public_udp_ports: []
+  allow_icmp: true
+
+# ==============================================================================
+# SSH hardening
+# ==============================================================================
+# Key-only SSH administration. Enable it only once a keyed login works for
+# `iac` (or root when that is the only admin path); the role verifies that
+# and fails otherwise.
+sshd:
+  hardening_enabled: false
+  # Root SSH policy, applied only while the hardening toggle above is true: "no"
+  # disables root SSH; "prohibit-password" keeps root reachable by public key
+  # only (needed on a host administered only through root).
+  permit_root_login: "no"
+
+# ==============================================================================
+# Host monitoring + host security (make monitoring)
+# ==============================================================================
+# prometheus-node-exporter + CrowdSec (+ the nftables firewall bouncer) and the
+# NetBird overlay join, so the central Prometheus/Alloy scrapes the host over the
+# overlay with no public port. Opt-in per host; set monitoring.enabled true to
+# enable it (each component can be disabled on its own).
+monitoring:
+  enabled: false
+  node_exporter:
+    enabled: false
+    # node_exporter collector toggles enabled on top of the package defaults.
+    collectors:
+      - buddyinfo
+      - cgroups
+      - drm
+      - ethtool
+      - interrupts
+      - ksmd
+      - lnstat
+      - logind
+      - mountstats
+      - perf
+      - processes
+      - qdisc
+      - softirqs
+      - sysctl
+      - tcpstat
+      - wifi
+      - xfrm
+      - zoneinfo
+  crowdsec:
+    enabled: false
+    # Serve the central CrowdSec web UI: create its read-only machine account on
+    # this LAPI. The password is generated into this host's vault as
+    # vault_crowdsec_webui_machine_password when the vault has none, and copied
+    # into the reading project's vault mapping.
+    generate_webui_machine_password: false
+    # CrowdSec blocklist importer (optional; runs next to the local LAPI).
+    # embedded ~= 20k high-confidence IPs, server = conservative server set,
+    # max = all 32 feeds. Lower max_decisions and raise interval on small VPSes.
+    blocklist_import:
+      enabled: false
+      preset: "server"
+      interval: 3600
+      max_decisions: 15000
+      batch_size: 1000
+      decision_duration: "24h"
+      extra_env: {}
+  alloy:
+    # Optionally ship host logs to a central Loki reachable over the overlay
+    # (alloy.enabled requires loki_push_url): an overlay IP, or preferably the
+    # central peer's NetBird name ("http://<peer>.netbird.selfhosted:3100"),
+    # which survives a re-enrolled central peer.
+    enabled: false
+    loki_push_url: ""
+    # Central Prometheus remote-write receiver over the overlay (an overlay IP or
+    # the peer's NetBird name). Empty = metrics are not pushed; log shipping is
+    # unaffected.
+    prometheus_remote_write_url: ""
+    # Metric scrape cadence behind the remote-write push. It has to stay inside
+    # the dashboards' 60s `rate()` window (1s-30s); a 60s cadence leaves every
+    # `rate()` panel empty.
+    scrape_interval: "15s"
+    # Journal sources Alloy ships to the central Loki; raw extra matches go in
+    # journal_extras.
+    journal_presets: [ssh, security, kernel, services]
+    journal_extras: []
+
+# ==============================================================================
+# NetBird overlay
+# ==============================================================================
+# The node joins the mesh as a peer. Pick a setup key whose group the central
+# observability stack discovers (`endpoint` by default; it grants no exit/LAN
+# routes). The overlay is off by default: enable it on every node the Panel and
+# the central Prometheus/Alloy must reach (monitoring requires it).
+netbird:
+  enabled: false
+  # Empty = NetBird Cloud (the agent env is omitted); a self-hosted mesh sets its
+  # URL.
+  management_url: ""
+
+# ==============================================================================
+# Remnawave Node
+# ==============================================================================
+# Create the Node in the Remnawave Panel, then copy from its generated
+# docker-compose.yml: NODE_PORT here (not a secret) and SECRET_KEY into the vault
+# (vault_remnanode_secret_key).
+remnanode_node_port: ""     # e.g. 2222: the port the Panel dials in on
+
+# ==============================================================================
+# Deploy
+# ==============================================================================
 # Escape hatch: run the deploy as root instead of the service account (not
 # recommended).
 allow_root_login: false

@@ -1,5 +1,1 @@
 ---
-firewall_enabled: false
-firewall_public_tcp_ports: ["22"]
-firewall_public_udp_ports: []
-firewall_allow_icmp: true

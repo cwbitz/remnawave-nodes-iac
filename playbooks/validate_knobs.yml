@@ -11,6 +11,9 @@
       ansible.builtin.assert:
         that:
           - operator_knob_schema.keys() | sort == (lookup('file', playbook_dir ~ '/../inventory/host_vars/example/main.yml') | from_yaml).keys() | sort
+          - >-
+            operator_knob_nested.keys() | map('regex_replace', '\..*$', '') | unique | sort
+            | difference(operator_knob_schema.keys()) | length == 0
         fail_msg: "inventory/knob_schema.yml is out of sync with inventory/host_vars/example/main.yml"
         quiet: true
 
@@ -23,5 +26,15 @@
           {{ vars[item.key] | default('<unset>') | to_json }}
         quiet: true
       loop: "{{ operator_knob_schema | dict2items }}"
+      loop_control:
+        label: "{{ item.key }}"
+
+    - name: Validate every nested operator knob
+      ansible.builtin.assert:
+        that:
+          - "{{ item.value }}"
+        fail_msg: "{{ inventory_hostname }}: invalid {{ item.key }}"
+        quiet: true
+      loop: "{{ operator_knob_nested | dict2items }}"
       loop_control:
         label: "{{ item.key }}"

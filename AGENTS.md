@@ -78,7 +78,7 @@ the Remnawave Node). `HOST=<name>` restricts the bootstrap to that node.
 - `make agent` / `make monitoring` — the overlay join and the host
   monitoring/security parts (`make monitoring` joins the overlay first). The host
   firewall (`roles/firewall`), key-only SSH (`roles/sshd`) and the agent
-  (`roles/agent`, `netbird_enabled`) are part of `site.yml`; `make deploy
+  (`roles/agent`, `netbird.enabled`) are part of `site.yml`; `make deploy
   TAGS=firewall` / `TAGS=sshd` runs only one of them.
 - `make dry-run` / `make deploy` — preview / one-shot deploy. The first
   `make dry-run` needs `make host-bootstrap` first (the `iac` account and its key
@@ -132,16 +132,19 @@ the Remnawave Node). `HOST=<name>` restricts the bootstrap to that node.
 
 - The deploy **requires the non-root service account**: `playbooks/site.yml`
   asserts `ssh_user != root` (override with `allow_root_login=true`).
-- SSH hardening (`sshd_hardening_enabled`, `roles/sshd`) is **opt-in and
+- SSH hardening (`sshd.hardening_enabled`, `roles/sshd`) is **opt-in and
   self-protecting**: it closes password login, so it refuses to run unless the
   `iac` account has a public key and a key-only login is proven — and it
   reverts itself when a verification fails. Enable it only after
   `make host-bootstrap` has authorized the key.
+- The overlay is off by default (`netbird.enabled: false`): enable it on every
+  node the Panel and the central Prometheus/Alloy must reach, since monitoring
+  binds the exporter to the overlay address.
 - Host keys are refreshed before every bootstrap/deploy; a **changed** key is
   refused after printing its fingerprint — verify it out of band, then re-run
   `make hostkey-init FORCE=1`.
 - Keep a node's `NODE_PORT` off the public internet — the Panel is the TLS client
-  and reaches the node over the NetBird overlay (enable `firewall_enabled` so
+  and reaches the node over the NetBird overlay (enable `firewall.enabled` so
   `roles/firewall` enforces it; see
   `docs/components/panel-contract.md`).
 - The Remnawave Node image publishes version tags (e.g. `3.4.3`) as well as
@@ -151,6 +154,24 @@ the Remnawave Node). `HOST=<name>` restricts the bootstrap to that node.
   `SECRET_KEY`.
 
 ## Conventions
+
+### Operator knobs: service groups
+
+The service knobs are grouped mappings (`firewall`, `sshd`, `monitoring`,
+`netbird`) in the host's `main.yml`; the host-level, bootstrap and application
+knobs stay flat. Each group cascades in `inventory/group_vars/all/knobs.yml`:
+
+- `<group>_defaults` — the project defaults, the single source of truth.
+- `<group>_cfg` — `combine(..., recursive=True)` of the defaults and the
+  operator mapping, so a host overrides only the keys it changes.
+- flat `<name>_*` variables derived from `<group>_cfg` — the names the roles,
+  templates and playbooks consume. They are not operator knobs: never set them
+  in `host_vars`, and never duplicate a default in `roles/*/defaults/`.
+
+`inventory/knob_schema.yml` validates each group mapping plus every nested knob
+(dotted paths in `operator_knob_nested`), `tests/knob_contract.yml` exercises the
+accept/reject cases, and `scripts/audit_example_knobs.py` keeps the example a
+complete, value-accurate mirror of `<group>_defaults`.
 
 ### Ansible: probe & bootstrap host targeting
 

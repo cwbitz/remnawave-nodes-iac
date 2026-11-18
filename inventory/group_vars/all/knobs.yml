@@ -1,0 +1,94 @@
+---
+firewall_defaults:
+  enabled: false
+  public_tcp_ports: ["22"]
+  public_udp_ports: []
+  allow_icmp: true
+
+firewall_cfg: "{{ firewall_defaults | combine(firewall | default({}, true), recursive=True) }}"
+firewall_enabled: "{{ firewall_cfg.enabled }}"
+firewall_public_tcp_ports: "{{ firewall_cfg.public_tcp_ports }}"
+firewall_public_udp_ports: "{{ firewall_cfg.public_udp_ports }}"
+firewall_allow_icmp: "{{ firewall_cfg.allow_icmp }}"
+
+sshd_defaults:
+  hardening_enabled: false
+  permit_root_login: "no"
+
+sshd_cfg: "{{ sshd_defaults | combine(sshd | default({}, true), recursive=True) }}"
+sshd_hardening_enabled: "{{ sshd_cfg.hardening_enabled }}"
+sshd_permit_root_login: "{{ sshd_cfg.permit_root_login }}"
+
+monitoring_defaults:
+  enabled: false
+  node_exporter:
+    enabled: false
+    collectors:
+      - buddyinfo
+      - cgroups
+      - drm
+      - ethtool
+      - interrupts
+      - ksmd
+      - lnstat
+      - logind
+      - mountstats
+      - perf
+      - processes
+      - qdisc
+      - softirqs
+      - sysctl
+      - tcpstat
+      - wifi
+      - xfrm
+      - zoneinfo
+  crowdsec:
+    enabled: false
+    generate_webui_machine_password: false
+    blocklist_import:
+      enabled: false
+      preset: "server"
+      interval: 3600
+      max_decisions: 15000
+      batch_size: 1000
+      decision_duration: "24h"
+      extra_env: {}
+  alloy:
+    enabled: false
+    loki_push_url: ""
+    prometheus_remote_write_url: ""
+    scrape_interval: "15s"
+    journal_presets: [ssh, security, kernel, services]
+    journal_extras: []
+
+monitoring_cfg: "{{ monitoring_defaults | combine(monitoring | default({}, true), recursive=True) }}"
+monitoring_enabled: "{{ monitoring_cfg.enabled }}"
+node_exporter_enabled: "{{ monitoring_cfg.node_exporter.enabled }}"
+node_exporter_collectors: "{{ monitoring_cfg.node_exporter.collectors }}"
+crowdsec_enabled: "{{ monitoring_cfg.crowdsec.enabled }}"
+crowdsec_generate_webui_machine_password: >-
+  {{ monitoring_cfg.crowdsec.generate_webui_machine_password }}
+crowdsec_blocklist_import_enabled: "{{ monitoring_cfg.crowdsec.blocklist_import.enabled }}"
+crowdsec_blocklist_import_preset: "{{ monitoring_cfg.crowdsec.blocklist_import.preset }}"
+crowdsec_blocklist_import_interval: "{{ monitoring_cfg.crowdsec.blocklist_import.interval }}"
+crowdsec_blocklist_import_max_decisions: >-
+  {{ monitoring_cfg.crowdsec.blocklist_import.max_decisions }}
+crowdsec_blocklist_import_batch_size: >-
+  {{ monitoring_cfg.crowdsec.blocklist_import.batch_size }}
+crowdsec_blocklist_import_decision_duration: >-
+  {{ monitoring_cfg.crowdsec.blocklist_import.decision_duration }}
+crowdsec_blocklist_import_extra_env: "{{ monitoring_cfg.crowdsec.blocklist_import.extra_env }}"
+alloy_enabled: "{{ monitoring_cfg.alloy.enabled }}"
+loki_push_url: "{{ monitoring_cfg.alloy.loki_push_url }}"
+prometheus_remote_write_url: "{{ monitoring_cfg.alloy.prometheus_remote_write_url }}"
+alloy_scrape_interval: "{{ monitoring_cfg.alloy.scrape_interval }}"
+alloy_journal_presets: "{{ monitoring_cfg.alloy.journal_presets }}"
+alloy_journal_extras: "{{ monitoring_cfg.alloy.journal_extras }}"
+
+netbird_defaults:
+  enabled: false
+  management_url: ""
+
+netbird_cfg: "{{ netbird_defaults | combine(netbird | default({}, true), recursive=True) }}"
+netbird_enabled: "{{ netbird_cfg.enabled }}"
+netbird_management_url: "{{ netbird_cfg.management_url }}"
