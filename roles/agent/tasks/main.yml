@@ -8,7 +8,7 @@
       vault_netbird_setup_key in inventory/host_vars/<host>/vault.yml (both the
       key and the management URL are inputs owned by THIS project; the
       management server itself lives in the sibling netbird-management-iac).
-      Leave netbird.management_url empty for NetBird Cloud.
+      Leave netbird_management_url empty for NetBird Cloud.
 
 - name: "[Agent] Ensure Docker Engine and the Compose v2 plugin are present"
   ansible.builtin.include_role:
@@ -81,6 +81,6 @@
     fail_msg: >-
       The NetBird overlay agent did not obtain an address on wt0 within the
       timeout. Check the setup key (vault_netbird_setup_key), the management URL
-      (netbird.management_url; empty means NetBird Cloud), and
+      (netbird_management_url; empty means NetBird Cloud), and
       `docker logs netbird`.
   when: not ansible_check_mode

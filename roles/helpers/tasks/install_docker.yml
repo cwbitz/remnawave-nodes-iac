@@ -13,7 +13,7 @@
     fail_msg: >-
       Docker Engine with the Compose v2 plugin is required on
       {{ inventory_hostname }} but is missing and automatic installation is
-      disabled (bootstrap.install_docker=false). Install it from
+      disabled (install_docker=false). Install it from
       https://docs.docker.com/engine/install/ and re-run.
   when:
     - install_docker_probe.rc != 0
@@ -33,8 +33,7 @@
         fail_msg: >-
           Automatic Docker installation is only supported on Debian-family
           hosts. Install Docker on {{ inventory_hostname }} manually and
-          re-run, or set bootstrap.install_docker=false to require it
-          preinstalled.
+          re-run, or set install_docker=false to require it preinstalled.
 
     - name: "[Docker] Ensure curl and CA certificates are present"
       ansible.builtin.apt:

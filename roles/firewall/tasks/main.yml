@@ -23,7 +23,7 @@
       - firewall_public_udp_ports is sequence
       - firewall_public_udp_ports is not string
     fail_msg: >-
-      firewall.public_tcp_ports / firewall.public_udp_ports must be YAML lists
+      firewall_public_tcp_ports / firewall_public_udp_ports must be YAML lists
       whose entries are a port or a `start-end` range, e.g. ["443"] and
       ["20000-20100"].
 
@@ -42,7 +42,7 @@
       - (item.split('-') | last | int) <= 65535
       - (item.split('-') | length) == 1 or (item.split('-') | first | int) <= (item.split('-') | last | int)
     fail_msg: >-
-      firewall.public_*_ports entries must be a single port (1-65535) or a
+      firewall_public_*_ports entries must be a single port (1-65535) or a
       `start-end` range with start <= end; got {{ item }}. Also check
       netbird_wg={{ firewall_netbird_wg_port }}.
   loop: "{{ firewall_public_tcp_specs + firewall_public_udp_specs }}"
@@ -55,7 +55,7 @@
       - (ansible_port | default(22) | string) in firewall_public_tcp_specs
     fail_msg: >-
       ansible_port={{ ansible_port | default(22) }} is not in
-      firewall.public_tcp_ports, so applying this ruleset would close SSH. Add it
+      firewall_public_tcp_ports, so applying this ruleset would close SSH. Add it
       to inventory/host_vars/{{ inventory_hostname }}/main.yml.
 
 - name: "[Firewall] Ensure the nftables config directory exists"
