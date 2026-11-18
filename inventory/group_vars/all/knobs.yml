@@ -20,7 +20,6 @@ sshd_hardening_enabled: "{{ sshd_cfg.hardening_enabled }}"
 sshd_permit_root_login: "{{ sshd_cfg.permit_root_login }}"
 
 monitoring_defaults:
-  enabled: false
   node_exporter:
     enabled: false
     collectors:
@@ -62,7 +61,10 @@ monitoring_defaults:
     journal_extras: []
 
 monitoring_cfg: "{{ monitoring_defaults | combine(monitoring | default({}, true), recursive=True) }}"
-monitoring_enabled: "{{ monitoring_cfg.enabled }}"
+monitoring_enabled: >-
+  {{ (monitoring_cfg.node_exporter.enabled | bool)
+     or (monitoring_cfg.crowdsec.enabled | bool)
+     or (monitoring_cfg.alloy.enabled | bool) }}
 node_exporter_enabled: "{{ monitoring_cfg.node_exporter.enabled }}"
 node_exporter_collectors: "{{ monitoring_cfg.node_exporter.collectors }}"
 crowdsec_enabled: "{{ monitoring_cfg.crowdsec.enabled }}"

@@ -216,7 +216,8 @@
     - name: Set a grouped monitoring mapping
       ansible.builtin.set_fact:
         monitoring:
-          enabled: true
+          node_exporter:
+            enabled: true
     - name: Assert the schema accepts a grouped mapping
       ansible.builtin.assert:
         that: "{{ operator_knob_schema.monitoring }}"
@@ -235,4 +236,28 @@
       ansible.builtin.assert:
         that:
           - string_group.failed | default(false)
+        quiet: true
+
+    - name: Load the knob cascade
+      ansible.builtin.include_vars:
+        file: ../inventory/group_vars/all/knobs.yml
+
+    - name: Enable a single monitoring component
+      ansible.builtin.set_fact:
+        monitoring:
+          crowdsec:
+            enabled: true
+    - name: Assert the monitoring slice is derived on
+      ansible.builtin.assert:
+        that:
+          - monitoring_enabled | bool
+        quiet: true
+
+    - name: Disable every monitoring component
+      ansible.builtin.set_fact:
+        monitoring: {}
+    - name: Assert the monitoring slice is derived off
+      ansible.builtin.assert:
+        that:
+          - not (monitoring_enabled | bool)
         quiet: true

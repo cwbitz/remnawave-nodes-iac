@@ -38,3 +38,14 @@
       loop: "{{ operator_knob_nested | dict2items }}"
       loop_control:
         label: "{{ item.key }}"
+
+    - name: Reject the removed monitoring master switch
+      ansible.builtin.assert:
+        that:
+          - (monitoring | default({}, true)).enabled is not defined
+        fail_msg: >-
+          {{ inventory_hostname }}: monitoring.enabled was removed. The slice now
+          runs when monitoring.node_exporter.enabled,
+          monitoring.crowdsec.enabled or monitoring.alloy.enabled is true; drop
+          the key and toggle the components themselves.
+        quiet: true

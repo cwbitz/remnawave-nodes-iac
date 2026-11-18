@@ -241,8 +241,9 @@ severity; `tests/` holds the automated suite.
       disables only that unit. Master off (untagged `playbooks/monitoring.yml`)
       stops and disables all units and removes the Alloy stack, keeping packages;
       re-enabling restores them without reinstalling.
-- [ ] `make deploy TAGS=monitoring` with `monitoring.enabled: false` retires the
-      slice (the cleanup tasks inherit the tag); the same holds for
+- [ ] `make deploy TAGS=monitoring` with `monitoring.node_exporter.enabled`,
+      `monitoring.crowdsec.enabled` and `monitoring.alloy.enabled` all false
+      retires the slice (the cleanup tasks inherit the tag); the same holds for
       `TAGS=agent` with `netbird.enabled: false` on a disposable host.
 - [ ] Firewall: default drop; only loopback, overlay, WireGuard, established,
       ICMP and the declared public/admin ports are accepted; `NODE_PORT` is not

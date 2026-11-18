@@ -1,9 +1,10 @@
 # Host monitoring & security
 
-`roles/monitoring/` — optional, opt-in per host
-(`monitoring.enabled: true` in `inventory/host_vars/<host>/main.yml`; default
-`false`). Reached via `make monitoring` or as part of `site.yml`. Debian-family
-only.
+`roles/monitoring/` — optional, opt-in per host through its component toggles
+(`monitoring.node_exporter.enabled`, `monitoring.crowdsec.enabled`,
+`monitoring.alloy.enabled`; all default `false`). The slice runs while at least
+one component is enabled and is retired when all three are off. Reached via
+`make monitoring` or as part of `site.yml`. Debian-family only.
 
 ## What it installs
 
@@ -41,9 +42,10 @@ remote-write push; nothing scrapes the node from outside, and the push cadence
 
 ## Disabling
 
-`playbooks/site.yml` includes the role while `monitoring.enabled` is true and
-runs its `cleanup` tasks when it is false; `roles/monitoring/tasks/main.yml` runs the
-same cleanup for a component disabled on its own. Cleanup stops and disables
+`playbooks/site.yml` includes the role while at least one component is enabled
+and runs its `cleanup` tasks when all three are off;
+`roles/monitoring/tasks/main.yml` runs the same cleanup for a component disabled
+on its own. Cleanup stops and disables
 `prometheus-node-exporter` (`monitoring.node_exporter.enabled: false`), stops
 and disables `crowdsec` and `crowdsec-firewall-bouncer`
 (`monitoring.crowdsec.enabled: false`), and takes the Alloy compose stack down
@@ -54,5 +56,5 @@ guarded on `ansible_facts.services`, so a host that never installed them is
 untouched.
 
 The role gathers facts itself, so it does not depend on a prior fact-gathering
-pass. A host with `monitoring.enabled: false` is cleaned up without installing
+pass. A host with every component disabled is cleaned up without installing
 anything; the overlay is controlled separately by `netbird.enabled`.
