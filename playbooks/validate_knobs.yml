@@ -10,11 +10,35 @@
     - name: Assert the schema covers every example knob
       ansible.builtin.assert:
         that:
-          - operator_knob_schema.keys() | sort == (lookup('file', playbook_dir ~ '/../inventory/host_vars/example/main.yml') | from_yaml).keys() | sort
+          - >-
+            operator_knob_schema.keys() | sort ==
+            (lookup('file', playbook_dir ~ '/../inventory/host_vars/example/main.yml')
+             | from_yaml).keys() | sort
+          - >-
+            operator_knob_nested.keys() | map('regex_replace', '\..*$', '') | unique | sort
+            == operator_knob_schema.keys() | sort
         fail_msg: "inventory/knob_schema.yml is out of sync with inventory/host_vars/example/main.yml"
         quiet: true
 
-    - name: Validate every operator knob
+    - name: Reject keys that are not operator groups in the host file
+      vars:
+        host_knob_file: >-
+          {{ playbook_dir }}/../inventory/host_vars/{{ inventory_hostname }}/main.yml
+        host_knob_keys: >-
+          {{ (lookup('file', host_knob_file, errors='ignore') | default('', true) | from_yaml)
+             | default({}, true) | list }}
+        unknown_knob_keys: >-
+          {{ host_knob_keys | difference(operator_knob_schema.keys()) | list }}
+      ansible.builtin.assert:
+        that:
+          - unknown_knob_keys | length == 0
+        fail_msg: >-
+          {{ host_knob_file }} defines keys that are not operator groups:
+          {{ unknown_knob_keys | join(', ') }}. Group them under
+          {{ operator_knob_schema.keys() | join(', ') }}.
+        quiet: true
+
+    - name: Validate every operator knob group
       ansible.builtin.assert:
         that:
           - "{{ item.value }}"
@@ -23,5 +47,15 @@
           {{ vars[item.key] | default('<unset>') | to_json }}
         quiet: true
       loop: "{{ operator_knob_schema | dict2items }}"
+      loop_control:
+        label: "{{ item.key }}"
+
+    - name: Validate every nested operator knob
+      ansible.builtin.assert:
+        that:
+          - "{{ item.value }}"
+        fail_msg: "{{ inventory_hostname }}: invalid {{ item.key }}"
+        quiet: true
+      loop: "{{ operator_knob_nested | dict2items }}"
       loop_control:
         label: "{{ item.key }}"

@@ -1,76 +1,162 @@
 ---
+# One entry per operator group: the group must be a mapping (or absent).
+# The per-knob expressions live in operator_knob_nested, keyed by the dotted
+# path the operator sees in inventory/host_vars/<host>/main.yml.
 operator_knob_schema:
-  timezone: >-
-    (timezone | default('', true) | string | trim) == ''
-    or (timezone | string) is match('^[A-Za-z0-9_+/-]+$')
-  host_admin_username: "host_admin_username is not defined or host_admin_username is string"
-  host_iac_ssh_pubkey_file: "host_iac_ssh_pubkey_file is not defined or host_iac_ssh_pubkey_file is string"
-  host_iac_ssh_privkey_file: "host_iac_ssh_privkey_file is not defined or host_iac_ssh_privkey_file is string"
-  host_admin_ssh_pubkey_file: "host_admin_ssh_pubkey_file is not defined or host_admin_ssh_pubkey_file is string"
-  host_admin_ssh_privkey_file: "host_admin_ssh_privkey_file is not defined or host_admin_ssh_privkey_file is string"
-  host_root_ssh_pubkey_file: "host_root_ssh_pubkey_file is not defined or host_root_ssh_pubkey_file is string"
-  host_root_ssh_privkey_file: "host_root_ssh_privkey_file is not defined or host_root_ssh_privkey_file is string"
-  install_docker: "install_docker is not defined or install_docker is boolean"
-  apt_mirror: "(apt_mirror | default('', true) | string | trim) == '' or (apt_mirror | string) is match('^https?://[^\\s]+/debian/?$')"
-  docker_registry_mirrors: >-
-    docker_registry_mirrors is not defined or ((docker_registry_mirrors is sequence) and not (docker_registry_mirrors is string) and not
-    (docker_registry_mirrors is mapping))
-  create_admin_account: "create_admin_account is not defined or create_admin_account is boolean"
-  allow_root_login: "allow_root_login is not defined or allow_root_login is boolean"
-  sshd_hardening_enabled: "sshd_hardening_enabled is not defined or sshd_hardening_enabled is boolean"
-  sshd_permit_root_login: >-
-    sshd_permit_root_login is not defined or (sshd_permit_root_login | string) in ["no", "prohibit-password"]
-  firewall_enabled: "firewall_enabled is not defined or firewall_enabled is boolean"
-  firewall_public_tcp_ports: >-
-    firewall_public_tcp_ports is not defined or (((firewall_public_tcp_ports is sequence) and not (firewall_public_tcp_ports is string) and not
-    (firewall_public_tcp_ports is mapping)) and ((firewall_public_tcp_ports | map('string') | reject('match', '^[0-9]+(-[0-9]+)?$') | list |
-    length) == 0))
-  firewall_public_udp_ports: >-
-    firewall_public_udp_ports is not defined or (((firewall_public_udp_ports is sequence) and not (firewall_public_udp_ports is string) and not
-    (firewall_public_udp_ports is mapping)) and ((firewall_public_udp_ports | map('string') | reject('match', '^[0-9]+(-[0-9]+)?$') | list |
-    length) == 0))
-  firewall_allow_icmp: "firewall_allow_icmp is not defined or firewall_allow_icmp is boolean"
-  monitoring_enabled: "monitoring_enabled is not defined or monitoring_enabled is boolean"
-  node_exporter_enabled: "node_exporter_enabled is not defined or node_exporter_enabled is boolean"
-  node_exporter_collectors: >-
-    node_exporter_collectors is not defined
-    or (node_exporter_collectors is sequence and not (node_exporter_collectors is string)
-        and not (node_exporter_collectors is mapping))
-  crowdsec_enabled: "crowdsec_enabled is not defined or crowdsec_enabled is boolean"
-  crowdsec_generate_webui_machine_password: >-
-    crowdsec_generate_webui_machine_password is not defined
-    or crowdsec_generate_webui_machine_password is boolean
-  crowdsec_blocklist_import_enabled: >-
-    crowdsec_blocklist_import_enabled is not defined or crowdsec_blocklist_import_enabled is boolean
-  crowdsec_blocklist_import_preset: >-
-    (crowdsec_blocklist_import_preset | default('server', true) | string) in ['embedded', 'server', 'max']
-  crowdsec_blocklist_import_interval: >-
-    (crowdsec_blocklist_import_interval | default(3600, true) | int) >= 0
-  crowdsec_blocklist_import_max_decisions: >-
-    (crowdsec_blocklist_import_max_decisions | default(15000, true) | int) >= 0
-  crowdsec_blocklist_import_batch_size: >-
-    (crowdsec_blocklist_import_batch_size | default(1000, true) | int) >= 1
-  crowdsec_blocklist_import_decision_duration: >-
-    (crowdsec_blocklist_import_decision_duration | default('24h', true) | string) is match('^[0-9]+[smh]$')
-  crowdsec_blocklist_import_extra_env: >-
-    crowdsec_blocklist_import_extra_env is not defined or crowdsec_blocklist_import_extra_env is mapping
-  alloy_enabled: "alloy_enabled is not defined or alloy_enabled is boolean"
-  loki_push_url: "(loki_push_url | default('', true) | string | trim) == '' or (loki_push_url | string) is match('^https?://[^\\s]+$')"
-  prometheus_remote_write_url: >-
-    (prometheus_remote_write_url | default('', true) | string | trim) == '' or (prometheus_remote_write_url | string) is
-    match('^https?://[^\\s]+$')
-  alloy_scrape_interval: >-
-    (alloy_scrape_interval | default('15s', true) | string) is match('^([1-9]|[12][0-9]|30)s$')
-  alloy_journal_presets: >-
-    alloy_journal_presets is not defined or ((alloy_journal_presets is sequence) and not (alloy_journal_presets is string) and not
-    (alloy_journal_presets is mapping))
-  alloy_journal_extras: >-
-    alloy_journal_extras is not defined or ((alloy_journal_extras is sequence) and not (alloy_journal_extras is string) and not
-    (alloy_journal_extras is mapping))
-  netbird_enabled: "netbird_enabled is not defined or netbird_enabled is boolean"
-  netbird_management_url: >-
-    (netbird_management_url | default('', true) | string | trim) == ''
-    or (netbird_management_url | string) is match('^https?://[^\s]+$')
-  remnanode_node_port: >-
-    (remnanode_node_port | default('', true) | string | trim) is match('^[0-9]{1,5}$')
-    and (remnanode_node_port | int) >= 1 and (remnanode_node_port | int) <= 65535
+  host: "host is not defined or host is mapping"
+  bootstrap: "bootstrap is not defined or bootstrap is mapping"
+  firewall: "firewall is not defined or firewall is mapping"
+  sshd: "sshd is not defined or sshd is mapping"
+  monitoring: "monitoring is not defined or monitoring is mapping"
+  netbird: "netbird is not defined or netbird is mapping"
+  remnanode: "remnanode is not defined or remnanode is mapping"
+  deploy: "deploy is not defined or deploy is mapping"
+
+operator_knob_nested:
+  host.create_admin_account: >-
+    ((host | default({}, true)).create_admin_account | default(false)) is boolean
+  host.admin_username: >-
+    ((host | default({}, true)).admin_username | default('admin')) is string
+  host.iac: >-
+    ((host | default({}, true)).iac | default({})) is mapping
+  host.iac.ssh_pubkey_file: >-
+    ((host | default({}, true)).iac | default({})).ssh_pubkey_file | default('')
+    is string
+  host.iac.ssh_privkey_file: >-
+    ((host | default({}, true)).iac | default({})).ssh_privkey_file | default('')
+    is string
+  host.admin: >-
+    ((host | default({}, true)).admin | default({})) is mapping
+  host.admin.ssh_pubkey_file: >-
+    ((host | default({}, true)).admin | default({})).ssh_pubkey_file | default('')
+    is string
+  host.admin.ssh_privkey_file: >-
+    ((host | default({}, true)).admin | default({})).ssh_privkey_file | default('')
+    is string
+  host.root: >-
+    ((host | default({}, true)).root | default({})) is mapping
+  host.root.ssh_pubkey_file: >-
+    ((host | default({}, true)).root | default({})).ssh_pubkey_file | default('')
+    is string
+  host.root.ssh_privkey_file: >-
+    ((host | default({}, true)).root | default({})).ssh_privkey_file | default('')
+    is string
+  bootstrap.install_docker: >-
+    ((bootstrap | default({}, true)).install_docker | default(true)) is boolean
+  bootstrap.timezone: >-
+    ((bootstrap | default({}, true)).timezone | default('', true) | string | trim) == ''
+    or ((bootstrap | default({}, true)).timezone | string) is match('^[A-Za-z0-9_+/-]+$')
+  bootstrap.apt_mirror: >-
+    ((bootstrap | default({}, true)).apt_mirror | default('', true) | string | trim) == ''
+    or ((bootstrap | default({}, true)).apt_mirror | string) is match('^https?://[^\s]+/debian/?$')
+  bootstrap.docker_registry_mirrors: >-
+    ((bootstrap | default({}, true)).docker_registry_mirrors | default([])) is sequence and
+    not (((bootstrap | default({}, true)).docker_registry_mirrors | default([])) is string) and
+    not (((bootstrap | default({}, true)).docker_registry_mirrors | default([])) is mapping)
+  firewall.enabled: >-
+    ((firewall | default({}, true)).enabled | default(false)) is boolean
+  firewall.public_tcp_ports: >-
+    ((firewall | default({}, true)).public_tcp_ports | default([])) is sequence and
+    not (((firewall | default({}, true)).public_tcp_ports | default([])) is string) and
+    not (((firewall | default({}, true)).public_tcp_ports | default([])) is mapping) and
+    ((((firewall | default({}, true)).public_tcp_ports | default([]))
+      | map('string') | reject('match', '^[0-9]+(-[0-9]+)?$') | list | length) == 0)
+  firewall.public_udp_ports: >-
+    ((firewall | default({}, true)).public_udp_ports | default([])) is sequence and
+    not (((firewall | default({}, true)).public_udp_ports | default([])) is string) and
+    not (((firewall | default({}, true)).public_udp_ports | default([])) is mapping) and
+    ((((firewall | default({}, true)).public_udp_ports | default([]))
+      | map('string') | reject('match', '^[0-9]+(-[0-9]+)?$') | list | length) == 0)
+  firewall.allow_icmp: >-
+    ((firewall | default({}, true)).allow_icmp | default(true)) is boolean
+  sshd.hardening_enabled: >-
+    ((sshd | default({}, true)).hardening_enabled | default(false)) is boolean
+  sshd.permit_root_login: >-
+    ((sshd | default({}, true)).permit_root_login | default('no') | string)
+    in ["no", "prohibit-password"]
+  monitoring.enabled: >-
+    ((monitoring | default({}, true)).enabled | default(false)) is boolean
+  monitoring.node_exporter.enabled: >-
+    (((monitoring | default({}, true)).node_exporter | default({})).enabled
+     | default(false)) is boolean
+  monitoring.node_exporter.collectors: >-
+    (((monitoring | default({}, true)).node_exporter | default({})).collectors
+     | default([])) is sequence and
+    not ((((monitoring | default({}, true)).node_exporter | default({})).collectors
+     | default([])) is string) and
+    not ((((monitoring | default({}, true)).node_exporter | default({})).collectors
+     | default([])) is mapping)
+  monitoring.crowdsec.enabled: >-
+    (((monitoring | default({}, true)).crowdsec | default({})).enabled
+     | default(false)) is boolean
+  monitoring.crowdsec.generate_webui_machine_password: >-
+    (((monitoring | default({}, true)).crowdsec | default({})).generate_webui_machine_password
+     | default(false)) is boolean
+  monitoring.crowdsec.blocklist_import: >-
+    (((monitoring | default({}, true)).crowdsec | default({})).blocklist_import
+     | default({})) is mapping
+  monitoring.crowdsec.blocklist_import.enabled: >-
+    ((((monitoring | default({}, true)).crowdsec | default({})).blocklist_import
+     | default({})).enabled | default(false)) is boolean
+  monitoring.crowdsec.blocklist_import.preset: >-
+    ((((monitoring | default({}, true)).crowdsec | default({})).blocklist_import
+     | default({})).preset | default('server') | string)
+    in ['embedded', 'server', 'max']
+  monitoring.crowdsec.blocklist_import.interval: >-
+    ((((monitoring | default({}, true)).crowdsec | default({})).blocklist_import
+     | default({})).interval | default(3600) | int) >= 0
+  monitoring.crowdsec.blocklist_import.max_decisions: >-
+    ((((monitoring | default({}, true)).crowdsec | default({})).blocklist_import
+     | default({})).max_decisions | default(15000) | int) >= 0
+  monitoring.crowdsec.blocklist_import.batch_size: >-
+    ((((monitoring | default({}, true)).crowdsec | default({})).blocklist_import
+     | default({})).batch_size | default(1000) | int) >= 1
+  monitoring.crowdsec.blocklist_import.decision_duration: >-
+    ((((monitoring | default({}, true)).crowdsec | default({})).blocklist_import
+     | default({})).decision_duration | default('24h') | string)
+    is match('^[0-9]+[smh]$')
+  monitoring.crowdsec.blocklist_import.extra_env: >-
+    ((((monitoring | default({}, true)).crowdsec | default({})).blocklist_import
+     | default({})).extra_env | default({})) is mapping
+  monitoring.alloy.enabled: >-
+    (((monitoring | default({}, true)).alloy | default({})).enabled
+     | default(false)) is boolean
+  monitoring.alloy.loki_push_url: >-
+    (((monitoring | default({}, true)).alloy | default({})).loki_push_url
+     | default('', true) | string | trim) == ''
+    or (((monitoring | default({}, true)).alloy | default({})).loki_push_url
+    | string) is match('^https?://[^\s]+$')
+  monitoring.alloy.prometheus_remote_write_url: >-
+    (((monitoring | default({}, true)).alloy | default({})).prometheus_remote_write_url
+     | default('', true) | string | trim) == ''
+    or (((monitoring | default({}, true)).alloy | default({})).prometheus_remote_write_url
+    | string) is match('^https?://[^\s]+$')
+  monitoring.alloy.scrape_interval: >-
+    (((monitoring | default({}, true)).alloy | default({})).scrape_interval
+     | default('15s') | string) is match('^([1-9]|[12][0-9]|30)s$')
+  monitoring.alloy.journal_presets: >-
+    (((monitoring | default({}, true)).alloy | default({})).journal_presets
+     | default([])) is sequence and
+    not ((((monitoring | default({}, true)).alloy | default({})).journal_presets
+     | default([])) is string) and
+    not ((((monitoring | default({}, true)).alloy | default({})).journal_presets
+     | default([])) is mapping)
+  monitoring.alloy.journal_extras: >-
+    (((monitoring | default({}, true)).alloy | default({})).journal_extras
+     | default([])) is sequence and
+    not ((((monitoring | default({}, true)).alloy | default({})).journal_extras
+     | default([])) is string) and
+    not ((((monitoring | default({}, true)).alloy | default({})).journal_extras
+     | default([])) is mapping)
+  netbird.enabled: >-
+    ((netbird | default({}, true)).enabled | default(true)) is boolean
+  netbird.management_url: >-
+    ((netbird | default({}, true)).management_url | default('', true) | string | trim) == ''
+    or ((netbird | default({}, true)).management_url | string) is match('^https?://[^\s]+$')
+  remnanode.node_port: >-
+    ((remnanode | default({}, true)).node_port | default('') | string | trim)
+    is match('^[0-9]{1,5}$') and
+    ((remnanode | default({}, true)).node_port | default(0) | int) >= 1 and
+    ((remnanode | default({}, true)).node_port | default(0) | int) <= 65535
+  deploy.allow_root_login: >-
+    ((deploy | default({}, true)).allow_root_login | default(false)) is boolean

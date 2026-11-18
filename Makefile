@@ -361,7 +361,7 @@ agent: vault-init agent-fallback ## Join the nodes to the NetBird overlay (agent
 	$(SSH_AGENT_RUN) $(ANS_PLAY) -i $(INVENTORY) playbooks/agent.yml
 
 .PHONY: monitoring
-monitoring: vault-init agent-fallback ## Overlay join + host monitoring/security (CrowdSec + node_exporter); opt-in via monitoring_enabled
+monitoring: vault-init agent-fallback ## Overlay join + host monitoring/security (CrowdSec + node_exporter); opt-in via monitoring.enabled
 	$(SSH_AGENT_RUN) $(ANS_PLAY) -i $(INVENTORY) playbooks/monitoring.yml
 
 .PHONY: print
