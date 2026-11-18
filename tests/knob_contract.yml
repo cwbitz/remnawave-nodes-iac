@@ -8,18 +8,20 @@
   tasks:
     - name: Set a single node port
       ansible.builtin.set_fact:
-        remnanode_node_port: "2222"
+        remnanode:
+          node_port: "2222"
     - name: Assert the schema accepts a single node port
       ansible.builtin.assert:
-        that: "{{ operator_knob_schema.remnanode_node_port }}"
+        that: "{{ operator_knob_nested['remnanode.node_port'] }}"
         quiet: true
 
     - name: Set a ranged node port
       ansible.builtin.set_fact:
-        remnanode_node_port: "2222-2223"
+        remnanode:
+          node_port: "2222-2223"
     - name: Evaluate the schema with a ranged node port
       ansible.builtin.assert:
-        that: "{{ operator_knob_schema.remnanode_node_port }}"
+        that: "{{ operator_knob_nested['remnanode.node_port'] }}"
         quiet: true
       register: ranged_node_port
       ignore_errors: true
@@ -31,10 +33,11 @@
 
     - name: Set an empty node port
       ansible.builtin.set_fact:
-        remnanode_node_port: ""
+        remnanode:
+          node_port: ""
     - name: Evaluate the schema with an empty node port
       ansible.builtin.assert:
-        that: "{{ operator_knob_schema.remnanode_node_port }}"
+        that: "{{ operator_knob_nested['remnanode.node_port'] }}"
         quiet: true
       register: empty_node_port
       ignore_errors: true
@@ -46,18 +49,20 @@
 
     - name: Set a key-only root policy
       ansible.builtin.set_fact:
-        sshd_permit_root_login: "prohibit-password"
+        sshd:
+          permit_root_login: "prohibit-password"
     - name: Assert the schema accepts a key-only root policy
       ansible.builtin.assert:
-        that: "{{ operator_knob_schema.sshd_permit_root_login }}"
+        that: "{{ operator_knob_nested['sshd.permit_root_login'] }}"
         quiet: true
 
     - name: Set a password root policy
       ansible.builtin.set_fact:
-        sshd_permit_root_login: "yes"
+        sshd:
+          permit_root_login: "yes"
     - name: Evaluate the schema with a password root policy
       ansible.builtin.assert:
-        that: "{{ operator_knob_schema.sshd_permit_root_login }}"
+        that: "{{ operator_knob_nested['sshd.permit_root_login'] }}"
         quiet: true
       register: password_root_login
       ignore_errors: true
@@ -69,26 +74,29 @@
 
     - name: Set the NetBird Cloud default
       ansible.builtin.set_fact:
-        netbird_management_url: ""
+        netbird:
+          management_url: ""
     - name: Assert the schema accepts the NetBird Cloud default
       ansible.builtin.assert:
-        that: "{{ operator_knob_schema.netbird_management_url }}"
+        that: "{{ operator_knob_nested['netbird.management_url'] }}"
         quiet: true
 
     - name: Set a self-hosted NetBird URL
       ansible.builtin.set_fact:
-        netbird_management_url: "https://netbird.example.com"
+        netbird:
+          management_url: "https://netbird.example.com"
     - name: Assert the schema accepts a self-hosted NetBird URL
       ansible.builtin.assert:
-        that: "{{ operator_knob_schema.netbird_management_url }}"
+        that: "{{ operator_knob_nested['netbird.management_url'] }}"
         quiet: true
 
     - name: Set a bare NetBird host
       ansible.builtin.set_fact:
-        netbird_management_url: "netbird.example.com"
+        netbird:
+          management_url: "netbird.example.com"
     - name: Evaluate the schema with a bare NetBird host
       ansible.builtin.assert:
-        that: "{{ operator_knob_schema.netbird_management_url }}"
+        that: "{{ operator_knob_nested['netbird.management_url'] }}"
         quiet: true
       register: bare_netbird_host
       ignore_errors: true
@@ -100,18 +108,20 @@
 
     - name: Set a Debian suite root
       ansible.builtin.set_fact:
-        apt_mirror: "https://mirror.example.com/debian"
+        bootstrap:
+          apt_mirror: "https://mirror.example.com/debian"
     - name: Assert the schema accepts a Debian suite root
       ansible.builtin.assert:
-        that: "{{ operator_knob_schema.apt_mirror }}"
+        that: "{{ operator_knob_nested['bootstrap.apt_mirror'] }}"
         quiet: true
 
     - name: Set a mirror URL without the suite path
       ansible.builtin.set_fact:
-        apt_mirror: "https://mirror.example.com"
+        bootstrap:
+          apt_mirror: "https://mirror.example.com"
     - name: Evaluate the schema with a mirror URL without the suite path
       ansible.builtin.assert:
-        that: "{{ operator_knob_schema.apt_mirror }}"
+        that: "{{ operator_knob_nested['bootstrap.apt_mirror'] }}"
         quiet: true
       register: mirror_without_suite
       ignore_errors: true
@@ -123,26 +133,32 @@
 
     - name: Set the metric scrape cadence
       ansible.builtin.set_fact:
-        alloy_scrape_interval: "15s"
+        monitoring:
+          alloy:
+            scrape_interval: "15s"
     - name: Assert the schema accepts the metric scrape cadence
       ansible.builtin.assert:
-        that: "{{ operator_knob_schema.alloy_scrape_interval }}"
+        that: "{{ operator_knob_nested['monitoring.alloy.scrape_interval'] }}"
         quiet: true
 
     - name: Set the slowest usable metric scrape cadence
       ansible.builtin.set_fact:
-        alloy_scrape_interval: "30s"
+        monitoring:
+          alloy:
+            scrape_interval: "30s"
     - name: Assert the schema accepts the slowest usable metric scrape cadence
       ansible.builtin.assert:
-        that: "{{ operator_knob_schema.alloy_scrape_interval }}"
+        that: "{{ operator_knob_nested['monitoring.alloy.scrape_interval'] }}"
         quiet: true
 
     - name: Set a scrape cadence outside the rate window
       ansible.builtin.set_fact:
-        alloy_scrape_interval: "60s"
+        monitoring:
+          alloy:
+            scrape_interval: "60s"
     - name: Evaluate the schema with a scrape cadence outside the rate window
       ansible.builtin.assert:
-        that: "{{ operator_knob_schema.alloy_scrape_interval }}"
+        that: "{{ operator_knob_nested['monitoring.alloy.scrape_interval'] }}"
         quiet: true
       register: slow_scrape_interval
       ignore_errors: true
@@ -154,18 +170,20 @@
 
     - name: Set a boolean overlay toggle
       ansible.builtin.set_fact:
-        netbird_enabled: true
+        netbird:
+          enabled: true
     - name: Assert the schema accepts a boolean overlay toggle
       ansible.builtin.assert:
-        that: "{{ operator_knob_schema.netbird_enabled }}"
+        that: "{{ operator_knob_nested['netbird.enabled'] }}"
         quiet: true
 
     - name: Set a string overlay toggle
       ansible.builtin.set_fact:
-        netbird_enabled: "yes"
+        netbird:
+          enabled: "yes"
     - name: Evaluate the schema with a string overlay toggle
       ansible.builtin.assert:
-        that: "{{ operator_knob_schema.netbird_enabled }}"
+        that: "{{ operator_knob_nested['netbird.enabled'] }}"
         quiet: true
       register: string_overlay_toggle
       ignore_errors: true
@@ -173,4 +191,69 @@
       ansible.builtin.assert:
         that:
           - string_overlay_toggle.failed | default(false)
+        quiet: true
+
+    - name: Set a valid firewall port list
+      ansible.builtin.set_fact:
+        firewall:
+          public_tcp_ports: ["22", "443", "20000-20100"]
+    - name: Assert the schema accepts port and range entries
+      ansible.builtin.assert:
+        that: "{{ operator_knob_nested['firewall.public_tcp_ports'] }}"
+        quiet: true
+
+    - name: Set an invalid firewall port entry
+      ansible.builtin.set_fact:
+        firewall:
+          public_tcp_ports: ["https"]
+    - name: Evaluate the schema with an invalid firewall port entry
+      ansible.builtin.assert:
+        that: "{{ operator_knob_nested['firewall.public_tcp_ports'] }}"
+        quiet: true
+      register: invalid_port_entry
+      ignore_errors: true
+    - name: Assert the schema rejects an invalid firewall port entry
+      ansible.builtin.assert:
+        that:
+          - invalid_port_entry.failed | default(false)
+        quiet: true
+
+    - name: Set a grouped monitoring mapping
+      ansible.builtin.set_fact:
+        monitoring:
+          enabled: true
+    - name: Assert the schema accepts a grouped mapping
+      ansible.builtin.assert:
+        that: "{{ operator_knob_schema.monitoring }}"
+        quiet: true
+
+    - name: Set the monitoring group to a string
+      ansible.builtin.set_fact:
+        monitoring: "enabled"
+    - name: Evaluate the schema with a string group
+      ansible.builtin.assert:
+        that: "{{ operator_knob_schema.monitoring }}"
+        quiet: true
+      register: string_group
+      ignore_errors: true
+    - name: Assert the schema rejects a string group
+      ansible.builtin.assert:
+        that:
+          - string_group.failed | default(false)
+        quiet: true
+
+    - name: Set a non-mapping identity section
+      ansible.builtin.set_fact:
+        host:
+          iac: "id_ed25519.pub"
+    - name: Evaluate the schema with a non-mapping identity section
+      ansible.builtin.assert:
+        that: "{{ operator_knob_nested['host.iac'] }}"
+        quiet: true
+      register: string_identity
+      ignore_errors: true
+    - name: Assert the schema rejects a non-mapping identity section
+      ansible.builtin.assert:
+        that:
+          - string_identity.failed | default(false)
         quiet: true

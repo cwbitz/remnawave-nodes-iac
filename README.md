@@ -39,19 +39,19 @@ Panel, the management URL + a setup key for the overlay).
    the SSH identities `iac → admin → root`, creates the
    least-privilege `iac` automation account (NOPASSWD sudo) when needed, and installs Docker
    Engine + the Compose v2 plugin. Optionally sets APT/Docker registry mirrors.
-2. **Overlay** (`roles/agent`, `netbird_enabled`): joins the host to the NetBird
+2. **Overlay** (`roles/agent`, `netbird.enabled`): joins the host to the NetBird
    mesh so the Panel and the central Prometheus/Alloy reach it with no public
    port.
 3. **Host monitoring + security** (`roles/monitoring`): installs
    `prometheus-node-exporter`, `crowdsec` and the `crowdsec-firewall-bouncer`
-   (nftables) when `monitoring_enabled` is true.
-4. **Host firewall** (`roles/firewall`, opt-in via `firewall_enabled`): a
+   (nftables) when `monitoring.enabled` is true.
+4. **Host firewall** (`roles/firewall`, opt-in via `firewall.enabled`): a
    default-deny inbound base firewall (a dedicated nftables table), so
    `NODE_PORT` — and everything else — is reachable only over the overlay. The
    overlay, the WireGuard UDP port and the declared public ports (the SSH/admin
    port included) stay open.
 5. **SSH hardening** (`roles/sshd`, opt-in): a drop-in that closes password login
-   and applies `sshd_permit_root_login` (key-only administration via the `iac`
+   and applies `sshd.permit_root_login` (key-only administration via the `iac`
    key; `no` by default), verified against the effective configuration and rolled
    back when the key login cannot be proven.
 6. **Remnawave Node** (`roles/remnanode`): renders `/opt/remnanode/docker-compose.yml`
@@ -88,7 +88,8 @@ show `latest`; the role renders the pinned `remnanode_version`
 
 ```yaml
 # inventory/host_vars/<host>/main.yml
-remnanode_node_port: "2222"
+remnanode:
+  node_port: "2222"
 
 # inventory/host_vars/<host>/vault.yml
 vault_remnanode_secret_key: "xxxxxx"
@@ -100,7 +101,7 @@ source of truth; never edit the file on the host.
 
 > Keep the node's `NODE_PORT` **off the public internet**: the Panel is the TLS
 > client and reaches the node over the NetBird overlay. Enable
-> `firewall_enabled` (opt-in, default `false`) so `roles/firewall` drops
+> `firewall.enabled` (opt-in, default `false`) so `roles/firewall` drops
 > `NODE_PORT`; see `docs/components/panel-contract.md`.
 
 ## NetBird overlay inputs
@@ -111,8 +112,9 @@ host's `main.yml` and the enrollment setup key in the vault:
 
 ```yaml
 # inventory/host_vars/<host>/main.yml
-netbird_enabled: true
-netbird_management_url: ""   # empty = NetBird Cloud; a self-hosted mesh sets its URL
+netbird:
+  enabled: true
+  management_url: ""   # empty = NetBird Cloud; a self-hosted mesh sets its URL
 
 # inventory/host_vars/<host>/vault.yml
 vault_netbird_setup_key: "..."   # this node's enrollment key

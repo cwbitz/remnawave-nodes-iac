@@ -16,14 +16,14 @@ conventions and gotchas.
   defaults to `remnanode-1`. Without `HOST_IP` the entry keeps the
   `CHANGE_ME_HOST_IP` placeholder that the site preflight rejects.
 - Non-secret settings go in `inventory/host_vars/<host>/main.yml`
-  (`remnanode_node_port`, `netbird_management_url`, ...); the vault holds the SSH
+  (`remnanode.node_port`, `netbird.management_url`, ...); the vault holds the SSH
   creds, `vault_netbird_setup_key` and the Remnawave node secret
   `vault_remnanode_secret_key` (copied from the Panel's node). Edit the vault with
   `make vault-edit HOST=<host>`.
 - Create the non-root service account (as root, once): `make host-bootstrap`,
   then point the connection at it in `vault.yml`. Deploys refuse root unless
-  `allow_root_login=true`.
-- Key-only SSH administration is an **opt-in** step (`sshd_hardening_enabled`
+  `deploy.allow_root_login=true`.
+- Key-only SSH administration is an **opt-in** step (`sshd.hardening_enabled`
   in the host's `main.yml`, off by default): enable it only after
   `make host-bootstrap` has authorized the `iac` key. See §4c.
 - The vault password file is auto-created by the make targets
@@ -34,13 +34,13 @@ conventions and gotchas.
 1. In the Remnawave Panel: **Nodes → Management**, add the node (name, address,
    `Node Port`).
 2. Click **Copy docker-compose.yml**.
-3. Write `NODE_PORT` into `main.yml` as `remnanode_node_port` and `SECRET_KEY`
+3. Write `NODE_PORT` into `main.yml` as `remnanode.node_port` and `SECRET_KEY`
    into `vault.yml` as `vault_remnanode_secret_key`. The rest of the
    file is already the committed template.
 4. Keep `NODE_PORT` **off the public internet** — the Panel reaches the node over
    the NetBird overlay (`docs/components/panel-contract.md`). Enable
-   `firewall_enabled` so `roles/firewall` drops it, keep the SSH/admin port
-   (22 by default) in `firewall_public_tcp_ports`, and declare the Xray inbounds
+   `firewall.enabled` so `roles/firewall` drops it, keep the SSH/admin port
+   (22 by default) in `firewall.public_tcp_ports`, and declare the Xray inbounds
    the Panel pushes so public proxy ports stay open.
 
 ## 2. Deploy
@@ -113,13 +113,13 @@ make monitoring   # overlay + node_exporter + CrowdSec + firewall bouncer
 make deploy TAGS=firewall   # apply the default-deny inbound firewall only
 ```
 
-- With `firewall_enabled: true`, `roles/firewall` keeps `NODE_PORT` (and
+- With `firewall.enabled: true`, `roles/firewall` keeps `NODE_PORT` (and
   everything else) off the public internet: only the overlay, the WireGuard UDP
   port and the declared public ports (the SSH/admin port and the Xray inbounds)
   are reachable. Details: `docs/components/firewall.md`.
 - When the Panel pushes an Xray inbound on a public port, declare it in
-  `firewall_public_tcp_ports` (or `..._udp_ports`) in the host's `main.yml`
-  and re-run; otherwise the proxy is unreachable from clients.
+  `firewall.public_tcp_ports` (or `firewall.public_udp_ports`) in the host's
+  `main.yml` and re-run; otherwise the proxy is unreachable from clients.
 
 ## 4c. SSH hardening
 
@@ -127,19 +127,19 @@ make deploy TAGS=firewall   # apply the default-deny inbound firewall only
 make deploy TAGS=sshd   # key-only SSH (roles/sshd)
 ```
 
-- Off by default. Set `sshd_hardening_enabled: true` in the host's
-  `main.yml` only **after** `make host-bootstrap` has authorized a key that
-  survives it (the `iac` key, or root's with
-  `sshd_permit_root_login: prohibit-password`) — the role proves a key-only login
-  works and rolls itself back (failing the run) otherwise. Details:
+- Off by default. Set `sshd.hardening_enabled: true` in the host's `main.yml`
+  only **after** `make host-bootstrap` has authorized a key that survives it
+  (the `iac` key, or root's with `sshd.permit_root_login: prohibit-password`) —
+  the role proves a key-only login works and rolls itself back (failing the run)
+  otherwise. Details:
   [`docs/components/sshd-hardening.md`](components/sshd-hardening.md).
 - Password logins (including root's) are closed; the root-login policy is
-  `sshd_permit_root_login` (`no` disables root SSH, `prohibit-password` keeps it
+  `sshd.permit_root_login` (`no` disables root SSH, `prohibit-password` keeps it
   by key only). `iac` with its key is the default SSH identity; the
   OS/console login (root + `sudo`) is unaffected.
 - Rollback (or recovery when the key material is lost): from the provider console
   `rm /etc/ssh/sshd_config.d/00-sshd-hardening.conf && systemctl reload ssh`,
-  then set `sshd_hardening_enabled: false` in the host's `main.yml`.
+  then set `sshd.hardening_enabled: false` in the host's `main.yml`.
 
 ## 5. Upgrade and rollback
 
@@ -151,7 +151,7 @@ make deploy TAGS=sshd   # key-only SSH (roles/sshd)
 - **Config rollback**: `git revert` or edit the per-host vars, then `make deploy`.
 - **SSH hardening rollback**: `rm /etc/ssh/sshd_config.d/00-sshd-hardening.conf
   && systemctl reload ssh` (provider console), then set
-  `sshd_hardening_enabled: false` and re-run.
+  `sshd.hardening_enabled: false` and re-run.
 
 ## 6. Troubleshooting
 
@@ -159,17 +159,17 @@ make deploy TAGS=sshd   # key-only SSH (roles/sshd)
 |---|---|
 | Panel shows the node offline | `ss -lntp | grep <NODE_PORT>` on the host; the Panel can reach the node's IP:NODE_PORT; `vault_remnanode_secret_key` matches the Panel's node; `docker logs remnanode`. |
 | Node container restarts | `docker logs remnanode`; confirm `NODE_PORT`/`SECRET_KEY` are correct and unchanged. |
-| Overlay peer has no `wt0` address | Valid `vault_netbird_setup_key` and `netbird_management_url` (main.yml); `docker logs netbird`. A changed management URL needs a fresh key + reset `netbird_config` volume. |
+| Overlay peer has no `wt0` address | Valid `vault_netbird_setup_key` and `netbird.management_url` (main.yml); `docker logs netbird`. A changed management URL needs a fresh key + reset `netbird_config` volume. |
 | Central Prometheus shows the node down | The peer joined with a group the observability stack discovers (`endpoint`); overlay up; `curl -s <overlay-ip>:9100/metrics` from another peer. |
-| node-exporter panels show "No data" although the target is up | The push cadence is too slow for the dashboards' 60s `rate()` windows: keep `alloy_scrape_interval` at 15s (30s works, 60s yields a single sample per window). Check with `count_over_time(node_load1{instance="<host>"}[5m])` (≈20 points at 15s) and re-run `make deploy TAGS=monitoring`. |
-| `make deploy` refuses root | Expected: run `make host-bootstrap` first, then connect as the `iac` account in `vault.yml` (or set `allow_root_login=true`). |
+| node-exporter panels show "No data" although the target is up | The push cadence is too slow for the dashboards' 60s `rate()` windows: keep `monitoring.alloy.scrape_interval` at 15s (30s works, 60s yields a single sample per window). Check with `count_over_time(node_load1{instance="<host>"}[5m])` (≈20 points at 15s) and re-run `make deploy TAGS=monitoring`. |
+| `make deploy` refuses root | Expected: run `make host-bootstrap` first, then connect as the `iac` account in `vault.yml` (or set `deploy.allow_root_login=true`). |
 | SSH refuses the private key (`UNPROTECTED PRIVATE KEY FILE`, `are too open`) | The shared `scripts/run-with-ssh-agent.sh` starts the pinned Keychain agent, loads the vault keys and retries once. If it still fails, check the `vault_*_ssh_privkey_file` paths and run `make agent-load`. |
 | `make deploy TAGS=sshd` failed and the host kept password login | Expected: the role reverted `/etc/ssh/sshd_config.d/00-sshd-hardening.conf` and failed. Read the task that failed (the key-only login probe is the usual one): the `iac` key must be authorized by `make host-bootstrap` and accepted by OpenSSH (`make agent-load` for a `/mnt/c` key). |
-| No usable SSH login after enabling hardening | Recover from the provider console: `rm /etc/ssh/sshd_config.d/00-sshd-hardening.conf && systemctl reload ssh`, then set `sshd_hardening_enabled: false` in the host's `main.yml` and re-run. |
+| No usable SSH login after enabling hardening | Recover from the provider console: `rm /etc/ssh/sshd_config.d/00-sshd-hardening.conf && systemctl reload ssh`, then set `sshd.hardening_enabled: false` in the host's `main.yml` and re-run. |
 | A vault file is unreadable | It must be ansible-vault encrypted; the helpers re-encrypt a plaintext file on the next write. |
 | `make dry-run` fails with `python3-apt must be installed to use check mode` | The target lacks `python3-apt`; a normal bootstrap run installs it through the `apt` module, or install it directly and re-run. |
 | `NODE_PORT` reachable from the internet | The base firewall is missing or disabled: `nft list table inet basefw` / `systemctl status firewall`; re-run `make deploy TAGS=firewall`. (The NetBird agent adds one extra `iifname "wt0" counter … accept` rule of its own; that is expected.) |
-| Proxy clients cannot connect after a Panel config push | The pushed Xray inbound port is not open: add it to `firewall_public_tcp_ports` in the host's `main.yml` and re-run `make deploy TAGS=firewall`. |
+| Proxy clients cannot connect after a Panel config push | The pushed Xray inbound port is not open: add it to `firewall.public_tcp_ports` in the host's `main.yml` and re-run `make deploy TAGS=firewall`. |
 | SSH/overlay lost after applying the firewall | Recover from the provider console: `systemctl stop firewall` (then `nft delete table inet basefw`), fix the knobs, and re-run. |
 | Panel cannot reach the node after the firewall | Check `wt0` is up (`ip -4 -o addr show wt0`), that the Panel's node address is the node's **overlay** IP, and that the tenant ACL allows `NODE_PORT` (`nft list chain ip netbird netbird-acl-input-rules` on the node shows only `9100`/`6060` by default — the overlay drops the rest). |
 
@@ -235,15 +235,15 @@ severity; `tests/` holds the automated suite.
       starting the container.
 - [ ] Monitoring: packages and units are installed; node_exporter and CrowdSec
       listen on the overlay only (`ss -lntp`, plus an off-host probe); the bouncer
-      is loaded in nftables. With `alloy_enabled`, all containers run and an
-      unreachable Loki is a warning, not a failure.
+      is loaded in nftables. With `monitoring.alloy.enabled`, all containers run
+      and an unreachable Loki is a warning, not a failure.
 - [ ] Monitoring component off: disabling `node_exporter` (or CrowdSec) stops and
       disables only that unit. Master off (untagged `playbooks/monitoring.yml`)
       stops and disables all units and removes the Alloy stack, keeping packages;
       re-enabling restores them without reinstalling.
-- [ ] `make deploy TAGS=monitoring` with `monitoring_enabled: false` retires the
+- [ ] `make deploy TAGS=monitoring` with `monitoring.enabled: false` retires the
       slice (the cleanup tasks inherit the tag); the same holds for
-      `TAGS=agent` with `netbird_enabled: false` on a disposable host.
+      `TAGS=agent` with `netbird.enabled: false` on a disposable host.
 - [ ] Firewall: default drop; only loopback, overlay, WireGuard, established,
       ICMP and the declared public/admin ports are accepted; `NODE_PORT` is not
       reachable from the public internet; a list without the SSH port is refused
@@ -293,7 +293,7 @@ severity; `tests/` holds the automated suite.
 - [ ] The vault is encrypted and `0600`; `iac` has NOPASSWD sudo and the admin
       account requires a password.
 - [ ] The effective sshd policy closes password and keyboard-interactive login;
-      root follows `sshd_permit_root_login`; the `iac` key still works.
+      root follows `sshd.permit_root_login`; the `iac` key still works.
 - [ ] A `-vvv` run of the secret-bearing roles contains no vault value and no
       `NB_SETUP_KEY` (the container-info probe is `no_log`).
 - [ ] Containers are not privileged, do not mount the Docker socket, and carry
@@ -321,15 +321,16 @@ is written to `/var/backups/crowdsec-pre-<version>.tgz`.
 
 The optional blocklist importer runs next to the LAPI and is controlled by:
 
-- `crowdsec_blocklist_import_enabled` — deploy the importer;
-- `crowdsec_blocklist_import_preset` — `embedded` (~20k high-confidence IPs),
-  `server` (conservative server set), or `max` (all feeds);
-- `crowdsec_blocklist_import_interval` — seconds between runs;
-- `crowdsec_blocklist_import_max_decisions` — total decision cap (`0` = no cap);
-- `crowdsec_blocklist_import_batch_size` — API batch size;
-- `crowdsec_blocklist_import_decision_duration` — decision TTL;
-- `crowdsec_blocklist_import_extra_env` — extra importer environment variables
-  (for example per-feed `ENABLE_*` toggles).
+- `monitoring.crowdsec.blocklist_import.enabled` — deploy the importer;
+- `monitoring.crowdsec.blocklist_import.preset` — `embedded` (~20k
+  high-confidence IPs), `server` (conservative server set), or `max` (all feeds);
+- `monitoring.crowdsec.blocklist_import.interval` — seconds between runs;
+- `monitoring.crowdsec.blocklist_import.max_decisions` — total decision cap
+  (`0` = no cap);
+- `monitoring.crowdsec.blocklist_import.batch_size` — API batch size;
+- `monitoring.crowdsec.blocklist_import.decision_duration` — decision TTL;
+- `monitoring.crowdsec.blocklist_import.extra_env` — extra importer environment
+  variables (for example per-feed `ENABLE_*` toggles).
 
 Credentials are generated into the host vault as
 `vault_crowdsec_blocklist_import_machine_password` and

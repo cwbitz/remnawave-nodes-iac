@@ -17,14 +17,14 @@ host at a time.
    fails (sshd config is out of scope).
 3. **Ensures Docker Engine + the Compose v2 plugin** through the shared
    `helpers/install_docker` task (Docker's official install script,
-   `https://get.docker.com`). `install_docker: false` skips the install and fails
-   with guidance when Docker is missing.
+   `https://get.docker.com`). `bootstrap.install_docker: false` skips the install
+   and fails with guidance when Docker is missing.
 4. **Optionally sets the clock and mirrors** (each a no-op unless set):
-   `timezone` (an existing IANA zone), `apt_mirror` (the Debian suite root,
-   ending in `/debian`; the security suite derives from it) and
-   `docker_registry_mirrors`.
-5. **Authorizes configured SSH public keys** (`host_<id>_ssh_pubkey_file` in the
-   host's `main.yml`).
+   `bootstrap.timezone` (an existing IANA zone), `bootstrap.apt_mirror` (the
+   Debian suite root, ending in `/debian`; the security suite derives from it)
+   and `bootstrap.docker_registry_mirrors`.
+5. **Authorizes configured SSH public keys** (`host.<id>.ssh_pubkey_file` in
+   the host's `main.yml`).
 
 ## Identity wiring
 
@@ -36,8 +36,9 @@ A private-key path alone is **not** key mode: the account still gets a password
 (from `vault_host_iac_password`, generated when empty) so an unauthorized key
 cannot lock you out; it becomes key-only once its **public**-key path is set.
 
-`create_admin_account: true` additionally creates the optional human `admin` account
-(console login + sudo), which always gets a password plus any configured key.
+`host.create_admin_account: true` additionally creates the optional human
+`admin` account (console login + sudo), which always gets a password plus any
+configured key.
 
 ## Platform
 

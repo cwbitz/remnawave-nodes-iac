@@ -55,8 +55,8 @@
           The deploy must run as the non-root `iac` automation account, not
           root. Run `make host-bootstrap` once as root to create it, then set its
           key/password in inventory/host_vars/<host>/vault.yml. Override
-          deliberately with allow_root_login=true if you accept running as
-          root.
+          deliberately with deploy.allow_root_login=true if you accept running
+          as root.
 
 - name: Deploy the Remnawave node stack
   hosts: remnanodes
