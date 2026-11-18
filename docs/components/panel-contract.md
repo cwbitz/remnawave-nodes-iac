@@ -15,7 +15,7 @@ the Panel.
 **Keep `NODE_PORT` off the public internet.** The Panel is the TLS client and
 reaches the node over the NetBird overlay, so no public port and no static
 Panel-IP allowlist is needed — and a static allowlist is impractical when the
-Panel sits behind a rotating home-broadband IP. Enable `firewall_enabled` so
+Panel sits behind a rotating home-broadband IP. Enable `firewall.enabled` so
 `roles/firewall` enforces this with a default-deny inbound base firewall (it is
 opt-in and off in the example); the CrowdSec firewall bouncer only enforces
 CrowdSec decisions on top of it.
@@ -39,7 +39,8 @@ the vault; neither is resolved from netbird-management-iac's vars/vault. See
 Prometheus/Grafana/Loki discovers peers from the NetBird API and scrapes `:9100`
 (node_exporter) and `:6060` (CrowdSec LAPI) over the overlay. Enrolling with the
 `endpoint` setup key (the default) makes a node discoverable with no exit/LAN
-routes. Shipping host logs (`alloy_enabled`, a node-side option) additionally
+routes. Shipping host logs (`monitoring.alloy.enabled`, a node-side option)
+additionally
 needs the central Loki published on the observer host's overlay IP
 (`docker-stack-iac`'s `loki_publish_addr`), because NetBird peer DNS names do not
 resolve on the node. See [`monitoring-security.md`](monitoring-security.md).

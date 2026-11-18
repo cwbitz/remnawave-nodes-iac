@@ -1,7 +1,7 @@
 # Host firewall
 
 `roles/firewall/` — the host's **base firewall**: default-deny inbound, opt-in per
-host (`firewall_enabled: true` in `inventory/host_vars/<host>/main.yml`; default
+host (`firewall.enabled: true` in `inventory/host_vars/<host>/main.yml`; default
 `false`). Reached via `make deploy` (`TAGS=firewall`) or
 `playbooks/site.yml`. Debian-family only.
 
@@ -30,8 +30,8 @@ A **dedicated nftables table** (`inet basefw`) with an `input` hook, policy
 | `iifname wt0` | the NetBird overlay: only authenticated mesh peers can inject there, so no Panel-IP allowlist is needed (the Panel sits behind a rotating home-broadband IP) |
 | `udp <netbird_wg>` | the NetBird WireGuard port (`firewall_netbird_wg_port`, default 51820) — closing it would not break the mesh but would force relayed instead of direct P2P peers |
 | `ct state established,related` | replies to host-initiated flows (mesh management, DNS, image pulls, apt) |
-| `icmp`/`ipv6-icmp` | path-MTU discovery, diagnostics (`firewall_allow_icmp`) |
-| `tcp`/`udp <public_ports>` | every declared public port: the SSH/admin port (single port, matching the inventory `ansible_port`; 22 by default) plus the Xray inbounds the Panel pushes (`firewall_public_tcp_ports` / `..._udp_ports`; single ports and `start-end` ranges) |
+| `icmp`/`ipv6-icmp` | path-MTU discovery, diagnostics (`firewall.allow_icmp`) |
+| `tcp`/`udp <public_ports>` | every declared public port: the SSH/admin port (single port, matching the inventory `ansible_port`; 22 by default) plus the Xray inbounds the Panel pushes (`firewall.public_tcp_ports` / `firewall.public_udp_ports`; single ports and `start-end` ranges) |
 
 The overlay and the WireGuard port are accepted **before** any conntrack-state
 rule, and there is no `ct state invalid drop`: the kernel's WireGuard bypasses the
@@ -60,8 +60,8 @@ and the table's own `wt0` accept keeps the tunnel up in the meantime.
 Operator knobs live in `inventory/host_vars/<host>/main.yml` (see
 `host_vars/example/main.yml`):
 
-- `firewall_enabled` — per-host opt-in (default `false`).
-- `firewall_public_tcp_ports` / `firewall_public_udp_ports` — the public ports
+- `firewall.enabled` — per-host opt-in (default `false`).
+- `firewall.public_tcp_ports` / `firewall.public_udp_ports` — the public ports
   the Node serves. The TCP list must contain the SSH/admin port as a single port
   (default `["22"]`, matching the inventory `ansible_port`; the role refuses to
   apply a ruleset that would omit it). The rest are the Xray
@@ -75,8 +75,8 @@ Operator knobs live in `inventory/host_vars/<host>/main.yml` (see
   syntax (`udp dport { 20000-20100 }`), not expanded into one rule per port. The
   two projects are deliberately decoupled, so keep the values in step by hand when
   the Panel's inbound ports change.
-- `firewall_allow_icmp` — accept ICMP/ICMPv6 (default `true`). The SSH/admin port
-  is an ordinary entry in `firewall_public_tcp_ports`, kept in step with the
+- `firewall.allow_icmp` — accept ICMP/ICMPv6 (default `true`). The SSH/admin
+  port is an ordinary entry in `firewall.public_tcp_ports`, kept in step with the
   inventory `ansible_port`. The overlay interface and WireGuard port mirror the
   NetBird client's own defaults, so they are role constants
   (`roles/firewall/vars/main.yml`), not operator knobs.
@@ -113,5 +113,5 @@ deploy.
 ssh <host> 'systemctl disable --now firewall && nft delete table inet basefw'
 ```
 
-Then set `firewall_enabled: false` in the host's `main.yml` so a later
+Then set `firewall.enabled: false` in the host's `main.yml` so a later
 deploy does not re-apply it.

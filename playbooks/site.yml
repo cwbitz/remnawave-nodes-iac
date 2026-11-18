@@ -64,7 +64,7 @@
   roles:
     - role: agent
       tags: [agent, monitoring]
-      when: netbird_enabled | default(true) | bool
+      when: netbird_enabled | default(false) | bool
     - role: monitoring
       tags: [monitoring]
       when: monitoring_enabled | default(false) | bool
@@ -93,4 +93,4 @@
         apply:
           tags: [agent, monitoring]
       tags: [agent, monitoring]
-      when: not (netbird_enabled | default(true) | bool)
+      when: not (netbird_enabled | default(false) | bool)
