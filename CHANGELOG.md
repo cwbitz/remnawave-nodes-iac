@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.0](https://github.com/cwbitz/remnawave-nodes-iac/compare/v2.0.0...v2.1.0) (2026-11-19)
+
+
+### Features
+
+* **ssh-agent:** gate the insecure key fallback behind AGENT_ALLOW_INSECURE ([#23](https://github.com/cwbitz/remnawave-nodes-iac/issues/23)) ([63d39b3](https://github.com/cwbitz/remnawave-nodes-iac/commit/63d39b3683bd7ef9e9c5674d435770b132baace3))
+
 ## [2.0.0](https://github.com/cwbitz/remnawave-nodes-iac/compare/v1.2.0...v2.0.0) (2026-11-18)
 
 
