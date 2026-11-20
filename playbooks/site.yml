@@ -20,7 +20,7 @@
           '{{ hostvars[item].ansible_host | default('<unset>', true) }}', which is not a
           usable management address. Set the real address in the gitignored
           inventory/hosts.yml, or re-scaffold the host:
-            make host-init HOST={{ item }} HOST_IP=<management-ip>
+            make prep HOST={{ item }} IP=<management-ip>
         quiet: true
       loop: "{{ groups['remnanodes'] | default([]) }}"
       loop_control:
@@ -53,7 +53,7 @@
           - (ssh_user | default('root')) != 'root' or (allow_root_login | default(false) | bool)
         fail_msg: >-
           The deploy must run as the non-root `iac` automation account, not
-          root. Run `make host-bootstrap` once as root to create it, then set its
+          root. Run `make deploy` once as root to create it, then set its
           key/password in inventory/host_vars/<host>/vault.yml. Override
           deliberately with allow_root_login=true if you accept running as
           root.

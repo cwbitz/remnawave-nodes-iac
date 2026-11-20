@@ -18,7 +18,7 @@
           - probe_host | default('', true) | length > 0
         fail_msg: >-
           No bootstrap target resolved. Pass one explicitly with
-          `make host-bootstrap HOST=<inventory name>` (or -e bootstrap_host=...);
+          `make deploy HOST=<inventory name>` (or -e bootstrap_host=...);
           it defaults to the first remnanodes host.
 
     - name: "Probe | Try each identity over SSH"

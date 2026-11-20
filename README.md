@@ -35,7 +35,7 @@ Panel, the management URL + a setup key for the overlay).
          │ NetBird overlay -> Prometheus scrapes :9100 and :6060
 ```
 
-1. **Host bootstrap** (`playbooks/bootstrap.yml`, `make host-bootstrap`): probes
+1. **Host bootstrap** (`playbooks/bootstrap.yml`, `make deploy`): probes
    the SSH identities `iac → admin → root`, creates the
    least-privilege `iac` automation account (NOPASSWD sudo) when needed, and installs Docker
    Engine + the Compose v2 plugin. Optionally sets APT/Docker registry mirrors.
@@ -129,7 +129,7 @@ discovers (`endpoint` by default: route-less, no exit/LAN routes).
   initially; the bootstrap creates the `iac` automation account). No Docker and
   no prior system update are needed.
 - On the control node: `mise` or `asdf`, `openssl`, and SSH access to the host.
-  `sshpass` is only needed for the `make host-bootstrap` password probe and is
+  `sshpass` is only needed for the `make deploy` password probe and is
   auto-installed by `make install`; `make install` also installs the pinned
   Keychain 3 (an ssh-agent fallback used only when a private key's permissions are
   rejected by OpenSSH, e.g. under WSL).
@@ -143,17 +143,17 @@ make install
 # 2. Scaffold a host from the committed template (vault.yml is encrypted for you,
 #    the host is added to inventory/hosts.yml, and the generated files are
 #    comment-free; vault.yml also has its blank lines stripped). HOST defaults to
-#    remnanode-1; HOST_IP writes ansible_host
+#    the single inventory host, else remnanode-1; IP writes ansible_host
 #    (otherwise the entry keeps the CHANGE_ME_HOST_IP placeholder the site
-#    preflight rejects), HOST_PORT sets ansible_port.
-make host-init HOST=remnanode-1 HOST_IP=203.0.113.10
+#    preflight rejects), PORT sets ansible_port.
+make prep HOST=remnanode-1 IP=203.0.113.10
 #    - edit inventory/host_vars/remnanode-1/main.yml   (non-secret: NODE_PORT, NetBird URL, ...)
 #    - edit the encrypted vault:
-make vault-edit HOST=remnanode-1
+make edit HOST=remnanode-1
 #      (SSH creds, NetBird setup key, SECRET_KEY)
 
 # 3. Bootstrap once, then dry-run and deploy
-make host-bootstrap
+make deploy
 make dry-run
 make deploy
 ```
@@ -161,18 +161,18 @@ make deploy
 `make deploy` is the one-shot entry point: it bootstraps **every** host in the
 `remnanodes` group (one `playbooks/bootstrap.yml` run per host, stopping at the
 first failure), then deploys the node stack (`playbooks/site.yml`). On a fresh
-host the `iac` automation account does not exist yet, so `deploy` runs the same
-host bootstrap as `make host-bootstrap` first; `HOST=<name>` restricts the
-bootstrap to that single node.
+host the `iac` automation account does not exist yet, so the per-host bootstrap
+runs first and creates it. `HOST=<name>` (or a comma-separated list) restricts
+every step — the bootstrap loop, `site.yml`, `agent`/`monitoring`, `dry-run` and
+`print` — to those nodes; without it the deploy covers every `remnanodes` host.
 
 ## Entry points
 
 | Target | Playbook | What it does |
 |---|---|---|
-| `make host-bootstrap` | `bootstrap.yml` | Probe SSH identities, create the `iac` account, install Docker. `HOST=<name>` targets one host. |
+| `make deploy` | `bootstrap.yml` (every selected node) + `site.yml` | Bootstrap every selected node (SSH identity probe, `iac` account, Docker), then the full node stack: agent/monitoring + Remnawave Node. `HOST=<name>` targets a subset. |
 | `make agent` | `agent.yml` | Join the nodes to the NetBird overlay only. |
 | `make monitoring` | `monitoring.yml` | overlay join + node_exporter + CrowdSec + firewall bouncer. |
-| `make deploy` | `bootstrap.yml` (every node) + `site.yml` | Bootstrap every node, then the full node stack: agent/monitoring + Remnawave Node. `HOST=<name>` bootstraps only that node. |
 | `make dry-run` | `site.yml --check --diff` | Safe preview. |
 | `make print [HOST=]` | — | Resolved host vars incl. decrypted vault. |
 

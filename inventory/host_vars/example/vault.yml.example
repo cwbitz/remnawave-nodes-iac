@@ -1,17 +1,17 @@
 # ==============================================================================
 # Per-host secrets schema (inventory/host_vars/example/vault.yml.example)
 # ==============================================================================
-# Scaffold a real one with `make host-init HOST=<hostname>`, then edit it with
-# `make vault-edit HOST=<hostname>`. The real vault.yml is gitignored and NEVER
+# Scaffold a real one with `make prep HOST=<hostname>`, then edit it with
+# `make edit HOST=<hostname>`. The real vault.yml is gitignored and NEVER
 # committed (even encrypted); the vault password file that decrypts it is created
-# by `make vault-init` (path set in ansible.cfg).
+# on first use (path set in ansible.cfg).
 
 # --- SSH connection identity -------------------------------------------------
 # The iac/admin/root aliases are wired in
 # inventory/group_vars/remnanodes/main.yml. Account names and key paths are
 # non-secret and live in the main.yml next to this file (host_admin_username,
 # host_<id>_ssh_{pub,priv}key_file); this file holds only the passwords.
-# `make host-bootstrap` probes [iac, admin, root], uses the first that works,
+# `make deploy` probes [iac, admin, root], uses the first that works,
 # and authorizes each supplied public key for its account (empty is ignored; keys
 # are never generated).
 #
@@ -24,7 +24,7 @@ vault_host_root_password: ""
 # create_admin_account: true in main.yml); it always gets a password for console
 # login and sudo, plus any configured public key.
 vault_host_admin_password: ""
-# The `iac` automation account host-bootstrap creates/repairs (name fixed); its
+# The `iac` automation account the bootstrap creates/repairs (name fixed); its
 # public key switches the account to key auth instead of a generated password.
 vault_host_iac_password: ""
 
