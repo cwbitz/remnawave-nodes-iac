@@ -56,6 +56,20 @@
     remove_orphans: true
   when: not ansible_check_mode
 
+- name: "Agent | Check the overlay daemon health"
+  ansible.builtin.command: docker exec netbird netbird status --check live
+  register: agent_health
+  changed_when: false
+  failed_when: false
+  when: not ansible_check_mode
+
+- name: "Agent | Restart a needs-login overlay container"
+  ansible.builtin.command: docker restart netbird
+  changed_when: true
+  when:
+    - not ansible_check_mode
+    - agent_health.rc | default(0) != 0
+
 - name: "Agent | Wait for the overlay interface (wt0)"
   ansible.builtin.command: "ip -4 -o addr show wt0"
   register: agent_wt0_addr
