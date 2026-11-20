@@ -1,12 +1,12 @@
 ---
-- name: "[Docker] Detect Docker Engine + the Compose v2 plugin"
+- name: "Docker | Detect Docker Engine + the Compose v2 plugin"
   ansible.builtin.command: docker compose version
   register: install_docker_probe
   changed_when: false
   failed_when: false
   check_mode: false
 
-- name: "[Docker] Refuse to run without Docker when installation is disabled"
+- name: "Docker | Refuse to run without Docker when installation is disabled"
   ansible.builtin.assert:
     that:
       - install_docker_probe.rc == 0
@@ -20,13 +20,13 @@
     - not (install_docker | default(true) | bool)
     - not ansible_check_mode
 
-- name: "[Docker] Install Docker CE from the official install script"
+- name: "Docker | Install Docker CE from the official install script"
   when:
     - install_docker_probe.rc != 0
     - install_docker | default(true) | bool
     - not ansible_check_mode
   block:
-    - name: "[Docker] Assert a Debian-family host"
+    - name: "Docker | Assert a Debian-family host"
       ansible.builtin.assert:
         that:
           - ansible_os_family == 'Debian'
@@ -35,7 +35,7 @@
           hosts. Install Docker on {{ inventory_hostname }} manually and
           re-run, or set install_docker=false to require it preinstalled.
 
-    - name: "[Docker] Ensure curl and CA certificates are present"
+    - name: "Docker | Ensure curl and CA certificates are present"
       ansible.builtin.apt:
         name:
           - ca-certificates
@@ -43,7 +43,7 @@
         state: present
         update_cache: true
 
-    - name: "[Docker] Download the official Docker install script"
+    - name: "Docker | Download the official Docker install script"
       ansible.builtin.get_url:
         url: https://get.docker.com
         dest: /tmp/get-docker.sh
@@ -51,17 +51,17 @@
         group: root
         mode: "0700"
 
-    - name: "[Docker] Install Docker Engine, CLI, containerd and Compose v2"
+    - name: "Docker | Install Docker Engine, CLI, containerd and Compose v2"
       ansible.builtin.command:
         cmd: sh /tmp/get-docker.sh
       changed_when: true
 
-    - name: "[Docker] Remove the downloaded install script"
+    - name: "Docker | Remove the downloaded install script"
       ansible.builtin.file:
         path: /tmp/get-docker.sh
         state: absent
 
-    - name: "[Docker] Enable and start the Docker service"
+    - name: "Docker | Enable and start the Docker service"
       ansible.builtin.systemd_service:
         name: docker
         enabled: true

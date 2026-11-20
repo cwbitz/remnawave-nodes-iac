@@ -6,7 +6,7 @@
     - role: agent
       when: netbird_enabled | default(false) | bool
   tasks:
-    - name: "[Agent] Retire the overlay agent when disabled"
+    - name: "Agent | Retire the overlay agent when disabled"
       ansible.builtin.include_role:
         name: agent
         tasks_from: cleanup
@@ -16,13 +16,13 @@
   hosts: remnanodes
   gather_facts: false
   tasks:
-    - name: "[Monitoring] Converge the disabled components off"
+    - name: "Monitoring | Converge the disabled components off"
       ansible.builtin.include_role:
         name: monitoring
         tasks_from: cleanup
       when: not (monitoring_enabled | default(false) | bool)
 
-    - name: "[Monitoring] Apply the monitoring stack"
+    - name: "Monitoring | Apply the monitoring stack"
       ansible.builtin.include_role:
         name: monitoring
       when: monitoring_enabled | default(false) | bool

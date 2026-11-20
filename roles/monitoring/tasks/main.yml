@@ -1,8 +1,8 @@
 ---
-- name: "[Monitoring] Gather facts"
+- name: "Monitoring | Gather facts"
   ansible.builtin.setup:
 
-- name: "[Monitoring] Assert a Debian-family host"
+- name: "Monitoring | Assert a Debian-family host"
   ansible.builtin.assert:
     that:
       - ansible_os_family == 'Debian'
@@ -10,7 +10,7 @@
       monitoring is Debian-family only (apt). Disable the monitoring
       components on unsupported hosts.
 
-- name: "[Monitoring] Assert the overlay is available"
+- name: "Monitoring | Assert the overlay is available"
   ansible.builtin.assert:
     that:
       - (overlay_ip | default('', true) | length) > 0
@@ -23,7 +23,7 @@
     - not ansible_check_mode
 
 
-- name: "[Monitoring] Ensure gnupg is present"
+- name: "Monitoring | Ensure gnupg is present"
   ansible.builtin.apt:
     name: gnupg
     state: present
@@ -31,7 +31,7 @@
   when: crowdsec_enabled | bool
   tags: [crowdsec]
 
-- name: "[Monitoring] Ensure the CrowdSec apt keyring directory exists"
+- name: "Monitoring | Ensure the CrowdSec apt keyring directory exists"
   ansible.builtin.file:
     path: /etc/apt/keyrings
     state: directory
@@ -41,7 +41,7 @@
   when: crowdsec_enabled | bool
   tags: [crowdsec]
 
-- name: "[Monitoring] Download the CrowdSec repository key"
+- name: "Monitoring | Download the CrowdSec repository key"
   ansible.builtin.get_url:
     url: "{{ crowdsec_apt_key_url }}"
     dest: /etc/apt/keyrings/crowdsec_crowdsec-archive-keyring.asc
@@ -51,7 +51,7 @@
   when: crowdsec_enabled | bool
   tags: [crowdsec]
 
-- name: "[Monitoring] Dearmor the CrowdSec repository key"
+- name: "Monitoring | Dearmor the CrowdSec repository key"
   ansible.builtin.command:
     argv:
       - gpg
@@ -65,7 +65,7 @@
   when: crowdsec_enabled | bool
   tags: [crowdsec]
 
-- name: "[Monitoring] Add the CrowdSec apt repository"
+- name: "Monitoring | Add the CrowdSec apt repository"
   ansible.builtin.apt_repository:
     repo: "{{ crowdsec_apt_repo }}"
     filename: crowdsec
@@ -74,7 +74,7 @@
   when: crowdsec_enabled | bool
   tags: [crowdsec]
 
-- name: "[Monitoring] Back up CrowdSec before the pinned upgrade"
+- name: "Monitoring | Back up CrowdSec before the pinned upgrade"
   ansible.builtin.command:
     argv:
       - tar
@@ -88,7 +88,7 @@
   when: crowdsec_enabled | bool
   tags: [crowdsec]
 
-- name: "[Monitoring] Install the pinned CrowdSec engine"
+- name: "Monitoring | Install the pinned CrowdSec engine"
   ansible.builtin.apt:
     name: "crowdsec={{ crowdsec_version }}"
     state: present
@@ -97,7 +97,7 @@
   when: crowdsec_enabled | bool
   tags: [crowdsec]
 
-- name: "[Monitoring] Restart CrowdSec after the pinned install"
+- name: "Monitoring | Restart CrowdSec after the pinned install"
   ansible.builtin.systemd_service:
     name: "{{ svc_crowdsec }}"
     state: restarted
@@ -107,7 +107,7 @@
     - monitoring_crowdsec_install is changed
   tags: [crowdsec]
 
-- name: "[Monitoring] Verify the pinned CrowdSec version"
+- name: "Monitoring | Verify the pinned CrowdSec version"
   ansible.builtin.command:
     argv: [dpkg-query, -W, "-f=${Version}", crowdsec]
   register: monitoring_crowdsec_version
@@ -116,13 +116,13 @@
   when: crowdsec_enabled | bool
   tags: [crowdsec]
 
-- name: "[Monitoring] Select the packages to install"
+- name: "Monitoring | Select the packages to install"
   ansible.builtin.set_fact:
     monitoring_packages: >-
       {{ ([pkg_node_exporter] if node_exporter_enabled | bool else [])
          }}
 
-- name: "[Monitoring] Back up the firewall bouncer configuration"
+- name: "Monitoring | Back up the firewall bouncer configuration"
   ansible.builtin.command:
     argv:
       - tar
@@ -135,7 +135,7 @@
   when: crowdsec_enabled | bool
   tags: [crowdsec]
 
-- name: "[Monitoring] Install the pinned CrowdSec firewall bouncer"
+- name: "Monitoring | Install the pinned CrowdSec firewall bouncer"
   ansible.builtin.apt:
     name: "{{ pkg_crowdsec_firewall_bouncer }}={{ crowdsec_firewall_bouncer_version }}"
     state: present
@@ -144,14 +144,14 @@
   when: crowdsec_enabled | bool
   tags: [crowdsec]
 
-- name: "[Monitoring] Remove the legacy Debian firewall bouncer package"
+- name: "Monitoring | Remove the legacy Debian firewall bouncer package"
   ansible.builtin.apt:
     name: crowdsec-firewall-bouncer
     state: absent
   when: crowdsec_enabled | bool
   tags: [crowdsec]
 
-- name: "[Monitoring] Restart the firewall bouncer after the pinned install"
+- name: "Monitoring | Restart the firewall bouncer after the pinned install"
   ansible.builtin.systemd_service:
     name: "{{ svc_crowdsec_firewall_bouncer }}"
     state: restarted
@@ -161,7 +161,7 @@
     - monitoring_bouncer_install is changed
   tags: [crowdsec]
 
-- name: "[Monitoring] Verify the pinned firewall bouncer version"
+- name: "Monitoring | Verify the pinned firewall bouncer version"
   ansible.builtin.command:
     argv: [dpkg-query, -W, "-f=${Version}", "{{ pkg_crowdsec_firewall_bouncer }}"]
   register: monitoring_bouncer_version
@@ -170,7 +170,7 @@
   when: crowdsec_enabled | bool
   tags: [crowdsec]
 
-- name: "[Monitoring] Install the monitoring packages"
+- name: "Monitoring | Install the monitoring packages"
   ansible.builtin.apt:
     name: "{{ monitoring_packages }}"
     state: present
@@ -178,7 +178,7 @@
     cache_valid_time: 3600
   when: monitoring_packages | length > 0
 
-- name: "[Monitoring] Assert a central Loki URL when shipping logs"
+- name: "Monitoring | Assert a central Loki URL when shipping logs"
   ansible.builtin.assert:
     that:
       - (loki_push_url | default('', true) | length) > 0
@@ -187,7 +187,7 @@
       are pushed to Loki over the overlay).
   when: alloy_enabled | bool
 
-- name: "[Monitoring] Assert the log presets are known"
+- name: "Monitoring | Assert the log presets are known"
   ansible.builtin.assert:
     that:
       - (alloy_journal_presets | default([]) | difference(['ssh', 'security', 'kernel', 'services']) | length) == 0
@@ -198,7 +198,7 @@
       in monitoring.alloy.journal_extras).
   when: alloy_enabled | bool
 
-- name: "[Monitoring] Ensure the monitoring stack directory exists"
+- name: "Monitoring | Ensure the monitoring stack directory exists"
   ansible.builtin.file:
     path: "{{ monitoring_dir }}"
     state: directory
@@ -206,7 +206,7 @@
     group: root
     mode: "0700"
 
-- name: "[Monitoring] Probe the central Loki"
+- name: "Monitoring | Probe the central Loki"
   ansible.builtin.uri:
     url: "{{ loki_push_url }}/ready"
     status_code: [200, 503]
@@ -218,7 +218,7 @@
     - alloy_enabled | bool
     - not ansible_check_mode
 
-- name: "[Monitoring] Warn when the central Loki is unreachable"
+- name: "Monitoring | Warn when the central Loki is unreachable"
   ansible.builtin.debug:
     msg: >-
       WARNING: {{ loki_push_url }} did not answer from this host
@@ -230,7 +230,7 @@
     - not ansible_check_mode
     - (monitoring_loki_probe.status | default(-1)) not in [200, 503]
 
-- name: "[Monitoring] Render the Alloy configuration"
+- name: "Monitoring | Render the Alloy configuration"
   ansible.builtin.template:
     src: monitoring/config.alloy.j2
     dest: "{{ monitoring_dir }}/config.alloy"
@@ -240,7 +240,7 @@
   when: alloy_enabled | bool
   notify: "[Monitoring] Restart alloy"
 
-- name: "[Monitoring] Render the monitoring stack"
+- name: "Monitoring | Render the monitoring stack"
   ansible.builtin.template:
     src: monitoring/docker-compose.yml.j2
     dest: "{{ monitoring_dir }}/docker-compose.yml"
@@ -250,7 +250,7 @@
   no_log: true
   when: alloy_enabled | bool
 
-- name: "[Monitoring] Deploy the monitoring stack"
+- name: "Monitoring | Deploy the monitoring stack"
   community.docker.docker_compose_v2:
     project_src: "{{ monitoring_dir }}"
     state: present
@@ -259,7 +259,7 @@
     - alloy_enabled | bool
     - not ansible_check_mode
 
-- name: "[Monitoring] Build the node_exporter listen arguments"
+- name: "Monitoring | Build the node_exporter listen arguments"
   ansible.builtin.set_fact:
     node_exporter_listen_args: >-
       {{ (['--web.listen-address=' ~ overlay_ip ~ ':' ~ (node_exporter_port | string)])
@@ -270,7 +270,7 @@
     - node_exporter_enabled | bool
     - (overlay_ip | default('', true) | length) > 0
 
-- name: "[Monitoring] Configure the node_exporter listen address"
+- name: "Monitoring | Configure the node_exporter listen address"
   ansible.builtin.copy:
     dest: /etc/default/prometheus-node-exporter
     content: >-
@@ -283,7 +283,7 @@
     - (overlay_ip | default('', true) | length) > 0
   notify: "[Monitoring] Restart node_exporter"
 
-- name: "[Monitoring] Ensure the node_exporter drop-in directory exists"
+- name: "Monitoring | Ensure the node_exporter drop-in directory exists"
   ansible.builtin.file:
     path: "{{ node_exporter_dropin_dir }}"
     state: directory
@@ -294,7 +294,7 @@
     - node_exporter_enabled | bool
     - (overlay_ip | default('', true) | length) > 0
 
-- name: "[Monitoring] Render the node_exporter overlay-wait drop-in"
+- name: "Monitoring | Render the node_exporter overlay-wait drop-in"
   ansible.builtin.template:
     src: monitoring/node_exporter-overlay-wait.conf.j2
     dest: "{{ node_exporter_dropin }}"
@@ -306,7 +306,7 @@
     - (overlay_ip | default('', true) | length) > 0
   notify: "[Monitoring] Restart node_exporter"
 
-- name: "[Monitoring] Point the CrowdSec metrics listener at the overlay"
+- name: "Monitoring | Point the CrowdSec metrics listener at the overlay"
   ansible.builtin.copy:
     dest: /etc/crowdsec/config.yaml.local
     content: |
@@ -324,7 +324,7 @@
     - (overlay_ip | default('')) | length > 0
   notify: "[Monitoring] Restart crowdsec"
 
-- name: "[Monitoring] Ensure the crowdsec drop-in directory exists"
+- name: "Monitoring | Ensure the crowdsec drop-in directory exists"
   ansible.builtin.file:
     path: "{{ crowdsec_dropin_dir }}"
     state: directory
@@ -335,7 +335,7 @@
     - crowdsec_enabled | bool
     - (overlay_ip | default('')) | length > 0
 
-- name: "[Monitoring] Render the crowdsec overlay-wait drop-in"
+- name: "Monitoring | Render the crowdsec overlay-wait drop-in"
   ansible.builtin.template:
     src: monitoring/crowdsec-overlay-wait.conf.j2
     dest: "{{ crowdsec_dropin }}"
@@ -347,27 +347,27 @@
     - (overlay_ip | default('')) | length > 0
   notify: "[Monitoring] Restart crowdsec"
 
-- name: "[Monitoring] Converge the CrowdSec web UI machine"
+- name: "Monitoring | Converge the CrowdSec web UI machine"
   ansible.builtin.include_tasks: crowdsec_web_ui_machine.yml
   when: crowdsec_enabled | bool
   tags: [crowdsec_generate_webui_machine_password]
 
-- name: "[Monitoring] Converge the CrowdSec blocklist importer"
+- name: "Monitoring | Converge the CrowdSec blocklist importer"
   ansible.builtin.include_tasks: crowdsec_blocklist_import.yml
   when: crowdsec_enabled | bool
   tags: [crowdsec_blocklist_import]
 
-- name: "[Monitoring] Select the services to manage"
+- name: "Monitoring | Select the services to manage"
   ansible.builtin.set_fact:
     monitoring_services: >-
       {{ ([svc_node_exporter] if node_exporter_enabled | bool else [])
          + ([svc_crowdsec, svc_crowdsec_firewall_bouncer]
             if crowdsec_enabled | bool else []) }}
 
-- name: "[Monitoring] Gather the installed service facts"
+- name: "Monitoring | Gather the installed service facts"
   ansible.builtin.service_facts:
 
-- name: "[Monitoring] Enable and start the monitoring services"
+- name: "Monitoring | Enable and start the monitoring services"
   ansible.builtin.systemd_service:
     name: "{{ item }}"
     enabled: true
@@ -375,7 +375,7 @@
   loop: "{{ monitoring_services }}"
   when: (item ~ '.service') in ansible_facts.services
 
-- name: "[Monitoring] Retire the components that are disabled"
+- name: "Monitoring | Retire the components that are disabled"
   ansible.builtin.include_tasks: cleanup.yml
   when: >-
     not (node_exporter_enabled | default(false) | bool)

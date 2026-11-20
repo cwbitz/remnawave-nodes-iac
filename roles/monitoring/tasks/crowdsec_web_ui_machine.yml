@@ -1,5 +1,5 @@
 ---
-- name: "[CrowdSecWebUI] List the LAPI machine accounts"
+- name: "CrowdSecWebUI | List the LAPI machine accounts"
   ansible.builtin.command:
     argv: [cscli, machines, list, -o, json]
   register: monitoring_web_ui_machines
@@ -8,7 +8,7 @@
   when: crowdsec_generate_webui_machine_password | bool
   tags: [crowdsec_generate_webui_machine_password]
 
-- name: "[CrowdSecWebUI] Generate the web UI machine password when the vault has none"
+- name: "CrowdSecWebUI | Generate the web UI machine password when the vault has none"
   ansible.builtin.include_role:
     name: helpers
     tasks_from: dispatch_secrets
@@ -20,7 +20,7 @@
   when: crowdsec_generate_webui_machine_password | bool
   tags: [crowdsec_generate_webui_machine_password]
 
-- name: "[CrowdSecWebUI] Register the web UI machine account"
+- name: "CrowdSecWebUI | Register the web UI machine account"
   ansible.builtin.command:
     argv:
       - sh
@@ -37,7 +37,7 @@
     - "'crowdsec-web-ui' not in (monitoring_web_ui_machines.stdout | default(''))"
   tags: [crowdsec_generate_webui_machine_password]
 
-- name: "[CrowdSecWebUI] Point the operator at the shared credential"
+- name: "CrowdSecWebUI | Point the operator at the shared credential"
   ansible.builtin.debug:
     msg: >-
       Copy vault_crowdsec_webui_machine_password from this host's vault.yml into

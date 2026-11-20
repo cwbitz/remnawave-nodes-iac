@@ -8,7 +8,7 @@
   gather_facts: false
   tags: [always]
   tasks:
-    - name: "[Preflight] Require a real management address for every host"
+    - name: "Preflight | Require a real management address for every host"
       ansible.builtin.assert:
         that:
           - (hostvars[item].ansible_host | default('', true) | string | trim | length) > 0
@@ -31,7 +31,7 @@
   gather_facts: false
   run_once: true
   tasks:
-    - name: "[Preflight] Assert a supported ansible-core engine on the control node"
+    - name: "Preflight | Assert a supported ansible-core engine on the control node"
       ansible.builtin.assert:
         that:
           - ansible_version.full is version(ansible_core_min_version | default('2.19.0'), '>=')
@@ -47,7 +47,7 @@
       vars:
         ansible_become: false
 
-    - name: "[Preflight] Require the service account (not root) for the deploy"
+    - name: "Preflight | Require the service account (not root) for the deploy"
       ansible.builtin.assert:
         that:
           - (ssh_user | default('root')) != 'root' or (allow_root_login | default(false) | bool)
@@ -77,7 +77,7 @@
     - role: remnanode
       tags: [remnanode]
   tasks:
-    - name: "[Monitoring] Retire the monitoring and security slice when disabled"
+    - name: "Monitoring | Retire the monitoring and security slice when disabled"
       ansible.builtin.include_role:
         name: monitoring
         tasks_from: cleanup
@@ -86,7 +86,7 @@
       tags: [monitoring]
       when: not (monitoring_enabled | default(false) | bool)
 
-    - name: "[Agent] Retire the overlay agent when disabled"
+    - name: "Agent | Retire the overlay agent when disabled"
       ansible.builtin.include_role:
         name: agent
         tasks_from: cleanup
