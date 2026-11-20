@@ -11,7 +11,7 @@
     probe_host: "{{ remnawave_target.ansible_host | default('') }}"
     probe_port: "{{ remnawave_target.ansible_port | default(22) }}"
   tasks:
-    - name: "[Probe] Assert a bootstrap target was resolved"
+    - name: "Probe | Assert a bootstrap target was resolved"
       ansible.builtin.assert:
         that:
           - bootstrap_target | default('', true) | length > 0
@@ -21,7 +21,7 @@
           `make host-bootstrap HOST=<inventory name>` (or -e bootstrap_host=...);
           it defaults to the first remnanodes host.
 
-    - name: "[Probe] Try each identity over SSH"
+    - name: "Probe | Try each identity over SSH"
       ansible.builtin.shell: |
         set -u
         set -o pipefail
@@ -82,7 +82,7 @@
       no_log: true
       failed_when: false
 
-    - name: "[Probe] Fail if no identity can connect"
+    - name: "Probe | Fail if no identity can connect"
       ansible.builtin.assert:
         that:
           - probe.rc == 0
@@ -92,19 +92,19 @@
           passwords (vault_{ansible,admin,root}_password) and the main.yml next to
           it for the key paths (host_<id>_ssh_privkey_file), plus the host.
 
-    - name: "[Probe] Record the working identity"
+    - name: "Probe | Record the working identity"
       ansible.builtin.set_fact:
         probe_identity: "{{ probe.stdout | trim }}"
-    - name: "[Probe] Resolve the chosen connection settings"
+    - name: "Probe | Resolve the chosen connection settings"
       ansible.builtin.set_fact:
         probe_chosen: "{{ remnawave_target.ssh_identities[probe_identity | lower] }}"
 
-    - name: "[Probe] Register the probed identity on the target host"
+    - name: "Probe | Register the probed identity on the target host"
       ansible.builtin.add_host:
         name: "{{ bootstrap_target }}"
         probe_identity: "{{ probe.stdout | trim }}"
 
-    - name: "[Probe] Report the working identity"
+    - name: "Probe | Report the working identity"
       ansible.builtin.debug:
         msg: "Connected as '{{ probe_identity }}' ({{ probe_chosen.user }})."
 
@@ -125,20 +125,20 @@
         name: docker
         state: restarted
   tasks:
-    - name: "[Bootstrap] Read the effective hostname"
+    - name: "Bootstrap | Read the effective hostname"
       ansible.builtin.command:
         argv: [hostname]
       register: bootstrap_hostname
       changed_when: false
 
-    - name: "[Bootstrap] Check whether the hostname already resolves"
+    - name: "Bootstrap | Check whether the hostname already resolves"
       ansible.builtin.command:
         argv: [getent, hosts, "{{ bootstrap_hostname.stdout }}"]
       register: bootstrap_hostname_lookup
       changed_when: false
       failed_when: false
 
-    - name: "[Bootstrap] Map an unresolvable hostname to the loopback alias"
+    - name: "Bootstrap | Map an unresolvable hostname to the loopback alias"
       ansible.builtin.lineinfile:
         path: /etc/hosts
         line: >-
@@ -151,13 +151,13 @@
         bootstrap_hostname_short: "{{ bootstrap_hostname.stdout.split('.') | first }}"
       when: bootstrap_hostname_lookup.rc | default(1) != 0
 
-    - name: "[Bootstrap] Stat the requested timezone"
+    - name: "Bootstrap | Stat the requested timezone"
       ansible.builtin.stat:
         path: "/usr/share/zoneinfo/{{ timezone }}"
       register: bootstrap_timezone
       when: timezone | default('', true) | trim | length > 0
 
-    - name: "[Bootstrap] Fail when the timezone is unknown"
+    - name: "Bootstrap | Fail when the timezone is unknown"
       ansible.builtin.assert:
         that:
           - bootstrap_timezone.stat.isreg | default(false)
@@ -166,12 +166,12 @@
           /usr/share/zoneinfo on {{ inventory_hostname }}.
       when: timezone | default('', true) | trim | length > 0
 
-    - name: "[Bootstrap] Set the system timezone"
+    - name: "Bootstrap | Set the system timezone"
       community.general.timezone:
         name: "{{ timezone }}"
       when: timezone | default('', true) | trim | length > 0
 
-    - name: "[Bootstrap] Validate the APT mirror settings"
+    - name: "Bootstrap | Validate the APT mirror settings"
       ansible.builtin.assert:
         that:
           - ansible_os_family == 'Debian'
@@ -180,7 +180,7 @@
           Example: apt_mirror: https://mirrors.tuna.tsinghua.edu.cn/debian
       when: apt_mirror | default('', true) | length > 0
 
-    - name: "[Bootstrap] Back up the current APT sources (once)"
+    - name: "Bootstrap | Back up the current APT sources (once)"
       ansible.builtin.copy:
         src: /etc/apt/sources.list
         dest: /etc/apt/sources.list.bak.bootstrap
@@ -189,7 +189,7 @@
         mode: "0644"
       when: apt_mirror | default('', true) | length > 0
 
-    - name: "[Bootstrap] Render the APT sources from the mirror"
+    - name: "Bootstrap | Render the APT sources from the mirror"
       ansible.builtin.template:
         src: templates/apt_sources.list.j2
         dest: /etc/apt/sources.list
@@ -199,26 +199,26 @@
       register: apt_sources
       when: apt_mirror | default('', true) | length > 0
 
-    - name: "[Bootstrap] Refresh the APT cache"
+    - name: "Bootstrap | Refresh the APT cache"
       ansible.builtin.apt:
         update_cache: true
       when:
         - apt_mirror | default('', true) | length > 0
         - apt_sources.changed | default(false)
 
-    - name: "[Bootstrap] Ensure Docker Engine and the Compose v2 plugin are present"
+    - name: "Bootstrap | Ensure Docker Engine and the Compose v2 plugin are present"
       ansible.builtin.include_role:
         name: helpers
         tasks_from: install_docker
 
-    - name: "[Bootstrap] Check that Docker is installed"
+    - name: "Bootstrap | Check that Docker is installed"
       ansible.builtin.command: docker --version
       register: bootstrap_docker
       changed_when: false
       failed_when: false
       when: docker_registry_mirrors | default([]) | length > 0
 
-    - name: "[Bootstrap] Assert Docker is installed for registry mirrors"
+    - name: "Bootstrap | Assert Docker is installed for registry mirrors"
       ansible.builtin.assert:
         that:
           - bootstrap_docker.rc | default(1) == 0
@@ -227,14 +227,14 @@
           {{ inventory_hostname }}; install Docker first.
       when: docker_registry_mirrors | default([]) | length > 0
 
-    - name: "[Bootstrap] Read the existing Docker daemon.json (if any)"
+    - name: "Bootstrap | Read the existing Docker daemon.json (if any)"
       ansible.builtin.slurp:
         src: /etc/docker/daemon.json
       register: bootstrap_daemon
       failed_when: false
       when: docker_registry_mirrors | default([]) | length > 0
 
-    - name: "[Bootstrap] Merge registry mirrors into daemon.json"
+    - name: "Bootstrap | Merge registry mirrors into daemon.json"
       ansible.builtin.copy:
         content: >-
           {{ (bootstrap_daemon.content | default('e30=') | b64decode | from_json)
@@ -246,12 +246,12 @@
       when: docker_registry_mirrors | default([]) | length > 0
       notify: Restart docker
 
-    - name: "[Bootstrap] Resolve the service account settings"
+    - name: "Bootstrap | Resolve the service account settings"
       ansible.builtin.set_fact:
         bootstrap_service_user: "iac"
         bootstrap_use_key: "{{ host_iac_ssh_pubkey_file | default('', true) | length > 0 }}"
 
-    - name: "[Bootstrap] Provision a service-account password (no key supplied)"
+    - name: "Bootstrap | Provision a service-account password (no key supplied)"
       ansible.builtin.include_role:
         name: helpers
         tasks_from: dispatch_secrets
@@ -264,7 +264,7 @@
             length: 18
       when: not (bootstrap_use_key | bool)
 
-    - name: "[Bootstrap] Create/repair the service account"
+    - name: "Bootstrap | Create/repair the service account"
       ansible.builtin.user:
         name: "{{ bootstrap_service_user }}"
         groups: "{{ 'sudo' if ansible_os_family == 'Debian' else 'wheel' }}"
@@ -279,12 +279,12 @@
       no_log: true
       when: probe_identity | lower != 'iac'
 
-    - name: "[Bootstrap] Resolve the admin identity settings"
+    - name: "Bootstrap | Resolve the admin identity settings"
       ansible.builtin.set_fact:
         bootstrap_admin: "{{ ssh_identities.admin }}"
         bootstrap_admin_defined: "{{ create_admin_account | default(false) | bool }}"
 
-    - name: "[Bootstrap] Provision the admin password (enabled, none supplied)"
+    - name: "Bootstrap | Provision the admin password (enabled, none supplied)"
       ansible.builtin.include_role:
         name: helpers
         tasks_from: dispatch_secrets
@@ -297,7 +297,7 @@
             length: 18
       when: bootstrap_admin_defined | bool
 
-    - name: "[Bootstrap] Create/repair the admin account"
+    - name: "Bootstrap | Create/repair the admin account"
       ansible.builtin.user:
         name: "{{ bootstrap_admin.user }}"
         groups: "{{ 'sudo' if ansible_os_family == 'Debian' else 'wheel' }}"
@@ -313,7 +313,7 @@
         - bootstrap_admin.user != 'root'
         - bootstrap_admin.user != bootstrap_service_user
 
-    - name: "[Bootstrap] Resolve the explicitly supplied public keys"
+    - name: "Bootstrap | Resolve the explicitly supplied public keys"
       ansible.builtin.set_fact:
         bootstrap_pubkey_specs: >-
           {%- set ns = namespace(specs=[]) -%}
@@ -325,7 +325,7 @@
           {%- endfor -%}
           {{ ns.specs }}
 
-    - name: "[Bootstrap] Read the supplied public key files"
+    - name: "Bootstrap | Read the supplied public key files"
       ansible.builtin.slurp:
         src: "{{ pubkey_spec.path }}"
       register: bootstrap_pubkey_files
@@ -338,7 +338,7 @@
         loop_var: pubkey_spec
         label: "{{ pubkey_spec.id }}"
 
-    - name: "[Bootstrap] Check that each public-key account exists"
+    - name: "Bootstrap | Check that each public-key account exists"
       ansible.builtin.getent:
         database: passwd
         key: "{{ pubkey_spec.user }}"
@@ -349,7 +349,7 @@
         loop_var: pubkey_spec
         label: "{{ pubkey_spec.id }}"
 
-    - name: "[Bootstrap] Fail if a public key targets a missing account"
+    - name: "Bootstrap | Fail if a public key targets a missing account"
       ansible.builtin.assert:
         that:
           - bootstrap_pubkey_users.results | default([])
@@ -365,7 +365,7 @@
           account(s) first.
       when: bootstrap_pubkey_specs | length > 0
 
-    - name: "[Bootstrap] Ensure each account's .ssh directory exists"
+    - name: "Bootstrap | Ensure each account's .ssh directory exists"
       ansible.builtin.file:
         path: "{{ ('/root' if pubkey_file.pubkey_spec.user == 'root' else '/home/' ~ pubkey_file.pubkey_spec.user) }}/.ssh"
         state: directory
@@ -377,7 +377,7 @@
         loop_var: pubkey_file
         label: "{{ pubkey_file.pubkey_spec.id }}"
 
-    - name: "[Bootstrap] Authorize each supplied public key for its account"
+    - name: "Bootstrap | Authorize each supplied public key for its account"
       ansible.builtin.lineinfile:
         path: "{{ ('/root' if pubkey_file.pubkey_spec.user == 'root' else '/home/' ~ pubkey_file.pubkey_spec.user) }}/.ssh/authorized_keys"
         line: "{{ pubkey_file.content | b64decode | trim }}"
@@ -390,7 +390,7 @@
         loop_var: pubkey_file
         label: "{{ pubkey_file.pubkey_spec.id }}"
 
-    - name: "[Bootstrap] Resolve the sudo accounts"
+    - name: "Bootstrap | Resolve the sudo accounts"
       ansible.builtin.set_fact:
         bootstrap_sudo_nopasswd_users: >-
           {{ [bootstrap_service_user | default('iac')] }}
@@ -402,7 +402,7 @@
                      != (bootstrap_service_user | default('iac')))
              else [] }}
 
-    - name: "[Bootstrap] Ensure sudo is installed for the sudoers grants"
+    - name: "Bootstrap | Ensure sudo is installed for the sudoers grants"
       ansible.builtin.apt:
         name: sudo
         state: present
@@ -412,7 +412,7 @@
         - (bootstrap_sudo_nopasswd_users | length
            + bootstrap_sudo_password_users | length) > 0
 
-    - name: "[Bootstrap] Grant the automation account passwordless sudo"
+    - name: "Bootstrap | Grant the automation account passwordless sudo"
       ansible.builtin.copy:
         content: "{{ item }} ALL=(ALL) NOPASSWD:ALL\n"
         dest: "/etc/sudoers.d/90-remnawave-{{ item }}"
@@ -422,7 +422,7 @@
         validate: "visudo -cf %s"
       loop: "{{ bootstrap_sudo_nopasswd_users }}"
 
-    - name: "[Bootstrap] Grant the admin account password sudo"
+    - name: "Bootstrap | Grant the admin account password sudo"
       ansible.builtin.copy:
         content: "{{ item }} ALL=(ALL) ALL\n"
         dest: "/etc/sudoers.d/90-remnawave-{{ item }}"
@@ -432,7 +432,7 @@
         validate: "visudo -cf %s"
       loop: "{{ bootstrap_sudo_password_users }}"
 
-    - name: "[Bootstrap] Report the outcome"
+    - name: "Bootstrap | Report the outcome"
       ansible.builtin.debug:
         msg: >-
           Probed as '{{ probe_identity }}'. Service account

@@ -1,12 +1,12 @@
 ---
-- name: "[Firewall] Assert the nft binary is available"
+- name: "Firewall | Assert the nft binary is available"
   ansible.builtin.command: "{{ firewall_nft }} --version"
   register: firewall_nft_version
   changed_when: false
   check_mode: false
   failed_when: false
 
-- name: "[Firewall] Fail when nft is missing"
+- name: "Firewall | Fail when nft is missing"
   ansible.builtin.assert:
     that:
       - firewall_nft_version.rc | default(1) == 0
@@ -15,7 +15,7 @@
       on {{ inventory_hostname }}. Install the `nftables` package (it also ships
       CrowdSec's firewall bouncer) and re-run.
 
-- name: "[Firewall] Assert the public port knobs are lists"
+- name: "Firewall | Assert the public port knobs are lists"
   ansible.builtin.assert:
     that:
       - firewall_public_tcp_ports is sequence
@@ -27,12 +27,12 @@
       whose entries are a port or a `start-end` range, e.g. ["443"] and
       ["20000-20100"].
 
-- name: "[Firewall] Normalize the public port specs"
+- name: "Firewall | Normalize the public port specs"
   ansible.builtin.set_fact:
     firewall_public_tcp_specs: "{{ firewall_public_tcp_ports | map('string') | list }}"
     firewall_public_udp_specs: "{{ firewall_public_udp_ports | map('string') | list }}"
 
-- name: "[Firewall] Assert the port knobs are valid"
+- name: "Firewall | Assert the port knobs are valid"
   ansible.builtin.assert:
     that:
       - firewall_netbird_wg_port | int >= 1
@@ -49,7 +49,7 @@
   loop_control:
     label: "{{ item }}"
 
-- name: "[Firewall] Assert the SSH port is a public TCP port"
+- name: "Firewall | Assert the SSH port is a public TCP port"
   ansible.builtin.assert:
     that:
       - (ansible_port | default(22) | string) in firewall_public_tcp_specs
@@ -58,7 +58,7 @@
       firewall.public_tcp_ports, so applying this ruleset would close SSH. Add it
       to inventory/host_vars/{{ inventory_hostname }}/main.yml.
 
-- name: "[Firewall] Ensure the nftables config directory exists"
+- name: "Firewall | Ensure the nftables config directory exists"
   ansible.builtin.file:
     path: "{{ firewall_conf_dir }}"
     state: directory
@@ -66,7 +66,7 @@
     group: root
     mode: "0755"
 
-- name: "[Firewall] Render the host firewall ruleset"
+- name: "Firewall | Render the host firewall ruleset"
   ansible.builtin.template:
     src: firewall.nft.j2
     dest: "{{ firewall_conf }}"
@@ -75,14 +75,14 @@
     mode: "0644"
   register: firewall_rules
 
-- name: "[Firewall] Validate the rendered ruleset"
+- name: "Firewall | Validate the rendered ruleset"
   ansible.builtin.command: "{{ firewall_nft }} -c -f {{ firewall_conf }}"
   changed_when: false
   when:
     - firewall_rules.changed | bool
     - not ansible_check_mode
 
-- name: "[Firewall] Install the boot unit"
+- name: "Firewall | Install the boot unit"
   ansible.builtin.template:
     src: firewall.service.j2
     dest: "{{ firewall_service_path }}"
@@ -90,14 +90,14 @@
     group: root
     mode: "0644"
 
-- name: "[Firewall] Enable the boot unit"
+- name: "Firewall | Enable the boot unit"
   ansible.builtin.systemd_service:
     name: "{{ firewall_service_name }}"
     enabled: true
     daemon_reload: true
   when: not ansible_check_mode
 
-- name: "[Firewall] Apply the ruleset when it changed"
+- name: "Firewall | Apply the ruleset when it changed"
   ansible.builtin.systemd_service:
     name: "{{ firewall_service_name }}"
     state: restarted
@@ -105,13 +105,13 @@
     - firewall_rules.changed | bool
     - not ansible_check_mode
 
-- name: "[Firewall] Ensure the boot unit is running"
+- name: "Firewall | Ensure the boot unit is running"
   ansible.builtin.systemd_service:
     name: "{{ firewall_service_name }}"
     state: started
   when: not ansible_check_mode
 
-- name: "[Firewall] Confirm the host is still reachable"
+- name: "Firewall | Confirm the host is still reachable"
   ansible.builtin.wait_for_connection:
     timeout: 30
   when: not ansible_check_mode

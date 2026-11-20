@@ -1,5 +1,5 @@
 ---
-- name: "[BlocklistImport] Provision the importer credentials"
+- name: "BlocklistImport | Provision the importer credentials"
   ansible.builtin.include_role:
     name: helpers
     tasks_from: dispatch_secrets
@@ -12,7 +12,7 @@
   when: crowdsec_blocklist_import_enabled | bool
   tags: [crowdsec_blocklist_import]
 
-- name: "[BlocklistImport] List the LAPI machine accounts"
+- name: "BlocklistImport | List the LAPI machine accounts"
   ansible.builtin.command:
     argv: [cscli, machines, list, -o, json]
   register: monitoring_blocklist_machines
@@ -21,7 +21,7 @@
   when: crowdsec_blocklist_import_enabled | bool
   tags: [crowdsec_blocklist_import]
 
-- name: "[BlocklistImport] Register the importer machine account"
+- name: "BlocklistImport | Register the importer machine account"
   ansible.builtin.command:
     argv:
       - sh
@@ -38,7 +38,7 @@
   no_log: true
   tags: [crowdsec_blocklist_import]
 
-- name: "[BlocklistImport] List the LAPI bouncers"
+- name: "BlocklistImport | List the LAPI bouncers"
   ansible.builtin.command:
     argv: [cscli, bouncers, list, -o, json]
   register: monitoring_blocklist_bouncers
@@ -47,7 +47,7 @@
   when: crowdsec_blocklist_import_enabled | bool
   tags: [crowdsec_blocklist_import]
 
-- name: "[BlocklistImport] Register the importer bouncer"
+- name: "BlocklistImport | Register the importer bouncer"
   ansible.builtin.command:
     argv:
       - sh
@@ -64,14 +64,14 @@
   no_log: true
   tags: [crowdsec_blocklist_import]
 
-- name: "[BlocklistImport] Pull the importer image"
+- name: "BlocklistImport | Pull the importer image"
   community.docker.docker_image:
     name: "{{ crowdsec_blocklist_import_image }}:{{ crowdsec_blocklist_import_version }}"
     source: pull
   when: crowdsec_blocklist_import_enabled | bool
   tags: [crowdsec_blocklist_import]
 
-- name: "[BlocklistImport] Run the importer"
+- name: "BlocklistImport | Run the importer"
   community.docker.docker_container:
     name: crowdsec_blocklist_import
     image: "{{ crowdsec_blocklist_import_image }}:{{ crowdsec_blocklist_import_version }}"
@@ -101,7 +101,7 @@
   no_log: true
   tags: [crowdsec_blocklist_import]
 
-- name: "[BlocklistImport] Remove the importer when disabled"
+- name: "BlocklistImport | Remove the importer when disabled"
   community.docker.docker_container:
     name: crowdsec_blocklist_import
     state: absent

@@ -9,7 +9,7 @@
     host_keys_out: "host_keys.json"
     host_keys_hosts: "{{ groups['remnanodes'] | default([]) }}"
   tasks:
-    - name: "[HostKeys] Build the resolved target list"
+    - name: "HostKeys | Build the resolved target list"
       ansible.builtin.set_fact:
         host_keys_targets: >-
           {{ host_keys_targets | default([]) + [ {
@@ -19,7 +19,7 @@
       loop: "{{ host_keys_hosts }}"
       changed_when: false
 
-    - name: "[HostKeys] Write the resolved SSH targets"
+    - name: "HostKeys | Write the resolved SSH targets"
       ansible.builtin.copy:
         content: "{{ host_keys_targets | default([]) | to_json }}"
         dest: "{{ host_keys_out }}"

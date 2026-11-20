@@ -1,5 +1,5 @@
 ---
-- name: "[Remnanode] Assert the node join credentials"
+- name: "Remnanode | Assert the node join credentials"
   ansible.builtin.assert:
     that:
       - (remnanode_node_port | string | trim) is match('^[0-9]{1,5}$')
@@ -13,12 +13,12 @@
       inventory/host_vars/<host>/main.yml as remnanode_node_port and
       vault_remnanode_secret_key.
 
-- name: "[Remnanode] Ensure Docker Engine and the Compose v2 plugin are present"
+- name: "Remnanode | Ensure Docker Engine and the Compose v2 plugin are present"
   ansible.builtin.include_role:
     name: helpers
     tasks_from: install_docker
 
-- name: "[Remnanode] Ensure the node stack directory exists"
+- name: "Remnanode | Ensure the node stack directory exists"
   ansible.builtin.file:
     path: "{{ remnanode_dir }}"
     state: directory
@@ -26,7 +26,7 @@
     group: root
     mode: "0700"
 
-- name: "[Remnanode] Render the node stack"
+- name: "Remnanode | Render the node stack"
   ansible.builtin.template:
     src: remnanode/docker-compose.yml.j2
     dest: "{{ remnanode_dir }}/docker-compose.yml"
@@ -35,14 +35,14 @@
     mode: "0600"
   no_log: true
 
-- name: "[Remnanode] Deploy the node"
+- name: "Remnanode | Deploy the node"
   community.docker.docker_compose_v2:
     project_src: "{{ remnanode_dir }}"
     state: present
     remove_orphans: true
   when: not ansible_check_mode
 
-- name: "[Remnanode] Wait for the node to listen on NODE_PORT"
+- name: "Remnanode | Wait for the node to listen on NODE_PORT"
   ansible.builtin.wait_for:
     host: 127.0.0.1
     port: "{{ remnanode_node_port | int }}"
