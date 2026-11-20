@@ -211,6 +211,9 @@ severity; `tests/` holds the automated suite.
 - [ ] `make hostkeys` refuses a changed host key after printing its
       fingerprint and leaves `known_hosts` intact; `FORCE=1` replaces it. One
       unreachable host does not truncate or partially write the file.
+- [ ] With a stale `known_hosts` entry the bootstrap probe fails naming the host
+      key (not the credentials) and points at `FORCE=1`/`REBUILD=1`; the same
+      run after accepting the key reaches the host.
 - [ ] `make deploy`: `iac` created with passwordless sudo and the
       configured keys, the admin account with password sudo, Docker Engine and
       Compose v2 present. A second run leaves the host `changed=0` (`add_host` on
