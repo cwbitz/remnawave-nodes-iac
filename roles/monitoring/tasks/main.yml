@@ -74,18 +74,44 @@
   when: crowdsec_enabled | bool
   tags: [crowdsec]
 
+- name: "Monitoring | Ensure the backup directory exists"
+  ansible.builtin.file:
+    path: /var/backups
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  when: crowdsec_enabled | bool
+  tags: [crowdsec]
+
+- name: "Monitoring | Inspect the existing CrowdSec directories"
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop:
+    - /etc/crowdsec
+    - /var/lib/crowdsec
+  register: monitoring_crowdsec_existing
+  when: crowdsec_enabled | bool
+  tags: [crowdsec]
+
+- name: "Monitoring | Select the CrowdSec directories to back up"
+  ansible.builtin.set_fact:
+    monitoring_crowdsec_backup_members: >-
+      {{ monitoring_crowdsec_existing.results
+         | selectattr('stat.exists', 'defined') | selectattr('stat.exists')
+         | map(attribute='item') | map('regex_replace', '^/', '') | list }}
+  when: crowdsec_enabled | bool
+  tags: [crowdsec]
+
 - name: "Monitoring | Back up CrowdSec before the pinned upgrade"
   ansible.builtin.command:
-    argv:
-      - tar
-      - czf
-      - "/var/backups/crowdsec-pre-{{ crowdsec_version }}.tgz"
-      - -C
-      - /
-      - etc/crowdsec
-      - var/lib/crowdsec
+    argv: >-
+      {{ ['tar', 'czf', '/var/backups/crowdsec-pre-' ~ crowdsec_version ~ '.tgz', '-C', '/']
+         + monitoring_crowdsec_backup_members }}
     creates: "/var/backups/crowdsec-pre-{{ crowdsec_version }}.tgz"
-  when: crowdsec_enabled | bool
+  when:
+    - crowdsec_enabled | bool
+    - monitoring_crowdsec_backup_members | length > 0
   tags: [crowdsec]
 
 - name: "Monitoring | Install the pinned CrowdSec engine"
@@ -122,6 +148,13 @@
       {{ ([pkg_node_exporter] if node_exporter_enabled | bool else [])
          }}
 
+- name: "Monitoring | Inspect the existing firewall bouncer configuration"
+  ansible.builtin.stat:
+    path: /etc/crowdsec/bouncers
+  register: monitoring_bouncer_config
+  when: crowdsec_enabled | bool
+  tags: [crowdsec]
+
 - name: "Monitoring | Back up the firewall bouncer configuration"
   ansible.builtin.command:
     argv:
@@ -132,7 +165,9 @@
       - /
       - etc/crowdsec/bouncers
     creates: "/var/backups/crowdsec-firewall-bouncer-pre-{{ crowdsec_firewall_bouncer_version }}.tgz"
-  when: crowdsec_enabled | bool
+  when:
+    - crowdsec_enabled | bool
+    - monitoring_bouncer_config.stat.exists | default(false)
   tags: [crowdsec]
 
 - name: "Monitoring | Install the pinned CrowdSec firewall bouncer"
@@ -238,7 +273,7 @@
     group: root
     mode: "0640"
   when: alloy_enabled | bool
-  notify: "[Monitoring] Restart alloy"
+  notify: "Monitoring | Restart alloy"
 
 - name: "Monitoring | Render the monitoring stack"
   ansible.builtin.template:
@@ -281,7 +316,7 @@
   when:
     - node_exporter_enabled | bool
     - (overlay_ip | default('', true) | length) > 0
-  notify: "[Monitoring] Restart node_exporter"
+  notify: "Monitoring | Restart node_exporter"
 
 - name: "Monitoring | Ensure the node_exporter drop-in directory exists"
   ansible.builtin.file:
@@ -304,7 +339,7 @@
   when:
     - node_exporter_enabled | bool
     - (overlay_ip | default('', true) | length) > 0
-  notify: "[Monitoring] Restart node_exporter"
+  notify: "Monitoring | Restart node_exporter"
 
 - name: "Monitoring | Point the CrowdSec metrics listener at the overlay"
   ansible.builtin.copy:
@@ -322,7 +357,7 @@
   when:
     - crowdsec_enabled | bool
     - (overlay_ip | default('')) | length > 0
-  notify: "[Monitoring] Restart crowdsec"
+  notify: "Monitoring | Restart crowdsec"
 
 - name: "Monitoring | Ensure the crowdsec drop-in directory exists"
   ansible.builtin.file:
@@ -345,7 +380,7 @@
   when:
     - crowdsec_enabled | bool
     - (overlay_ip | default('')) | length > 0
-  notify: "[Monitoring] Restart crowdsec"
+  notify: "Monitoring | Restart crowdsec"
 
 - name: "Monitoring | Converge the CrowdSec web UI machine"
   ansible.builtin.include_tasks: crowdsec_web_ui_machine.yml
