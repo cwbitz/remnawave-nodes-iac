@@ -9,7 +9,9 @@ host at a time.
 1. **Probes the SSH identities** `[iac, admin, root]` (key first,
    then password) and uses the first that can also escalate: `iac` is proven with
    `sudo -n`, `admin` with its password through `sudo -S`, and `root` needs no
-   escalation.
+   escalation. A host key that does not match `known_hosts` is reported as such
+   (verify the fingerprint, then `REBUILD=1` or `make hostkeys FORCE=1`) instead
+   of as a credential failure.
 2. **Creates/repairs the `iac` automation account** with NOPASSWD sudo, unless it
    already connected as `iac`. Password mode hashes with a per-account random
    salt and applies `update_password=on_create`, so re-runs are idempotent and a

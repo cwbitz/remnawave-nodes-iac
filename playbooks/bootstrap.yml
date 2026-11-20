@@ -29,6 +29,11 @@
         # Hard per-attempt cap: ConnectTimeout only bounds the TCP connect, not
         # the auth exchange, so a stalled link can otherwise hang the probe.
         CMD_TIMEOUT=20
+        # ssh stderr is kept per attempt so a refused host key is reported as
+        # itself instead of as a credential failure (it carries no secret).
+        err="$(mktemp)"
+        trap 'rm -f "$err"' EXIT
+        hostkey_problem=0
         try_identity() {
           id="$1"
           user=$(eval echo "\$PROBE_${id}_USER")
@@ -52,18 +57,22 @@
               printf '%s\n' "$pw" \
                 | SSHPASS="$pw" timeout "$CMD_TIMEOUT" \
                   sshpass -e ssh $base $kopt "$user@$HOST" \
-                  "sudo -S -p '' true" >/dev/null 2>&1 && return 0
+                  "sudo -S -p '' true" >/dev/null 2>"$err" && return 0
             else
-              SSHPASS="$pw" timeout "$CMD_TIMEOUT" sshpass -e ssh $base $kopt "$user@$HOST" "$remote" >/dev/null 2>&1 && return 0
+              SSHPASS="$pw" timeout "$CMD_TIMEOUT" sshpass -e ssh $base $kopt "$user@$HOST" "$remote" >/dev/null 2>"$err" && return 0
             fi
           else
-            timeout "$CMD_TIMEOUT" ssh $base -o BatchMode=yes $kopt "$user@$HOST" "$remote" >/dev/null 2>&1 && return 0
+            timeout "$CMD_TIMEOUT" ssh $base -o BatchMode=yes $kopt "$user@$HOST" "$remote" >/dev/null 2>"$err" && return 0
+          fi
+          if grep -qE 'REMOTE HOST IDENTIFICATION HAS CHANGED|Host key verification failed' "$err"; then
+            hostkey_problem=1
           fi
           return 1
         }
         for id in IAC ADMIN ROOT; do
           if try_identity "$id"; then echo "$id"; exit 0; fi
         done
+        [ "$hostkey_problem" -eq 1 ] && echo HOSTKEY
         exit 1
       args:
         executable: /bin/bash
@@ -82,15 +91,31 @@
       no_log: true
       failed_when: false
 
+    - name: "Probe | Fail on a changed or unverifiable host key"
+      ansible.builtin.assert:
+        that:
+          - probe.rc == 0
+        fail_msg: >-
+          SSH refused {{ probe_host }}:{{ probe_port }} before trying any
+          credentials: the host key it presents does not match the recorded one.
+          Verify the new fingerprint out of band, then re-run with REBUILD=1
+          (after a host rebuild) or `make hostkeys FORCE=1`. Drop the stale
+          entry with `ssh-keygen -f ~/.ssh/known_hosts -R {{ probe_host }}` only
+          after that verification.
+      when: probe.stdout | trim == 'HOSTKEY'
+
     - name: "Probe | Fail if no identity can connect"
       ansible.builtin.assert:
         that:
           - probe.rc == 0
         fail_msg: >-
-          Could not log in as iac, admin or root with
-          the configured credentials. Check inventory/host_vars/<host>/vault.yml for the
-          passwords (vault_{ansible,admin,root}_password) and the main.yml next to
-          it for the key paths (host_<id>_ssh_privkey_file), plus the host.
+          Could not log in as iac, admin or root with the configured credentials.
+          Check inventory/host_vars/<host>/vault.yml for the passwords
+          (vault_host_iac_password, vault_host_admin_password,
+          vault_host_root_password) and the main.yml next to it for the key paths
+          (host_iac_ssh_privkey_file, host_admin_ssh_privkey_file,
+          host_root_ssh_privkey_file), plus the host.
+      when: probe.stdout | trim != 'HOSTKEY'
 
     - name: "Probe | Record the working identity"
       ansible.builtin.set_fact:
