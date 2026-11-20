@@ -321,8 +321,12 @@ severity; `tests/` holds the automated suite.
 ### CrowdSec engine and blocklist importer
 
 The engine is pinned to `crowdsec_version` (currently 1.8.1) from the packagecloud
-bookworm repository; Debian's own trixie package is older. The pre-upgrade backup
-is written to `/var/backups/crowdsec-pre-<version>.tgz`.
+bookworm repository; Debian's own trixie package is older. An existing
+installation is archived to `/var/backups/crowdsec-pre-<version>.tgz` (and its
+bouncer configuration to
+`/var/backups/crowdsec-firewall-bouncer-pre-<version>.tgz`) before the pinned
+upgrade; a host without either state directory — a first deploy — has nothing to
+archive, so no backup file is written.
 
 The optional blocklist importer runs next to the LAPI and is controlled by:
 
