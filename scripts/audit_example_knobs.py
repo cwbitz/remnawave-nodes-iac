@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Audit inventory/host_vars/example/main.yml against the project's knobs.
 
-`make host-init` copies the example (comment-free) to
+`make prep` copies the example (comment-free) to
 ``inventory/host_vars/<host>/main.yml``, so the example is the template for every
 new host and must carry every operator knob with its project default. This audit
 (run by ``make lint`` / CI) keeps that true:

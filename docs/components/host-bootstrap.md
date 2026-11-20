@@ -1,6 +1,6 @@
 # Host bootstrap
 
-`playbooks/bootstrap.yml` (`make host-bootstrap [HOST=]`) — optional, opt-in, and
+`playbooks/bootstrap.yml` (`make deploy [HOST=]`) — optional, opt-in, and
 never part of `playbooks/site.yml`; `make deploy` runs it first. It targets one
 host at a time.
 

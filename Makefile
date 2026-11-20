@@ -3,21 +3,27 @@ SHELL := /bin/bash
 
 ANS_PLAY      := ansible-playbook
 PLAYBOOK      := playbooks/site.yml
-INVENTORY     := inventory/hosts.yml
-INV           := $(INVENTORY)
+INV           := inventory/hosts.yml
 INVENTORY_DIR := inventory
-INVENTORY_HOSTS = ansible-inventory -i $(INVENTORY) --list 2>/dev/null | python3 -c 'import json,sys; print("\n".join(sorted(json.load(sys.stdin).get("_meta",{}).get("hostvars",{}))))'
+INVENTORY_HOSTS = ansible-inventory -i $(INV) --list 2>/dev/null | python3 -c 'import json,sys; print("\n".join(sorted(json.load(sys.stdin).get("_meta",{}).get("hostvars",{}))))'
 
 TAGS ?=
+TAGS_ARG = $(if $(TAGS),--tags $(TAGS),)
 HOST ?=
 
-HOST_IP ?=
-HOST_PORT ?=
+comma := ,
+HOST_LITERAL_BAD = $(strip $(findstring *,$(HOST))$(findstring ?,$(HOST))$(findstring [,$(HOST))$(findstring ],$(HOST))$(findstring !,$(HOST))$(findstring :,$(HOST)))
+$(if $(HOST_LITERAL_BAD),$(error HOST must be comma-separated literal host names (no Ansible pattern syntax); got '$(HOST)'))
+$(if $(word 2,$(HOST)),$(error HOST must be comma-separated literal host names (no spaces); got '$(HOST)'))
+HOST_LIST = $(strip $(subst $(comma), ,$(HOST)))
+HOST_ARG = $(if $(HOST),--limit '$(HOST):localhost',)
+HOST_SINGLE_GUARD = test "$$(printf '%s' '$(HOST_LIST)' | wc -w)" -le 1 || { echo "ERROR: this target needs exactly one HOST; got '$(HOST)'." >&2; exit 2; }
 
-$(foreach v,HOST HOST_IP HOST_PORT,$(if $(filter environment,$(origin $(v))),$(warning $(v) is inherited from the environment; pass $(v)=... explicitly if unintended)))
-REFRESH ?=
+IP ?=
+PORT ?=
+
+$(foreach v,HOST IP PORT,$(if $(filter environment,$(origin $(v))),$(warning $(v) is inherited from the environment; pass $(v)=... explicitly if unintended)))
 REBUILD ?=
-KNOWN_HOSTS ?= $(HOME)/.ssh/known_hosts
 
 export ANSIBLE_VAULT_PASSWORD_FILE := $(HOME)/.config/projects/remnawave-nodes-iac/ansible_vault_password
 
@@ -87,17 +93,19 @@ agent-check: ensure-keychain
 	fi
 
 .PHONY: help
+HELP_TARGETS := install prep edit view \
+                deploy dry-run print \
+                help
+
 help: ## Show this help
 	@printf '\nUsage: make <target> [VAR=value ...]\n\n'
-	@awk 'BEGIN {FS = ":.*?## "} \
-		/^[a-zA-Z0-9_-]+:.*?## / { if ($$1 == "help") { hd = $$2; next } \
-			printf "  \033[36m%-25s\033[0m %s\n", $$1, $$2 } \
-		END { printf "  \033[36m%-25s\033[0m %s\n", "help", hd }' \
+	@awk -v order="$(HELP_TARGETS)" 'BEGIN { FS = ":.*?## "; n=split(order, a, " "); for (i=1;i<=n;i++) rank[a[i]]=i } \
+		/^[a-zA-Z0-9_-]+:.*?## / { if ($$1 in rank) desc[$$1]=$$2 } \
+		END { for (i=1;i<=n;i++) { t=a[i]; if (t in desc) printf "  \033[36m%-25s\033[0m %s\n", t, desc[t] } }' \
 		$(MAKEFILE_LIST)
 	@printf '\n'
-
 .PHONY: install
-install: ensure-sshpass ensure-keychain ## Install the pinned toolchain, collections, and control-node dependencies
+install: ensure-sshpass ensure-keychain ## Install the pinned toolchain, Ansible collections and control-node dependencies
 	@if command -v mise >/dev/null 2>&1; then mise install; \
 	elif command -v asdf >/dev/null 2>&1; then asdf install; \
 	else echo "Neither mise nor asdf found; install one, or ensure ansible-core 2.19.x is on PATH." >&2; exit 1; fi
@@ -165,10 +173,17 @@ ensure-keychain: verify-keychain-pin
 	install -m 0755 "$(KEYCHAIN_ASSET)" "$(KEYCHAIN_BIN)"; \
 	echo "keychain installed: $(KEYCHAIN_BIN) (v$(KEYCHAIN_VERSION))"
 
-.PHONY: host-init
-host-init: vault-init ## Scaffold host_vars/<HOST> + the inventory entry (HOST default remnanode-1, IP default CHANGE_ME_HOST_IP, FORCE=1 replaces an existing entry)
-	@set -e; host="$(HOST)"; host="$${host:-remnanode-1}"; ip="$(HOST_IP)"; ip="$${ip:-CHANGE_ME_HOST_IP}"; \
-	if [ -e "$(INVENTORY)" ]; then :; else python3 $(CURDIR)/scripts/render_clean_template.py inventory/hosts.yml.example $(INVENTORY); echo "Created $(INVENTORY) from example (comments stripped)"; fi; \
+.PHONY: prep
+prep: vault-init ## Scaffold a node: inventory entry and host_vars pair; HOST=<host>, IP=<address>, FORCE=1 overwrites
+	@$(HOST_SINGLE_GUARD); set -e; host="$(HOST)"; \
+	if [ -z "$$host" ]; then \
+		hosts="$$($(INVENTORY_HOSTS))"; \
+		set -- $$hosts; \
+		if [ "$$#" -gt 1 ]; then echo "ERROR: $(INV) holds $$# hosts; pass HOST=<hostname>." >&2; exit 1; fi; \
+		[ "$$#" -eq 1 ] && host="$$1"; \
+	fi; \
+	host="$${host:-remnanode-1}"; ip="$(IP)"; ip="$${ip:-CHANGE_ME_HOST_IP}"; \
+	if [ -e "$(INV)" ]; then :; else python3 $(CURDIR)/scripts/render_clean_template.py inventory/hosts.yml.example $(INV); echo "Created $(INV) from example (comments stripped)"; fi; \
 	install -d -m 0700 $(INVENTORY_DIR)/host_vars/$$host; \
 	if [ ! -e $(INVENTORY_DIR)/host_vars/$$host/main.yml ]; then python3 $(CURDIR)/scripts/render_clean_template.py --strip-blank-lines $(INVENTORY_DIR)/host_vars/example/main.yml $(INVENTORY_DIR)/host_vars/$$host/main.yml; fi; \
 	chmod 0644 $(INVENTORY_DIR)/host_vars/$$host/main.yml; \
@@ -178,17 +193,13 @@ host-init: vault-init ## Scaffold host_vars/<HOST> + the inventory entry (HOST d
 		ansible-vault encrypt $(INVENTORY_DIR)/host_vars/$$host/vault.yml; \
 	fi; \
 	chmod 0600 $(INVENTORY_DIR)/host_vars/$$host/vault.yml; \
-	entry=$$(python3 $(CURDIR)/scripts/ensure_inventory_host.py "$(INVENTORY)" "$$host" --group remnanodes --ansible-host "$$ip" $(if $(HOST_PORT),--ansible-port "$(HOST_PORT)") $(if $(FORCE),--force)); \
+	entry=$$(python3 $(CURDIR)/scripts/ensure_inventory_host.py "$(INV)" "$$host" --group remnanodes --ansible-host "$$ip" $(if $(PORT),--ansible-port "$(PORT)") $(if $(FORCE),--force)); \
 	printf '%s\n' "$$entry"; \
 	effective_host=$$(printf '%s\n' "$$entry" | sed -n 's/^effective ansible_host=//p'); \
 	effective_port=$$(printf '%s\n' "$$entry" | sed -n 's/^effective ansible_port=//p'); \
-	echo "Scaffolded $(INVENTORY_DIR)/host_vars/$$host/ (ansible_host: $${effective_host:-unset}, ansible_port: $${effective_port:-22} in $(INVENTORY))"; \
-	echo "next: make vault-edit HOST=$$host   (fill the CHANGE_ME_* values; generated ones fill themselves)"; \
+	echo "Scaffolded $(INVENTORY_DIR)/host_vars/$$host/ (ansible_host: $${effective_host:-unset}, ansible_port: $${effective_port:-22} in $(INV))"; \
+	echo "next: make edit HOST=$$host   (fill the CHANGE_ME_* values; generated ones fill themselves)"; \
 	echo "      verify: make print HOST=$$host"
-
-.PHONY: host-bootstrap
-host-bootstrap: vault-init rebuild-reset hostkey-init agent-fallback ## Create the iac automation account on one host (HOST=<name>, default the first node); refreshes host keys first; REBUILD=1 after a host rebuild
-	$(SSH_AGENT_RUN) $(ANS_PLAY) -i $(INVENTORY) playbooks/bootstrap.yml $(if $(HOST),-e bootstrap_host=$(HOST),)
 
 .PHONY: rebuild-reset
 rebuild-reset:
@@ -198,13 +209,13 @@ rebuild-reset:
 		rm -rf .cache/facts; \
 	fi
 
-.PHONY: hostkey-init
-hostkey-init: vault-init ## Refresh every managed host's SSH host key (HOST=<name> limits it; FORCE=1 replaces a changed key)
+.PHONY: hostkeys
+hostkeys: vault-init
 	@set -e; \
-	nh="$(KNOWN_HOSTS)"; mkdir -p "$$(dirname "$$nh")"; tmp=$$(mktemp); targets=$$(mktemp); tsv=$$(mktemp); pub=$$(mktemp); failures=0; strict="$(if $(HOST),1,0)"; \
+	nh="$(HOME)/.ssh/known_hosts"; mkdir -p "$$(dirname "$$nh")"; tmp=$$(mktemp); targets=$$(mktemp); tsv=$$(mktemp); pub=$$(mktemp); failures=0; strict="$(if $(HOST),1,0)"; \
 	trap 'rm -f "$$tmp" "$$targets" "$$tsv" "$$pub"' EXIT; \
 	if [ -f "$$nh" ]; then cp "$$nh" "$$tmp"; else : > "$$tmp"; fi; \
-	$(ANS_PLAY) -i $(INVENTORY) playbooks/host_keys.yml -e host_keys_out="$$targets" $(if $(HOST),-e '{"host_keys_hosts":["$(HOST)"]}',) >/dev/null; \
+	$(ANS_PLAY) -i $(INV) playbooks/host_keys.yml -e host_keys_out="$$targets" -e host_keys_hosts='$(HOST)' >/dev/null; \
 	python3 -c 'import json,sys; [print("{}\t{}\t{}".format(t["name"],t["host"],t["port"])) for t in json.load(open(sys.argv[1]))]' "$$targets" > "$$tsv"; \
 	mv "$$tsv" "$$targets"; \
 	test -s "$$targets" || { echo "ERROR: no hosts resolved from the inventory."; exit 1; }; \
@@ -239,7 +250,7 @@ hostkey-init: vault-init ## Refresh every managed host's SSH host key (HOST=<nam
 	echo "host keys refreshed in $$nh"
 
 .PHONY: vault-init
-vault-init: ## One-time: generate the vault password (idempotent)
+vault-init:
 	@mkdir -p $(dir $(ANSIBLE_VAULT_PASSWORD_FILE))
 	@if [ ! -s "$(ANSIBLE_VAULT_PASSWORD_FILE)" ]; then \
 		openssl rand -base64 32 > "$(ANSIBLE_VAULT_PASSWORD_FILE)"; \
@@ -258,16 +269,16 @@ vault-init: ## One-time: generate the vault password (idempotent)
 
 .PHONY: require-inventory
 require-inventory:
-	@if [ ! -f "$(INVENTORY)" ]; then \
-		echo "ERROR: $(INVENTORY) does not exist yet." >&2; \
+	@if [ ! -f "$(INV)" ]; then \
+		echo "ERROR: $(INV) does not exist yet." >&2; \
 		echo "Create a host from the committed template first:" >&2; \
-		echo "  make host-init HOST=<hostname>" >&2; \
-		echo "(it copies inventory/hosts.yml.example -> $(INVENTORY) and scaffolds host_vars/<hostname>/)" >&2; \
+		echo "  make prep HOST=<hostname>" >&2; \
+		echo "(it copies inventory/hosts.yml.example -> $(INV) and scaffolds host_vars/<hostname>/)" >&2; \
 		exit 1; \
 	fi
 
-.PHONY: vault-edit
-vault-edit: vault-init require-inventory ## Edit one host's vault (keys re-sorted alphabetically; refuses a save when the vault changed during the edit; HOST=<name>; auto when a single host)
+.PHONY: edit
+edit: vault-init require-inventory ## Edit a node's vault, keys sorted; HOST=<host>
 	@host="$(HOST)"; \
 	if [ -z "$$host" ]; then \
 		hosts="$$($(INVENTORY_HOSTS))"; \
@@ -275,7 +286,7 @@ vault-edit: vault-init require-inventory ## Edit one host's vault (keys re-sorte
 		[ "$$#" -eq 1 ] && host="$$1"; \
 	fi; \
 	if [ -z "$$host" ]; then \
-		echo "Usage: make vault-edit HOST=<hostname> (required when the inventory has more than one host)" >&2; \
+		echo "Usage: make edit HOST=<hostname> (required when the inventory has more than one host)" >&2; \
 		echo "Available hosts:" >&2; \
 		printf '  %s\n' $$hosts >&2; \
 		exit 1; \
@@ -288,12 +299,12 @@ vault-edit: vault-init require-inventory ## Edit one host's vault (keys re-sorte
 	fi; \
 	python3 $(CURDIR)/scripts/edit_vault.py "$$p"
 
-.PHONY: vault-view
-vault-view: vault-init require-inventory ## View vault.yml for EVERY host, or one with HOST=<name> (read-only)
+.PHONY: view
+view: vault-init require-inventory ## Print every node's vault, or one with HOST=<host>
 	@hosts="$(HOST)"; \
 	[ -n "$$hosts" ] || hosts="$$($(INVENTORY_HOSTS))"; \
 	if [ -z "$$hosts" ]; then \
-		echo "No hosts found in $(INVENTORY)." >&2; exit 1; \
+		echo "No hosts found in $(INV)." >&2; exit 1; \
 	fi; \
 	for host in $$hosts; do \
 		p="$(INVENTORY_DIR)/host_vars/$$host/vault.yml"; \
@@ -307,10 +318,10 @@ vault-view: vault-init require-inventory ## View vault.yml for EVERY host, or on
 
 .PHONY: validate-knobs
 validate-knobs: vault-init
-	@if [ -f $(INVENTORY) ]; then $(ANS_PLAY) -i $(INVENTORY) playbooks/validate_knobs.yml; else echo "validate-knobs: $(INVENTORY) missing, skipped"; fi
+	@if [ -f $(INV) ]; then $(ANS_PLAY) -i $(INV) playbooks/validate_knobs.yml; else echo "validate-knobs: $(INV) missing, skipped"; fi
 
 .PHONY: test
-test: ## Run the unit tests for the control-node helpers
+test:
 	pytest -q tests
 
 .PHONY: lint
@@ -332,40 +343,39 @@ lint: vault-init validate-knobs
 	gitleaks dir . --config .gitleaks.toml --no-banner --redact
 
 .PHONY: dry-run
-dry-run: vault-init rebuild-reset validate-knobs agent-fallback ## Dry-run (--check --diff); REFRESH=1 refreshes host keys first; REBUILD=1 after a host rebuild
-	@if [ -n "$(REFRESH)" ]; then $(MAKE) --no-print-directory hostkey-init; fi; \
-	$(SSH_AGENT_RUN) $(ANS_PLAY) -i $(INVENTORY) $(PLAYBOOK) --check --diff $(if $(TAGS),--tags $(TAGS),)
+dry-run: vault-init rebuild-reset validate-knobs agent-fallback ## Preview the deploy with --check --diff; HOST=<hosts>, REBUILD=1 after a rebuild
+	$(SSH_AGENT_RUN) $(ANS_PLAY) -i $(INV) $(PLAYBOOK) $(HOST_ARG) --check --diff $(TAGS_ARG)
 
 .PHONY: deploy
-deploy: vault-init rebuild-reset hostkey-init validate-knobs agent-fallback ## One-shot: bootstrap every node, then deploy the Remnawave node stack; HOST=<name> bootstraps only that node; TAGS=... runs only tagged roles; refreshes host keys first; REBUILD=1 after a host rebuild
+deploy: vault-init rebuild-reset hostkeys validate-knobs agent-fallback ## Bootstrap the selected nodes, then deploy the Remnawave node stack; HOST=<hosts>, TAGS=<tags>, REBUILD=1 after a rebuild
 	@set -e; \
-	hosts="$(HOST)"; \
+	hosts="$(HOST_LIST)"; \
 	if [ -z "$$hosts" ]; then \
-		hosts="$$(ansible -i $(INVENTORY) --list-hosts remnanodes 2>/dev/null \
+		hosts="$$(ansible -i $(INV) --list-hosts remnanodes 2>/dev/null \
 			| tail -n +2 | awk '$$1=$$1' | sed '/^$$/d')"; \
 	fi; \
 	if [ -z "$$hosts" ]; then \
-		echo "ERROR: no remnanodes host resolved from $(INVENTORY)." >&2; \
-		echo "Scaffold one with: make host-init HOST=<hostname> HOST_IP=<management-ip>" >&2; \
+		echo "ERROR: no remnanodes host resolved from $(INV)." >&2; \
+		echo "Scaffold one with: make prep HOST=<hostname> IP=<management-ip>" >&2; \
 		exit 1; \
 	fi; \
 	for host in $$hosts; do \
 		echo "==> Bootstrapping $$host (playbooks/bootstrap.yml: service account, Docker)..."; \
-		$(SSH_AGENT_RUN) $(ANS_PLAY) -i $(INVENTORY) playbooks/bootstrap.yml -e bootstrap_host="$$host"; \
+		$(SSH_AGENT_RUN) $(ANS_PLAY) -i $(INV) playbooks/bootstrap.yml -e bootstrap_host="$$host"; \
 	done
 	@echo "==> Deploying the Remnawave node stack (playbooks/site.yml)..."
-	$(SSH_AGENT_RUN) $(ANS_PLAY) -i $(INVENTORY) $(PLAYBOOK) $(if $(TAGS),--tags $(TAGS),)
+	$(SSH_AGENT_RUN) $(ANS_PLAY) -i $(INV) $(PLAYBOOK) $(HOST_ARG) $(TAGS_ARG)
 
 .PHONY: agent
-agent: vault-init agent-fallback ## Join the nodes to the NetBird overlay (agent only)
-	$(SSH_AGENT_RUN) $(ANS_PLAY) -i $(INVENTORY) playbooks/agent.yml
+agent: vault-init agent-fallback
+	$(SSH_AGENT_RUN) $(ANS_PLAY) -i $(INV) playbooks/agent.yml $(HOST_ARG)
 
 .PHONY: monitoring
-monitoring: vault-init agent-fallback ## Overlay join + host monitoring/security (CrowdSec + node_exporter); opt-in per component
-	$(SSH_AGENT_RUN) $(ANS_PLAY) -i $(INVENTORY) playbooks/monitoring.yml
+monitoring: vault-init agent-fallback
+	$(SSH_AGENT_RUN) $(ANS_PLAY) -i $(INV) playbooks/monitoring.yml $(HOST_ARG)
 
 .PHONY: print
-print: vault-init require-inventory ## Print resolved host vars (incl. decrypted vault)
+print: vault-init require-inventory ## Print a node's resolved variables, including decrypted vault values; HOST=<host>
 	@host="$(HOST)"; \
 	if [ -z "$$host" ]; then \
 		hosts="$$($(INVENTORY_HOSTS))"; \
@@ -376,4 +386,4 @@ print: vault-init require-inventory ## Print resolved host vars (incl. decrypted
 		echo "Usage: make print HOST=<hostname> (required when the inventory has no single host)" >&2; exit 1; \
 	fi; \
 	echo "Resolved host: $$host"; \
-	ansible -i $(INVENTORY) "$$host" -m ansible.builtin.debug -a "var=hostvars[inventory_hostname]"
+	ansible -i $(INV) "$$host" -m ansible.builtin.debug -a "var=hostvars[inventory_hostname]"

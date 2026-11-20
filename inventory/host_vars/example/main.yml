@@ -2,7 +2,7 @@
 # ==============================================================================
 # Per-host configuration (inventory/host_vars/example/main.yml)
 # ==============================================================================
-# `make host-init` copies this file to inventory/host_vars/<hostname>/main.yml.
+# `make prep` copies this file to inventory/host_vars/<hostname>/main.yml.
 # Every knob is listed with its default; secrets/PII go in the encrypted
 # vault.yml next to it.
 #
@@ -27,7 +27,7 @@ host_root_ssh_pubkey_file: ""
 host_root_ssh_privkey_file: ""
 
 # ==============================================================================
-# Host bootstrap (make host-bootstrap; NOT part of make deploy)
+# Host bootstrap (part of `make deploy`; not part of `site.yml`)
 # ==============================================================================
 # install_docker false requires a preinstalled Docker. Mirrors for hosts where the
 # defaults are slow or blocked; apt_mirror is the Debian suite root and must end

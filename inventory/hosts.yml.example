@@ -2,7 +2,7 @@
 # ==============================================================================
 # Ansible Inventory template (inventory/hosts.yml.example)
 # ==============================================================================
-# `make host-init HOST=<name> HOST_IP=<addr>` creates this file and the matching
+# `make prep HOST=<name> IP=<addr>` creates this file and the matching
 # host_vars entry. Topology only: ansible_host/ansible_port per host; per-host
 # settings live in inventory/host_vars/<hostname>/main.yml. `remnanodes` is the
 # single group and every playbook's target.
@@ -11,8 +11,8 @@
 # The Remnawave proxy Nodes managed by this project.
 remnanodes:
   hosts:
-    # `make host-init HOST=<name> HOST_IP=<addr>` adds the entry; with no
-    # arguments it scaffolds the default Node `remnanode-1` with a placeholder
+    # `make prep HOST=<name> IP=<addr>` adds the entry; with no arguments it
+    # scaffolds the single inventory host, else `remnanode-1`, with a placeholder
     # address. Example entry:
     #   remnanode-1:
     #     ansible_host: "203.0.113.57"

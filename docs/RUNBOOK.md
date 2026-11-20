@@ -10,22 +10,23 @@ conventions and gotchas.
   start). No Docker and no prior system update required.
 - Control node: ansible-core (pinned), Python 3, `openssl`, and the Galaxy
   collections: `make install`.
-- A host entry: `make host-init HOST=<hostname> HOST_IP=<management-ip>` —
+- A host entry: `make prep HOST=<hostname> IP=<management-ip>` —
   scaffolds `host_vars/<host>/` (encrypting `vault.yml`) and adds the host to
-  `inventory/hosts.yml` as `ansible_host` (`HOST_PORT=` sets `ansible_port`); HOST
-  defaults to `remnanode-1`. Without `HOST_IP` the entry keeps the
-  `CHANGE_ME_HOST_IP` placeholder that the site preflight rejects.
+  `inventory/hosts.yml` as `ansible_host` (`PORT=` sets `ansible_port`); HOST
+  defaults to the single inventory host, else `remnanode-1`. Without `IP` the
+  entry keeps the `CHANGE_ME_HOST_IP` placeholder that the site preflight
+  rejects.
 - Non-secret settings go in `inventory/host_vars/<host>/main.yml`
   (`remnanode_node_port`, `netbird.management_url`, ...); the vault holds the
   SSH creds, `vault_netbird_setup_key` and the Remnawave node secret
   `vault_remnanode_secret_key` (copied from the Panel's node). Edit the vault with
-  `make vault-edit HOST=<host>`.
-- Create the non-root service account (as root, once): `make host-bootstrap`,
+  `make edit HOST=<host>`.
+- Create the non-root service account (as root, once): `make deploy`,
   then point the connection at it in `vault.yml`. Deploys refuse root unless
   `allow_root_login=true`.
 - Key-only SSH administration is an **opt-in** step (`sshd.hardening_enabled`
   in the host's `main.yml`, off by default): enable it only after
-  `make host-bootstrap` has authorized the `iac` key. See §4c.
+  `make deploy` has authorized the `iac` key. See §4c.
 - The vault password file is auto-created by the make targets
   (`~/.config/projects/remnawave-nodes-iac/ansible_vault_password`); keep it safe.
 
@@ -46,7 +47,7 @@ conventions and gotchas.
 ## 2. Deploy
 
 ```bash
-make host-bootstrap  # first run only: create the iac account + Docker
+make deploy  # first run only: create the iac account + Docker
 make dry-run         # dry run (--check --diff)
 make deploy          # bootstrap every node, then deploy the node stack
 ```
@@ -128,7 +129,7 @@ make deploy TAGS=sshd   # key-only SSH (roles/sshd)
 ```
 
 - Off by default. Set `sshd.hardening_enabled: true` in the host's
-  `main.yml` only **after** `make host-bootstrap` has authorized a key that
+  `main.yml` only **after** `make deploy` has authorized a key that
   survives it (the `iac` key, or root's with
   `sshd.permit_root_login: prohibit-password`) — the role proves a key-only login
   works and rolls itself back (failing the run) otherwise. Details:
@@ -146,7 +147,7 @@ make deploy TAGS=sshd   # key-only SSH (roles/sshd)
 - **Node upgrade**: let Renovate bump `/…/remnanode_version` (or edit it), then
   `make deploy TAGS=remnanode`.
 - **Version rollback**: set the previous tag and re-run the deploy.
-- **Full node rebuild**: re-run `make host-init`/`make vault-edit`, or on an
+- **Full node rebuild**: re-run `make prep`/`make edit`, or on an
   already-scaffolded host recreate the container with `make deploy`.
 - **Config rollback**: `git revert` or edit the per-host vars, then `make deploy`.
 - **SSH hardening rollback**: `rm /etc/ssh/sshd_config.d/00-sshd-hardening.conf
@@ -162,9 +163,9 @@ make deploy TAGS=sshd   # key-only SSH (roles/sshd)
 | Overlay peer has no `wt0` address | Valid `vault_netbird_setup_key` and `netbird.management_url` (main.yml); `docker logs netbird`. A changed management URL needs a fresh key + reset `netbird_config` volume. |
 | Central Prometheus shows the node down | The peer joined with a group the observability stack discovers (`endpoint`); overlay up; `curl -s <overlay-ip>:9100/metrics` from another peer. |
 | node-exporter panels show "No data" although the target is up | The push cadence is too slow for the dashboards' 60s `rate()` windows: keep `monitoring.alloy.scrape_interval` at 15s (30s works, 60s yields a single sample per window). Check with `count_over_time(node_load1{instance="<host>"}[5m])` (≈20 points at 15s) and re-run `make deploy TAGS=monitoring`. |
-| `make deploy` refuses root | Expected: run `make host-bootstrap` first, then connect as the `iac` account in `vault.yml` (or set `allow_root_login=true`). |
+| `make deploy` refuses root | Expected: the bootstrap half of `make deploy` runs as root and creates the `iac` account, then the node stack refuses root; set the `iac` credentials in `vault.yml` (or set `allow_root_login=true`). |
 | SSH refuses the private key (`UNPROTECTED PRIVATE KEY FILE`, `are too open`) | The shared `scripts/run-with-ssh-agent.sh` starts the pinned Keychain agent, loads the vault keys and retries once. If it still fails, check the `vault_*_ssh_privkey_file` paths and run `make agent-load`. |
-| `make deploy TAGS=sshd` failed and the host kept password login | Expected: the role reverted `/etc/ssh/sshd_config.d/00-sshd-hardening.conf` and failed. Read the task that failed (the key-only login probe is the usual one): the `iac` key must be authorized by `make host-bootstrap` and accepted by OpenSSH (`make agent-load` for a `/mnt/c` key). |
+| `make deploy TAGS=sshd` failed and the host kept password login | Expected: the role reverted `/etc/ssh/sshd_config.d/00-sshd-hardening.conf` and failed. Read the task that failed (the key-only login probe is the usual one): the `iac` key must be authorized by `make deploy` and accepted by OpenSSH (`make agent-load` for a `/mnt/c` key). |
 | No usable SSH login after enabling hardening | Recover from the provider console: `rm /etc/ssh/sshd_config.d/00-sshd-hardening.conf && systemctl reload ssh`, then set `sshd.hardening_enabled: false` in the host's `main.yml` and re-run. |
 | A vault file is unreadable | It must be ansible-vault encrypted; the helpers re-encrypt a plaintext file on the next write. |
 | `make dry-run` fails with `python3-apt must be installed to use check mode` | The target lacks `python3-apt`; a normal bootstrap run installs it through the `apt` module, or install it directly and re-run. |
@@ -203,14 +204,14 @@ severity; `tests/` holds the automated suite.
 
 ### Bootstrap, deploy and host lifecycle
 
-- [ ] `make host-init HOST=<node> HOST_IP=<addr>` scaffolds the inventory entry,
+- [ ] `make prep HOST=<node> IP=<addr>` scaffolds the inventory entry,
       `host_vars/<node>/` and an encrypted `0600` vault; the
       `CHANGE_ME_HOST_IP` placeholder is refused until replaced; a second run is
       idempotent and `FORCE=1` is required to replace an existing address.
-- [ ] `make hostkey-init` refuses a changed host key after printing its
+- [ ] `make hostkeys` refuses a changed host key after printing its
       fingerprint and leaves `known_hosts` intact; `FORCE=1` replaces it. One
       unreachable host does not truncate or partially write the file.
-- [ ] `make host-bootstrap`: `iac` created with passwordless sudo and the
+- [ ] `make deploy`: `iac` created with passwordless sudo and the
       configured keys, the admin account with password sudo, Docker Engine and
       Compose v2 present. A second run leaves the host `changed=0` (`add_host` on
       the probe play is the documented non-idempotent step).
@@ -267,7 +268,7 @@ severity; `tests/` holds the automated suite.
 - [ ] External probes: SSH and the declared Xray ports are reachable, `NODE_PORT`
       is not, the overlay path reaches the node, and the Panel sees the node
       healthy after a config push.
-- [ ] Vault: `make vault-view` decrypts, a no-op `make vault-edit` keeps the keys
+- [ ] Vault: `make view` decrypts, a no-op `make edit` keeps the keys
       alphabetical and the file encrypted, and a plaintext vault is re-encrypted
       on the next write; a save is refused when a deploy changed the vault during
       the edit.
