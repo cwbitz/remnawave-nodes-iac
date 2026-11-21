@@ -42,10 +42,24 @@
     remove_orphans: true
   when: not ansible_check_mode
 
+- name: "Remnanode | Assert the readiness check is only skipped on a test host"
+  ansible.builtin.assert:
+    that:
+      - >-
+        not (remnanode_skip_readiness_check | bool)
+        or (is_test_host | default(false) | bool)
+    fail_msg: >-
+      remnanode_skip_readiness_check=true skips the readiness check and is only
+      allowed on a host with is_test_host: true; a real node must prove it
+      listens on NODE_PORT before the deploy reports success.
+  when: remnanode_skip_readiness_check | bool
+
 - name: "Remnanode | Wait for the node to listen on NODE_PORT"
   ansible.builtin.wait_for:
     host: 127.0.0.1
     port: "{{ remnanode_node_port | int }}"
     state: started
     timeout: 60
-  when: not ansible_check_mode
+  when:
+    - not ansible_check_mode
+    - not (remnanode_skip_readiness_check | bool)

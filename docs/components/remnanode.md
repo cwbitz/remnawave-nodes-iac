@@ -6,18 +6,31 @@
 ## Inputs
 
 Created in the Panel (**Nodes → Management**, then **Copy docker-compose.yml**).
-Only two values are needed:
+A real node needs two values, plus one test-only toggle:
 
 - `remnanode_node_port` — the `NODE_PORT` value (non-secret; host `main.yml`).
 - `remnanode_secret_key` — the `SECRET_KEY` value, resolved by
   `roles/remnanode/defaults` from `vault_remnanode_secret_key` (never set in
   `main.yml`).
+- `remnanode_skip_readiness_check` — test-only (default `false`). `true` skips
+  the readiness wait, so a deploy on an `is_test_host` host finishes without a
+  working node. The role refuses it on any other host.
 
 The role asserts a valid 1–65535 `NODE_PORT` and a non-empty `SECRET_KEY`, renders
 `roles/remnanode/templates/remnanode/docker-compose.yml.j2` to
 `/opt/remnanode/docker-compose.yml`, then runs it. The rest of the Panel's
 generated compose file is the committed template — rendering is the source of
 truth; never edit the file on the host.
+
+## Test-only mode
+
+`remnanode_skip_readiness_check: true` turns the node into a deploy-only smoke
+test: the compose stack is rendered and started, but the role does not wait for
+`NODE_PORT` to listen. Use it on a host with `is_test_host: true` when there is no
+Panel to issue a real `SECRET_KEY` (a placeholder passes the credential assert);
+the container then keeps restarting and stays unreachable from the Panel. A
+deploy in this mode reports success without proving the node works, so keep the
+toggle `false` everywhere a node is expected to serve traffic.
 
 ## Security
 
