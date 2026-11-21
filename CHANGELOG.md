@@ -1,5 +1,24 @@
 # Changelog
 
+## [4.0.0](https://github.com/cwbitz/remnawave-nodes-iac/compare/v3.0.0...v4.0.0) (2026-11-21)
+
+
+### ⚠ BREAKING CHANGES
+
+* **monitoring:** take the Prometheus write endpoint as a base URL ([#33](https://github.com/cwbitz/remnawave-nodes-iac/issues/33))
+* **inventory:** adopt the shared host-knob and bootstrap contract ([#32](https://github.com/cwbitz/remnawave-nodes-iac/issues/32))
+
+### Features
+
+* **monitoring:** verify the Alloy push and add a local ack receiver ([#34](https://github.com/cwbitz/remnawave-nodes-iac/issues/34)) ([a965f33](https://github.com/cwbitz/remnawave-nodes-iac/commit/a965f33cf5efff4fcd9a80a76889e22f3bda5a4b))
+* **remnanode:** add a test-only switch to skip the readiness check ([#31](https://github.com/cwbitz/remnawave-nodes-iac/issues/31)) ([f133c21](https://github.com/cwbitz/remnawave-nodes-iac/commit/f133c21a4971dfbb1f43e9cb03c9c8a063aaf1ba))
+
+
+### Code Refactoring
+
+* **inventory:** adopt the shared host-knob and bootstrap contract ([#32](https://github.com/cwbitz/remnawave-nodes-iac/issues/32)) ([1e6dda9](https://github.com/cwbitz/remnawave-nodes-iac/commit/1e6dda94c8f0b071c5a1af4797bb034871e61fc0))
+* **monitoring:** take the Prometheus write endpoint as a base URL ([#33](https://github.com/cwbitz/remnawave-nodes-iac/issues/33)) ([9d0dc8e](https://github.com/cwbitz/remnawave-nodes-iac/commit/9d0dc8e3b093b2a6f8648f45f39239d44b4545a6))
+
 ## [3.0.0](https://github.com/cwbitz/remnawave-nodes-iac/compare/v2.1.0...v3.0.0) (2026-11-20)
 
 
