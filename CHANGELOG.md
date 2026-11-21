@@ -1,5 +1,23 @@
 # Changelog
 
+## [3.0.0](https://github.com/cwbitz/remnawave-nodes-iac/compare/v2.1.0...v3.0.0) (2026-11-20)
+
+
+### ⚠ BREAKING CHANGES
+
+* **make:** `make host-init`, `make host-bootstrap`, `make vault-edit`, `make vault-view` and `make hostkey-init` no longer exist; use `make prep`, `make deploy`, `make edit`, `make view` and `make hostkeys`. HOST_IP/HOST_PORT are now IP/PORT, and HOST accepts a comma-separated list of node names.
+
+### Bug Fixes
+
+* **agent:** restart the overlay agent when the daemon is not live ([#30](https://github.com/cwbitz/remnawave-nodes-iac/issues/30)) ([80f20ba](https://github.com/cwbitz/remnawave-nodes-iac/commit/80f20bac958b58ad7057c4d6e6b0b3de3d810907))
+* **bootstrap:** report a changed host key as itself, not as bad credentials ([#28](https://github.com/cwbitz/remnawave-nodes-iac/issues/28)) ([5402eef](https://github.com/cwbitz/remnawave-nodes-iac/commit/5402eeff74802954a9e0a43dfffab0aba21112d3))
+* **monitoring:** skip the CrowdSec pre-upgrade backup on a fresh host ([#29](https://github.com/cwbitz/remnawave-nodes-iac/issues/29)) ([743bd1a](https://github.com/cwbitz/remnawave-nodes-iac/commit/743bd1a4e0dcdd218875415ee5565165c5abe452))
+
+
+### Code Refactoring
+
+* **make:** rename the operator targets and accept a HOST list ([#26](https://github.com/cwbitz/remnawave-nodes-iac/issues/26)) ([aef2d41](https://github.com/cwbitz/remnawave-nodes-iac/commit/aef2d4141da8400de9afeb3d2a250848d586e406))
+
 ## [2.1.0](https://github.com/cwbitz/remnawave-nodes-iac/compare/v2.0.0...v2.1.0) (2026-11-19)
 
 
