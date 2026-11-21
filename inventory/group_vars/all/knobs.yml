@@ -56,6 +56,10 @@ monitoring_defaults:
     enabled: false
     loki_push_url: ""
     prometheus_remote_write_url: ""
+    verify_push: false
+    verify_receiver:
+      mode: "disabled"
+      port: 3100
     scrape_interval: "15s"
     journal_presets: [ssh, security, kernel, services]
     journal_extras: []
@@ -81,8 +85,26 @@ crowdsec_blocklist_import_decision_duration: >-
   {{ monitoring_cfg.crowdsec.blocklist_import.decision_duration }}
 crowdsec_blocklist_import_extra_env: "{{ monitoring_cfg.crowdsec.blocklist_import.extra_env }}"
 alloy_enabled: "{{ monitoring_cfg.alloy.enabled }}"
-loki_push_url: "{{ monitoring_cfg.alloy.loki_push_url }}"
-prometheus_remote_write_url: "{{ monitoring_cfg.alloy.prometheus_remote_write_url }}"
+alloy_verify_receiver_mode: "{{ monitoring_cfg.alloy.verify_receiver.mode }}"
+alloy_verify_receiver_port: "{{ monitoring_cfg.alloy.verify_receiver.port }}"
+alloy_verify_receiver_enabled: >-
+  {{ (monitoring_cfg.alloy.enabled | bool)
+     and (alloy_verify_receiver_mode == 'ack') }}
+alloy_verify_receiver_address: "{{ '127.0.0.1:' ~ alloy_verify_receiver_port }}"
+loki_push_url: >-
+  {{ ('http://' ~ alloy_verify_receiver_address)
+     if (alloy_verify_receiver_enabled | bool)
+     else monitoring_cfg.alloy.loki_push_url }}
+prometheus_remote_write_url: >-
+  {{ ('http://' ~ alloy_verify_receiver_address)
+     if (alloy_verify_receiver_enabled | bool)
+     else monitoring_cfg.alloy.prometheus_remote_write_url }}
+alloy_verify_push: >-
+  {{ (monitoring_cfg.alloy.verify_push | bool)
+     or (alloy_verify_receiver_enabled | bool) }}
+alloy_remote_write_active: >-
+  {{ (prometheus_remote_write_url | default('', true) | length) > 0
+     and ((node_exporter_enabled | bool) or (crowdsec_enabled | bool)) }}
 alloy_scrape_interval: "{{ monitoring_cfg.alloy.scrape_interval }}"
 alloy_journal_presets: "{{ monitoring_cfg.alloy.journal_presets }}"
 alloy_journal_extras: "{{ monitoring_cfg.alloy.journal_extras }}"

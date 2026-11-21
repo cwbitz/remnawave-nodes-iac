@@ -49,3 +49,21 @@
           monitoring.crowdsec.enabled or monitoring.alloy.enabled is true; drop
           the key and toggle the components themselves.
         quiet: true
+
+    - name: Validate the local push verification receiver
+      vars:
+        alloy_cfg: "{{ (monitoring | default({}, true)).alloy | default({}) }}"
+        verify_receiver_cfg: "{{ alloy_cfg.verify_receiver | default({}) }}"
+      ansible.builtin.assert:
+        that:
+          - verify_receiver_cfg.mode | default('disabled') == 'disabled'
+            or not (alloy_cfg.enabled | default(false) | bool)
+            or ((alloy_cfg.loki_push_url | default('', true) | string | trim) == ''
+                and (alloy_cfg.prometheus_remote_write_url | default('', true) | string | trim) == '')
+        fail_msg: >-
+          {{ inventory_hostname }}: monitoring.alloy.verify_receiver.mode is
+          {{ verify_receiver_cfg.mode | default('disabled') }}. The local receiver is a
+          loopback ack sink for test nodes: with alloy enabled it derives both push
+          URLs from verify_receiver.port - leave loki_push_url and
+          prometheus_remote_write_url empty.
+        quiet: true

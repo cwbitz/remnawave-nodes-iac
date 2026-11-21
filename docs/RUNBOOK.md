@@ -108,6 +108,13 @@ make monitoring   # overlay + node_exporter + CrowdSec + firewall bouncer
   (`/etc/systemd/system/prometheus-node-exporter.service.d/10-overlay-wait.conf`)
   waits for the overlay at boot (the agent container creates it after systemd
   started the unit).
+- With `monitoring.alloy.enabled`, `monitoring.alloy.verify_push: true` reads
+  Alloy's counters after the stack is up and fails when no new sample was
+  acknowledged within ~90s or a write was dropped while the check ran. On a
+  disposable node set `monitoring.alloy.verify_receiver.mode: ack` (leave both
+  URL knobs empty) to run a loopback-only acknowledging receiver and verify the
+  pipeline without the central stack. Details:
+  `docs/components/monitoring-security.md`.
 - Details: `docs/components/netbird-overlay.md` and
   `docs/components/monitoring-security.md`.
 
@@ -165,6 +172,7 @@ make deploy TAGS=sshd   # key-only SSH (roles/sshd)
 | Node container restarts | `docker logs remnanode`; confirm `NODE_PORT`/`SECRET_KEY` are correct and unchanged. |
 | Overlay peer has no `wt0` address | Valid `vault_netbird_setup_key` and `netbird.management_url` (main.yml); `docker logs netbird`. A changed management URL needs a fresh key + reset `netbird_config` volume. |
 | Central Prometheus shows the node down | The peer joined with a group the observability stack discovers (`endpoint`); overlay up; `curl -s <overlay-ip>:9100/metrics` from another peer. |
+| `verify_push` fails: Alloy acknowledged no new sample | The receiver rejected or never answered the write. Check `docker logs alloy`, then POST `<prometheus_remote_write_url>/api/v1/write` and `<loki_push_url>/loki/api/v1/push` from the node: both must return 2xx (the knobs take base URLs; the role appends the path). On a disposable node set `monitoring.alloy.verify_receiver.mode: ack` and leave both URL knobs empty so the role runs the acknowledging receiver itself. |
 | node-exporter panels show "No data" although the target is up | The push cadence is too slow for the dashboards' 60s `rate()` windows: keep `monitoring.alloy.scrape_interval` at 15s (30s works, 60s yields a single sample per window). Check with `count_over_time(node_load1{instance="<host>"}[5m])` (≈20 points at 15s) and re-run `make deploy TAGS=monitoring`. |
 | `make deploy` refuses root | Expected: the bootstrap half of `make deploy` runs as root and creates the `iac` account, then the node stack refuses root; set the `iac` credentials in `vault.yml` (or set `allow_root_login=true`). |
 | SSH refuses the private key (`UNPROTECTED PRIVATE KEY FILE`, `are too open`) | The shared `scripts/run-with-ssh-agent.sh` starts the pinned Keychain agent, loads the vault keys and retries once. If it still fails, check the `vault_*_ssh_privkey_file` paths and run `make agent-load`. |
@@ -244,6 +252,12 @@ severity; `tests/` holds the automated suite.
       listen on the overlay only (`ss -lntp`, plus an off-host probe); the bouncer
       is loaded in nftables. With `monitoring.alloy.enabled`, all containers run and an
       unreachable Loki is a warning, not a failure.
+- [ ] `monitoring.alloy.verify_receiver.mode: ack` (both URL knobs empty): the run
+      passes, `alloy-verify-receiver` is up and listens only on
+      `127.0.0.1:<port>`, and the acknowledged-sent timestamp advances; flipping
+      the mode back to `disabled` removes the container on the next run.
+- [ ] `verify_push: true` with a central receiver on a closed port (no local
+      receiver) fails the run and names the knob.
 - [ ] Monitoring component off: disabling `node_exporter` (or CrowdSec) stops and
       disables only that unit. Master off (untagged `playbooks/monitoring.yml`)
       stops and disables all units and removes the Alloy stack, keeping packages;
