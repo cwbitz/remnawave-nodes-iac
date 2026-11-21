@@ -25,6 +25,9 @@ one component is enabled and is retired when all three are off. Reached via
   `monitoring.alloy.prometheus_remote_write_url` set it also scrapes
   `:9100`/`:6060` locally every `monitoring.alloy.scrape_interval` (15s) and
   remote-writes the samples to the central Prometheus, tagged `source="agent"`.
+  Both write knobs are **bases**: the role appends `/loki/api/v1/push` and
+  `/api/v1/write`, so a value that already carries one of those paths is
+  rejected by the knob gate.
 
 The Debian packages self-configure: crowdsec enables `crowdsecurity/linux` +
 `crowdsecurity/sshd` and reads `ssh.service` from journald; the firewall bouncer
