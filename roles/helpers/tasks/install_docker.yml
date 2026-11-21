@@ -42,6 +42,7 @@
           - curl
         state: present
         update_cache: true
+        lock_timeout: "{{ apt_lock_timeout }}"
 
     - name: "Docker | Download the official Docker install script"
       ansible.builtin.get_url:
