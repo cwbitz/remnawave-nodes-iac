@@ -36,10 +36,11 @@ WIRING = {
     "ansible_become", "ansible_ssh_common_args", "become", "user", "password",
     "privkey", "pubkey", "root", "admin", "iac", "legacy", "ansible",
     "ansible_core_min_version", "ansible_core_max_version",
-    "ansible_core_allow_untested",
+    "ansible_core_allow_untested", "apt_lock_timeout",
 }
 EXTRA = {
-    "apt_mirror", "docker_registry_mirrors", "allow_root_login", "timezone",
+    "mirrors", "ssh_keys", "allow_root_login", "timezone",
+    "create_admin_user", "admin_username", "is_test_host",
 }
 
 KEY_RE = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*):(?:\s+(.*))?$")

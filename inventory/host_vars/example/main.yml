@@ -11,33 +11,43 @@
 # inventory/group_vars/all/knobs.yml, so a host overrides only the keys it
 # changes.
 
+# --- Deployment scope ---------------------------------------------------------
+# Test-purpose host: `make deploy` without HOST skips it; an explicit
+# HOST=<name> still deploys it.
+is_test_host: false
+
 # --- SSH connection identities ------------------------------------------------
 # Account name and key paths are non-secret (passwords stay in vault.yml).
 # The optional human `admin` account may be renamed; `iac` is a fixed name. It is
-# created only while create_admin_account is true: console login + sudo, always
+# created only while create_admin_user is true: console login + sudo, always
 # with a password (generated into vault_host_admin_password when empty) plus any
 # configured public key.
-create_admin_account: false
-host_admin_username: "admin"
-host_iac_ssh_pubkey_file: ""
-host_iac_ssh_privkey_file: ""
-host_admin_ssh_pubkey_file: ""
-host_admin_ssh_privkey_file: ""
-host_root_ssh_pubkey_file: ""
-host_root_ssh_privkey_file: ""
+create_admin_user: false
+admin_username: "admin"
+ssh_keys:
+  root:
+    pubkey: ""
+    privkey: ""
+  admin:
+    pubkey: ""
+    privkey: ""
+  iac:
+    pubkey: ""
+    privkey: ""
 
 # ==============================================================================
 # Host bootstrap (part of `make deploy`; not part of `site.yml`)
 # ==============================================================================
 # install_docker false requires a preinstalled Docker. Mirrors for hosts where the
-# defaults are slow or blocked; apt_mirror is the Debian suite root and must end
-# in /debian (the security repo follows apt_mirror).
+# defaults are slow or blocked; mirrors.apt is the Debian suite root and must end
+# in /debian (the security repo follows mirrors.apt).
 install_docker: true
 # IANA timezone for the host clock and journal timestamps (empty keeps the
 # image's setting).
 timezone: "UTC"
-apt_mirror: ""
-docker_registry_mirrors: []
+mirrors:
+  apt: ""
+  docker_registry: []
 
 # ==============================================================================
 # Host firewall

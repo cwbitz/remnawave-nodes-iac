@@ -22,9 +22,15 @@ host at a time.
    `https://get.docker.com`). `install_docker: false` skips the install and fails
    with guidance when Docker is missing.
 4. **Optionally sets the clock and mirrors** (each a no-op unless set):
-   `timezone` (an existing IANA zone), `apt_mirror` (the Debian suite root,
+   `timezone` (an existing IANA zone), `mirrors.apt` (the Debian suite root,
    ending in `/debian`; the security suite derives from it) and
-   `docker_registry_mirrors`.
+   `mirrors.docker_registry`. The mirror replaces the distro sources: every
+   distro definition (`/etc/apt/sources.list`, plus the `*.list` / `*.sources`
+   entries in `/etc/apt/sources.list.d` signed by the Debian or Ubuntu archive
+   keyring — the deb822 layout Debian 13 ships) is backed up once as
+   `<file>.bak.bootstrap` and then disabled; third-party repositories keep their
+   own definitions. The mirror is rendered to
+   `/etc/apt/sources.list.d/remnawave-mirror.list`.
 5. **Authorizes configured SSH public keys** (`host_<id>_ssh_pubkey_file` in the
    host's `main.yml`).
 
@@ -38,7 +44,7 @@ A private-key path alone is **not** key mode: the account still gets a password
 (from `vault_host_iac_password`, generated when empty) so an unauthorized key
 cannot lock you out; it becomes key-only once its **public**-key path is set.
 
-`create_admin_account: true` additionally creates the optional human `admin` account
+`create_admin_user: true` additionally creates the optional human `admin` account
 (console login + sudo), which always gets a password plus any configured key.
 
 ## Platform

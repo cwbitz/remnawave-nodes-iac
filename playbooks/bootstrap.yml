@@ -113,8 +113,8 @@
           Check inventory/host_vars/<host>/vault.yml for the passwords
           (vault_host_iac_password, vault_host_admin_password,
           vault_host_root_password) and the main.yml next to it for the key paths
-          (host_iac_ssh_privkey_file, host_admin_ssh_privkey_file,
-          host_root_ssh_privkey_file), plus the host.
+          (ssh_keys.iac.privkey, ssh_keys.admin.privkey,
+          ssh_keys.root.privkey), plus the host.
       when: probe.stdout | trim != 'HOSTKEY'
 
     - name: "Probe | Record the working identity"
@@ -142,8 +142,11 @@
     ansible_become_password: "{{ hostvars['localhost'].probe_chosen.password }}"
     ansible_ssh_private_key_file: "{{ hostvars['localhost'].probe_chosen.privkey }}"
     ansible_become: "{{ hostvars['localhost'].probe_chosen.become }}"
+    apt_mirror: "{{ ((mirrors | default({}, true)).apt | default('', true)) }}"
+    docker_registry_mirrors: "{{ ((mirrors | default({}, true)).docker_registry | default([])) }}"
     apt_security_mirror: >-
       {{ apt_mirror | default('', true) | regex_replace('/debian/?$', '') ~ '/debian-security' }}
+    bootstrap_apt_mirror_file: "/etc/apt/sources.list.d/remnawave-mirror.list"
   handlers:
     - name: Restart docker
       ansible.builtin.systemd_service:
@@ -202,22 +205,62 @@
           - ansible_os_family == 'Debian'
         fail_msg: >-
           apt_mirror is set, but the host is not Debian-family.
-          Example: apt_mirror: https://mirrors.tuna.tsinghua.edu.cn/debian
+          Example: mirrors.apt: https://mirrors.tuna.tsinghua.edu.cn/debian
       when: apt_mirror | default('', true) | length > 0
 
-    - name: "Bootstrap | Back up the current APT sources (once)"
+    - name: "Bootstrap | Read the one-line APT sources file"
+      ansible.builtin.stat:
+        path: /etc/apt/sources.list
+      register: bootstrap_apt_sources_legacy
+      when: apt_mirror | default('', true) | length > 0
+
+    - name: "Bootstrap | Find the distro APT source definitions in sources.list.d"
+      ansible.builtin.find:
+        paths: /etc/apt/sources.list.d
+        patterns:
+          - "*.list"
+          - "*.sources"
+        contains: '(?im)^\s*signed-by\s*[=:]\s*\S*(debian|ubuntu)-archive-keyring\.gpg'
+        read_whole_file: true
+        file_type: file
+      register: bootstrap_apt_sources_found
+      when: apt_mirror | default('', true) | length > 0
+
+    - name: "Bootstrap | Resolve the distro APT source definitions"
+      ansible.builtin.set_fact:
+        bootstrap_apt_sources: >-
+          {{ (([{'path': '/etc/apt/sources.list'}]
+               if bootstrap_apt_sources_legacy.stat.exists | default(false)
+               else [])
+              + (bootstrap_apt_sources_found.files | default([])))
+             | rejectattr('path', 'equalto', bootstrap_apt_mirror_file) | list }}
+      when: apt_mirror | default('', true) | length > 0
+
+    - name: "Bootstrap | Back up the distro APT source definitions (once)"
       ansible.builtin.copy:
-        src: /etc/apt/sources.list
-        dest: /etc/apt/sources.list.bak.bootstrap
+        src: "{{ item.path }}"
+        dest: "{{ item.path }}.bak.bootstrap"
         remote_src: true
         force: false
         mode: "0644"
+      loop: "{{ bootstrap_apt_sources | default([]) }}"
+      loop_control:
+        label: "{{ item.path }}"
+      when: apt_mirror | default('', true) | length > 0
+
+    - name: "Bootstrap | Disable the distro APT source definitions"
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: absent
+      loop: "{{ bootstrap_apt_sources | default([]) }}"
+      loop_control:
+        label: "{{ item.path }}"
       when: apt_mirror | default('', true) | length > 0
 
     - name: "Bootstrap | Render the APT sources from the mirror"
       ansible.builtin.template:
         src: templates/apt_sources.list.j2
-        dest: /etc/apt/sources.list
+        dest: "{{ bootstrap_apt_mirror_file }}"
         owner: root
         group: root
         mode: "0644"
@@ -227,6 +270,7 @@
     - name: "Bootstrap | Refresh the APT cache"
       ansible.builtin.apt:
         update_cache: true
+        lock_timeout: "{{ apt_lock_timeout }}"
       when:
         - apt_mirror | default('', true) | length > 0
         - apt_sources.changed | default(false)
@@ -248,7 +292,7 @@
         that:
           - bootstrap_docker.rc | default(1) == 0
         fail_msg: >-
-          docker_registry_mirrors is set but Docker is not installed on
+          mirrors.docker_registry is set but Docker is not installed on
           {{ inventory_hostname }}; install Docker first.
       when: docker_registry_mirrors | default([]) | length > 0
 
@@ -274,7 +318,7 @@
     - name: "Bootstrap | Resolve the service account settings"
       ansible.builtin.set_fact:
         bootstrap_service_user: "iac"
-        bootstrap_use_key: "{{ host_iac_ssh_pubkey_file | default('', true) | length > 0 }}"
+        bootstrap_use_key: "{{ ((ssh_keys | default({}, true)).iac | default({}, true)).pubkey | default('', true) | length > 0 }}"
 
     - name: "Bootstrap | Provision a service-account password (no key supplied)"
       ansible.builtin.include_role:
@@ -307,7 +351,7 @@
     - name: "Bootstrap | Resolve the admin identity settings"
       ansible.builtin.set_fact:
         bootstrap_admin: "{{ ssh_identities.admin }}"
-        bootstrap_admin_defined: "{{ create_admin_account | default(false) | bool }}"
+        bootstrap_admin_defined: "{{ create_admin_user | default(false) | bool }}"
 
     - name: "Bootstrap | Provision the admin password (enabled, none supplied)"
       ansible.builtin.include_role:
@@ -432,6 +476,7 @@
         name: sudo
         state: present
         update_cache: true
+        lock_timeout: "{{ apt_lock_timeout }}"
       when:
         - ansible_os_family == 'Debian'
         - (bootstrap_sudo_nopasswd_users | length

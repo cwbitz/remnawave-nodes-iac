@@ -55,6 +55,9 @@ make deploy          # bootstrap every node, then deploy the node stack
 `make lint` (syntax check + `ansible-lint` + the unit tests + the knob contract)
 is an internal CI check, hidden from `make help`.
 
+Hosts marked `is_test_host: true` are skipped by `make deploy`/`dry-run` unless
+named explicitly with `HOST=<name>`.
+
 Focused tags: `monitoring`, `firewall`, `sshd`, `remnanode`
 (`make deploy TAGS=remnanode`).
 

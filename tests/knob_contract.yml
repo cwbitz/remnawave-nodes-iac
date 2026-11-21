@@ -105,18 +105,20 @@
 
     - name: Set a Debian suite root
       ansible.builtin.set_fact:
-        apt_mirror: "https://mirror.example.com/debian"
+        mirrors:
+          apt: "https://mirror.example.com/debian"
     - name: Assert the schema accepts a Debian suite root
       ansible.builtin.assert:
-        that: "{{ operator_knob_schema.apt_mirror }}"
+        that: "{{ operator_knob_schema.mirrors }}"
         quiet: true
 
     - name: Set a mirror URL without the suite path
       ansible.builtin.set_fact:
-        apt_mirror: "https://mirror.example.com"
+        mirrors:
+          apt: "https://mirror.example.com"
     - name: Evaluate the schema with a mirror URL without the suite path
       ansible.builtin.assert:
-        that: "{{ operator_knob_schema.apt_mirror }}"
+        that: "{{ operator_knob_schema.mirrors }}"
         quiet: true
       register: mirror_without_suite
       ignore_errors: true
