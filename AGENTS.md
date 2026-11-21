@@ -34,7 +34,7 @@ the Remnawave Node). `HOST=<name>` restricts the bootstrap to that node.
   setup key (`vault_netbird_setup_key`), the Remnawave node secret
   (`vault_remnanode_secret_key`) and the control-generated service-account
   passwords (`vault_host_iac_password`, and `vault_host_admin_password` only
-  when `create_admin_account`). Schema reference:
+  when `create_admin_user`). Schema reference:
   `inventory/host_vars/example/vault.yml.example`.
 - Vault password file:
   `~/.config/projects/remnawave-nodes-iac/ansible_vault_password` (set in

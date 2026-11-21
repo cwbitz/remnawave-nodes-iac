@@ -18,6 +18,10 @@ $(if $(word 2,$(HOST)),$(error HOST must be comma-separated literal host names (
 HOST_LIST = $(strip $(subst $(comma), ,$(HOST)))
 HOST_ARG = $(if $(HOST),--limit '$(HOST):localhost',)
 HOST_SINGLE_GUARD = test "$$(printf '%s' '$(HOST_LIST)' | wc -w)" -le 1 || { echo "ERROR: this target needs exactly one HOST; got '$(HOST)'." >&2; exit 2; }
+DEPLOY_GROUP := remnanodes
+DEPLOY_HOSTS  = $(if $(HOST),$(HOST),$(shell python3 $(CURDIR)/scripts/deploy_hosts.py $(INV) $(DEPLOY_GROUP) 2>/dev/null))
+DEPLOY_ARG    = $(if $(DEPLOY_HOSTS),--limit '$(DEPLOY_HOSTS):localhost',)
+DEPLOY_LIST   = $(strip $(subst $(comma), ,$(DEPLOY_HOSTS)))
 
 IP ?=
 PORT ?=
@@ -42,14 +46,15 @@ KEYCHAIN_AGENT   := eval "$$($(KEYCHAIN_BIN) agent start --eval --quiet 2>/dev/n
 
 SSH_AGENT_ENV   ?= $(HOME)/.cache/iac/ssh-agent.env
 SSH_AGENT_RUN   ?= $(CURDIR)/scripts/run-with-ssh-agent.sh
-SSH_AGENT_KEY_VARS ?= host_iac_ssh_privkey_file host_admin_ssh_privkey_file host_root_ssh_privkey_file
+SSH_AGENT_KEYS_MAP ?= ssh_keys
 export SSH_AGENT_ENV
+export SSH_AGENT_KEYS_MAP
 export SSH_AGENT_KEYCHAIN_BIN  := $(KEYCHAIN_BIN)
 export SSH_AGENT_ANS_PLAY      := $(ANS_PLAY)
 export SSH_AGENT_INVENTORY     := $(INV)
 export SSH_AGENT_LOAD_PLAYBOOK := playbooks/ssh_agent_load.yml
 
-SSH_AGENT_PROBE := ansible-inventory -i $(INV) --list 2>/dev/null | SSH_AGENT_KEY_VARS="$(SSH_AGENT_KEY_VARS)" python3 -c "import json,os,sys; names=os.environ['SSH_AGENT_KEY_VARS'].split(); vs=json.load(sys.stdin).get('_meta',{}).get('hostvars',{}); ks={os.path.expanduser(h.get(v)) for h in vs.values() for v in names if h.get(v)}; sys.exit(0 if any(os.path.isfile(k) and (os.stat(k).st_mode & 0o077) for k in ks) else 1)"
+SSH_AGENT_PROBE := ansible-inventory -i $(INV) --list 2>/dev/null | python3 -c "import json,os,sys; m=os.environ.get('SSH_AGENT_KEYS_MAP','ssh_keys'); vs=json.load(sys.stdin).get('_meta',{}).get('hostvars',{}); ks={os.path.expanduser(p) for h in vs.values() for i in ((h.get(m) or {}).values()) for p in [((i or {}).get('privkey') or '')] if p}; sys.exit(0 if any(os.path.isfile(k) and (os.stat(k).st_mode & 0o077) for k in ks) else 1)"
 
 define SSH_AGENT_PREPARE
 	@set -e; \
@@ -215,7 +220,7 @@ hostkeys: vault-init
 	nh="$(HOME)/.ssh/known_hosts"; mkdir -p "$$(dirname "$$nh")"; tmp=$$(mktemp); targets=$$(mktemp); tsv=$$(mktemp); pub=$$(mktemp); failures=0; strict="$(if $(HOST),1,0)"; \
 	trap 'rm -f "$$tmp" "$$targets" "$$tsv" "$$pub"' EXIT; \
 	if [ -f "$$nh" ]; then cp "$$nh" "$$tmp"; else : > "$$tmp"; fi; \
-	$(ANS_PLAY) -i $(INV) playbooks/host_keys.yml -e host_keys_out="$$targets" -e host_keys_hosts='$(HOST)' >/dev/null; \
+	$(ANS_PLAY) -i $(INV) playbooks/host_keys.yml -e host_keys_out="$$targets" -e host_keys_hosts='$(DEPLOY_HOSTS)' >/dev/null; \
 	python3 -c 'import json,sys; [print("{}\t{}\t{}".format(t["name"],t["host"],t["port"])) for t in json.load(open(sys.argv[1]))]' "$$targets" > "$$tsv"; \
 	mv "$$tsv" "$$targets"; \
 	test -s "$$targets" || { echo "ERROR: no hosts resolved from the inventory."; exit 1; }; \
@@ -344,19 +349,16 @@ lint: vault-init validate-knobs
 
 .PHONY: dry-run
 dry-run: vault-init rebuild-reset validate-knobs agent-fallback ## Preview the deploy with --check --diff; HOST=<hosts>, REBUILD=1 after a rebuild
-	$(SSH_AGENT_RUN) $(ANS_PLAY) -i $(INV) $(PLAYBOOK) $(HOST_ARG) --check --diff $(TAGS_ARG)
+	@test -n "$(DEPLOY_HOSTS)" || { echo "ERROR: every node is is_test_host: true; pass HOST=<name> to target a test node deliberately." >&2; exit 1; }
+	$(SSH_AGENT_RUN) $(ANS_PLAY) -i $(INV) $(PLAYBOOK) $(DEPLOY_ARG) --check --diff $(TAGS_ARG)
 
 .PHONY: deploy
-deploy: vault-init rebuild-reset hostkeys validate-knobs agent-fallback ## Bootstrap the selected nodes, then deploy the Remnawave node stack; HOST=<hosts>, TAGS=<tags>, REBUILD=1 after a rebuild
+deploy: vault-init rebuild-reset hostkeys validate-knobs agent-fallback ## Bootstrap the selected nodes, then deploy the Remnawave node stack; HOST=<hosts>, TAGS=<tags>, REBUILD=1 after a rebuild; skips is_test_host: true nodes unless HOST is given
 	@set -e; \
-	hosts="$(HOST_LIST)"; \
+	hosts="$(DEPLOY_LIST)"; \
 	if [ -z "$$hosts" ]; then \
-		hosts="$$(ansible -i $(INV) --list-hosts remnanodes 2>/dev/null \
-			| tail -n +2 | awk '$$1=$$1' | sed '/^$$/d')"; \
-	fi; \
-	if [ -z "$$hosts" ]; then \
-		echo "ERROR: no remnanodes host resolved from $(INV)." >&2; \
-		echo "Scaffold one with: make prep HOST=<hostname> IP=<management-ip>" >&2; \
+		echo "ERROR: no deployable node resolved from $(INV) (every node is is_test_host: true, or the inventory is empty)." >&2; \
+		echo "       Pass HOST=<name> to deploy a test node deliberately." >&2; \
 		exit 1; \
 	fi; \
 	for host in $$hosts; do \
@@ -364,15 +366,15 @@ deploy: vault-init rebuild-reset hostkeys validate-knobs agent-fallback ## Boots
 		$(SSH_AGENT_RUN) $(ANS_PLAY) -i $(INV) playbooks/bootstrap.yml -e bootstrap_host="$$host"; \
 	done
 	@echo "==> Deploying the Remnawave node stack (playbooks/site.yml)..."
-	$(SSH_AGENT_RUN) $(ANS_PLAY) -i $(INV) $(PLAYBOOK) $(HOST_ARG) $(TAGS_ARG)
+	$(SSH_AGENT_RUN) $(ANS_PLAY) -i $(INV) $(PLAYBOOK) $(DEPLOY_ARG) $(TAGS_ARG)
 
 .PHONY: agent
 agent: vault-init agent-fallback
-	$(SSH_AGENT_RUN) $(ANS_PLAY) -i $(INV) playbooks/agent.yml $(HOST_ARG)
+	$(SSH_AGENT_RUN) $(ANS_PLAY) -i $(INV) playbooks/agent.yml $(DEPLOY_ARG)
 
 .PHONY: monitoring
 monitoring: vault-init agent-fallback
-	$(SSH_AGENT_RUN) $(ANS_PLAY) -i $(INV) playbooks/monitoring.yml $(HOST_ARG)
+	$(SSH_AGENT_RUN) $(ANS_PLAY) -i $(INV) playbooks/monitoring.yml $(DEPLOY_ARG)
 
 .PHONY: print
 print: vault-init require-inventory ## Print a node's resolved variables, including decrypted vault values; HOST=<host>
