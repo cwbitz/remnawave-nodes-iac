@@ -29,6 +29,23 @@ one component is enabled and is retired when all three are off. Reached via
   `/api/v1/write`, so a value that already carries one of those paths is
   rejected by the knob gate.
 
+With `monitoring.alloy.verify_push: true` the role reads Alloy's own counters on
+`http://<overlay-ip>:12345/metrics` after the stack is up: it snapshots them,
+waits up to ~90s for
+`prometheus_remote_storage_queue_highest_sent_timestamp_seconds` to advance, and
+fails when no new sample was acknowledged or a write counter dropped anything
+while it waited. Leave it off where the receiver may be unreachable at deploy
+time.
+
+On a test node with no central stack, `monitoring.alloy.verify_receiver.mode:
+ack` deploys a `verify-receiver` container next to Alloy (same compose project,
+loopback-only `127.0.0.1:<port>`, pinned nginx) that acknowledges
+`/api/v1/write` and `/loki/api/v1/push` with 2xx, derives both push URLs from
+`verify_receiver.port` (both URL knobs stay empty), and switches `verify_push`
+on. It proves Alloy's configuration, scrape and write path and that nothing was
+dropped; it does not prove that a real Loki/Prometheus ingests the data, so keep
+it to test nodes. `disabled` is the default.
+
 The Debian packages self-configure: crowdsec enables `crowdsecurity/linux` +
 `crowdsecurity/sshd` and reads `ssh.service` from journald; the firewall bouncer
 registers its LAPI key against the local LAPI on install.

@@ -82,7 +82,12 @@ the Remnawave Node). `HOST=<name>` restricts the bootstrap to that node.
   monitoring/security parts (`make monitoring` joins the overlay first). The host
   firewall (`roles/firewall`), key-only SSH (`roles/sshd`) and the agent
   (`roles/agent`, `netbird.enabled`) are part of `site.yml`; `make deploy
-  TAGS=firewall` / `TAGS=sshd` runs only one of them.
+  TAGS=firewall` / `TAGS=sshd` runs only one of them. With
+  `monitoring.alloy.verify_push` the run snapshots Alloy's write counters and
+  fails when no new sample was acknowledged or a write was dropped while it
+  waited; `monitoring.alloy.verify_receiver.mode: ack` (test nodes only) runs a
+  loopback-only acknowledging receiver, derives both push URLs from
+  `verify_receiver.port` and switches the check on.
 - `make dry-run` / `make deploy` — preview / one-shot deploy. The first
   `make dry-run` needs `make deploy` first (the `iac` account and its key
   must exist); check mode skips the overlay wait, so it also works before the
@@ -215,6 +220,7 @@ Every tag is a role constant in `roles/*/vars/`, each with a
 | remnawave/node | dockerhub | `remnanode_version` (pinned version tag) |
 | netbird-agent | ghcr.io | `netbird_agent_version` |
 | alloy | dockerhub | `alloy_version` |
+| nginx (verification receiver) | dockerhub | `alloy_verify_receiver_version` |
 
 ## Testing and verification
 

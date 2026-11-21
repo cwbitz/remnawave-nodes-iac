@@ -121,6 +121,19 @@ operator_knob_nested:
          | string) is match('^https?://[^\s]+$')
         and (((monitoring | default({}, true)).alloy | default({})).prometheus_remote_write_url
              | string | trim | regex_replace('/+$', '')) is not search('/api/v1/write$'))
+  monitoring.alloy.verify_push: >-
+    (((monitoring | default({}, true)).alloy | default({})).verify_push
+     | default(false)) is boolean
+  monitoring.alloy.verify_receiver.mode: >-
+    ((((monitoring | default({}, true)).alloy | default({})).verify_receiver
+     | default({})).mode | default('disabled') | string) in ['disabled', 'ack']
+  monitoring.alloy.verify_receiver.port: >-
+    ((((monitoring | default({}, true)).alloy | default({})).verify_receiver
+     | default({})).port | default(3100, true) | string) is match('^[0-9]+$')
+    and ((((monitoring | default({}, true)).alloy | default({})).verify_receiver
+     | default({})).port | default(3100, true) | int) >= 1
+    and ((((monitoring | default({}, true)).alloy | default({})).verify_receiver
+     | default({})).port | default(3100, true) | int) <= 65535
   monitoring.alloy.scrape_interval: >-
     (((monitoring | default({}, true)).alloy | default({})).scrape_interval
      | default('15s') | string) is match('^([1-9]|[12][0-9]|30)s$')

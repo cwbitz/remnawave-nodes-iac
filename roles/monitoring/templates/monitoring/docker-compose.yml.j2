@@ -21,3 +21,12 @@ services:
       - /var/log/journal:/var/log/journal:ro
       - /run/log/journal:/run/log/journal:ro
       - /etc/machine-id:/etc/machine-id:ro
+{% if alloy_verify_receiver_enabled | bool %}
+  verify-receiver:
+    image: "{{ alloy_verify_receiver_image }}:{{ alloy_verify_receiver_version }}"
+    container_name: alloy-verify-receiver
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ./verify-receiver.conf:/etc/nginx/conf.d/default.conf:ro
+{% endif %}

@@ -1,0 +1,21 @@
+server {
+    listen {{ alloy_verify_receiver_address }};
+    access_log off;
+
+    location = /api/v1/write {
+        return 204;
+    }
+
+    location = /loki/api/v1/push {
+        return 204;
+    }
+
+    location = /ready {
+        default_type text/plain;
+        return 200 "ready\n";
+    }
+
+    location / {
+        return 404;
+    }
+}
