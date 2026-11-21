@@ -44,6 +44,29 @@
           - empty_node_port.failed | default(false)
         quiet: true
 
+    - name: Set a boolean readiness-skip toggle
+      ansible.builtin.set_fact:
+        remnanode_skip_readiness_check: true
+    - name: Assert the schema accepts a boolean readiness-skip toggle
+      ansible.builtin.assert:
+        that: "{{ operator_knob_schema.remnanode_skip_readiness_check }}"
+        quiet: true
+
+    - name: Set a string readiness-skip toggle
+      ansible.builtin.set_fact:
+        remnanode_skip_readiness_check: "true"
+    - name: Evaluate the schema with a string readiness-skip toggle
+      ansible.builtin.assert:
+        that: "{{ operator_knob_schema.remnanode_skip_readiness_check }}"
+        quiet: true
+      register: string_skip_readiness
+      ignore_errors: true
+    - name: Assert the schema rejects a string readiness-skip toggle
+      ansible.builtin.assert:
+        that:
+          - string_skip_readiness.failed | default(false)
+        quiet: true
+
     - name: Set a key-only root policy
       ansible.builtin.set_fact:
         sshd:

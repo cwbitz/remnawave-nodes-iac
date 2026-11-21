@@ -184,6 +184,10 @@ netbird:
 # docker-compose.yml: NODE_PORT here (not a secret) and SECRET_KEY into the vault
 # (vault_remnanode_secret_key).
 remnanode_node_port: ""     # e.g. 2222: the port the Panel dials in on
+# Test-only: true skips the readiness wait, so a deploy on an is_test_host host
+# can finish with a placeholder SECRET_KEY; the node then keeps restarting and
+# stays unreachable from the Panel. Keep false on every real node.
+remnanode_skip_readiness_check: false
 
 # ==============================================================================
 # Deploy

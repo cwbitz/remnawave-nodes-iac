@@ -37,6 +37,9 @@ operator_knob_schema:
   remnanode_node_port: >-
     (remnanode_node_port | default('', true) | string | trim) is match('^[0-9]{1,5}$')
     and (remnanode_node_port | int) >= 1 and (remnanode_node_port | int) <= 65535
+  remnanode_skip_readiness_check: >-
+    remnanode_skip_readiness_check is not defined
+    or remnanode_skip_readiness_check is boolean
   firewall: "firewall is not defined or firewall is mapping"
   sshd: "sshd is not defined or sshd is mapping"
   monitoring: "monitoring is not defined or monitoring is mapping"
