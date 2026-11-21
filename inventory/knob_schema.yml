@@ -117,8 +117,10 @@ operator_knob_nested:
   monitoring.alloy.prometheus_remote_write_url: >-
     (((monitoring | default({}, true)).alloy | default({})).prometheus_remote_write_url
      | default('', true) | string | trim) == ''
-    or (((monitoring | default({}, true)).alloy | default({})).prometheus_remote_write_url
-    | string) is match('^https?://[^\s]+$')
+    or ((((monitoring | default({}, true)).alloy | default({})).prometheus_remote_write_url
+         | string) is match('^https?://[^\s]+$')
+        and (((monitoring | default({}, true)).alloy | default({})).prometheus_remote_write_url
+             | string | trim | regex_replace('/+$', '')) is not search('/api/v1/write$'))
   monitoring.alloy.scrape_interval: >-
     (((monitoring | default({}, true)).alloy | default({})).scrape_interval
      | default('15s') | string) is match('^([1-9]|[12][0-9]|30)s$')

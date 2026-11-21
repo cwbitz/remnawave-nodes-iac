@@ -84,7 +84,7 @@ prometheus.scrape "host" {
 
 prometheus.remote_write "central" {
   endpoint {
-    url = "{{ prometheus_remote_write_url }}"
+    url = "{{ prometheus_remote_write_url }}/api/v1/write"
   }
 }
 {% endif %}
