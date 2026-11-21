@@ -135,8 +135,8 @@ monitoring:
     enabled: false
     loki_push_url: ""
     # Central Prometheus remote-write receiver over the overlay (an overlay IP or
-    # the peer's NetBird name). Empty = metrics are not pushed; log shipping is
-    # unaffected.
+    # the peer's NetBird name), as a base URL: the role appends /api/v1/write.
+    # Empty = metrics are not pushed; log shipping is unaffected.
     prometheus_remote_write_url: ""
     # Metric scrape cadence behind the remote-write push. It has to stay inside
     # the dashboards' 60s `rate()` window (1s-30s); a 60s cadence leaves every

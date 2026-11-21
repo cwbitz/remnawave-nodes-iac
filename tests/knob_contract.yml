@@ -165,6 +165,33 @@
           - slow_scrape_interval.failed | default(false)
         quiet: true
 
+    - name: Set a Prometheus remote-write base URL
+      ansible.builtin.set_fact:
+        monitoring:
+          alloy:
+            prometheus_remote_write_url: "http://central.example:9090"
+    - name: Assert the schema accepts a remote-write base URL
+      ansible.builtin.assert:
+        that: "{{ operator_knob_nested['monitoring.alloy.prometheus_remote_write_url'] }}"
+        quiet: true
+
+    - name: Set a remote-write URL that already carries the appended path
+      ansible.builtin.set_fact:
+        monitoring:
+          alloy:
+            prometheus_remote_write_url: "http://central.example:9090/api/v1/write"
+    - name: Evaluate the schema with a remote-write URL that already carries the path
+      ansible.builtin.assert:
+        that: "{{ operator_knob_nested['monitoring.alloy.prometheus_remote_write_url'] }}"
+        quiet: true
+      register: write_url_with_path
+      ignore_errors: true
+    - name: Assert the schema rejects a remote-write URL that already carries the path
+      ansible.builtin.assert:
+        that:
+          - write_url_with_path.failed | default(false)
+        quiet: true
+
     - name: Set a boolean overlay toggle
       ansible.builtin.set_fact:
         netbird:
