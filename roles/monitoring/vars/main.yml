@@ -16,6 +16,12 @@ svc_crowdsec: "crowdsec"
 svc_crowdsec_firewall_bouncer: "crowdsec-firewall-bouncer"
 monitoring_dir: "/opt/monitoring"
 alloy_image: "grafana/alloy"
+# renovate: datasource=docker depName=nginx
+alloy_verify_receiver_image: "nginx"
+alloy_verify_receiver_version: "1.30-alpine"
+alloy_acked_push_re: '(?m)^prometheus_remote_storage_queue_highest_sent_timestamp_seconds(?:\{[^}]*\})? ([0-9.eE+-]+)$'
+alloy_dropped_samples_re: '(?m)^prometheus_remote_storage_samples_(?:failed|dropped)_total(?:\{[^}]*\})? ([0-9.eE+-]+)$'
+alloy_dropped_entries_re: '(?m)^loki_write_dropped_entries_total(?:\{[^}]*\})? ([0-9.eE+-]+)$'
 
 # CrowdSec engine is pinned to the packagecloud build; Debian trixie ships 1.4.x.
 crowdsec_version: "1.8.1"

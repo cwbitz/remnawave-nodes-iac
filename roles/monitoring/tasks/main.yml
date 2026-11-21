@@ -10,6 +10,19 @@
       monitoring is Debian-family only (apt). Disable the monitoring
       components on unsupported hosts.
 
+- name: "Monitoring | Assert the local verification receiver owns the push URLs"
+  ansible.builtin.assert:
+    that:
+      - (monitoring_cfg.alloy.loki_push_url | default('', true) | string | trim) == ''
+      - (monitoring_cfg.alloy.prometheus_remote_write_url | default('', true) | string | trim) == ''
+    fail_msg: >-
+      monitoring.alloy.verify_receiver.mode: {{ alloy_verify_receiver_mode }}
+      derives both push URLs from verify_receiver.port
+      (http://{{ alloy_verify_receiver_address }}); leave
+      monitoring.alloy.loki_push_url and monitoring.alloy.prometheus_remote_write_url
+      empty so the local receiver is the only destination.
+  when: alloy_verify_receiver_enabled | bool
+
 - name: "Monitoring | Assert the overlay is available"
   ansible.builtin.assert:
     that:
@@ -256,6 +269,7 @@
   failed_when: false
   when:
     - alloy_enabled | bool
+    - not (alloy_verify_receiver_enabled | bool)
     - not ansible_check_mode
 
 - name: "Monitoring | Warn when the central Loki is unreachable"
@@ -267,6 +281,7 @@
       central stack.
   when:
     - alloy_enabled | bool
+    - not (alloy_verify_receiver_enabled | bool)
     - not ansible_check_mode
     - (monitoring_loki_probe.status | default(-1)) not in [200, 503]
 
@@ -279,6 +294,17 @@
     mode: "0640"
   when: alloy_enabled | bool
   notify: "Monitoring | Restart alloy"
+
+- name: "Monitoring | Render the local verification receiver configuration"
+  ansible.builtin.template:
+    src: monitoring/verify-receiver.conf.j2
+    dest: "{{ monitoring_dir }}/verify-receiver.conf"
+    owner: root
+    group: root
+    mode: "0644"
+  when:
+    - alloy_enabled | bool
+    - alloy_verify_receiver_enabled | bool
 
 - name: "Monitoring | Render the monitoring stack"
   ansible.builtin.template:
@@ -414,6 +440,96 @@
     state: started
   loop: "{{ monitoring_services }}"
   when: (item ~ '.service') in ansible_facts.services
+
+- name: "Monitoring | Flush the pending restarts before verifying the push"
+  ansible.builtin.meta: flush_handlers
+  when:
+    - alloy_enabled | bool
+    - alloy_verify_push | bool
+    - not ansible_check_mode
+
+- name: "Monitoring | Read the Alloy write counters before the push"
+  ansible.builtin.uri:
+    url: "http://{{ overlay_ip }}:12345/metrics"
+    return_content: true
+    status_code: 200
+  register: monitoring_alloy_metrics_baseline
+  until: (monitoring_alloy_metrics_baseline.status | default(0)) == 200
+  retries: 12
+  delay: 5
+  changed_when: false
+  failed_when: false
+  when:
+    - alloy_enabled | bool
+    - alloy_verify_push | bool
+    - not ansible_check_mode
+
+- name: "Monitoring | Record the Alloy write counters before the push"
+  ansible.builtin.set_fact:
+    monitoring_alloy_ack_baseline: >-
+      {{ (monitoring_alloy_metrics_baseline.content | default('')
+          | regex_findall(alloy_acked_push_re)) | map('float') | sum }}
+    monitoring_alloy_dropped_samples_baseline: >-
+      {{ (monitoring_alloy_metrics_baseline.content | default('')
+          | regex_findall(alloy_dropped_samples_re)) | map('float') | sum }}
+    monitoring_alloy_dropped_entries_baseline: >-
+      {{ (monitoring_alloy_metrics_baseline.content | default('')
+          | regex_findall(alloy_dropped_entries_re)) | map('float') | sum }}
+  when:
+    - alloy_enabled | bool
+    - alloy_verify_push | bool
+    - not ansible_check_mode
+
+- name: "Monitoring | Read the Alloy write counters"
+  ansible.builtin.uri:
+    url: "http://{{ overlay_ip }}:12345/metrics"
+    return_content: true
+    status_code: 200
+  register: monitoring_alloy_metrics
+  until: >-
+    (monitoring_alloy_metrics.status | default(0)) == 200
+    and (not (alloy_remote_write_active | bool)
+         or ((monitoring_alloy_metrics.content | default('')
+              | regex_findall(alloy_acked_push_re)) | map('float') | sum)
+            > (monitoring_alloy_ack_baseline | float))
+  retries: 18
+  delay: 5
+  changed_when: false
+  failed_when: false
+  when:
+    - alloy_enabled | bool
+    - alloy_verify_push | bool
+    - not ansible_check_mode
+
+- name: "Monitoring | Assert Alloy confirmed the push"
+  ansible.builtin.assert:
+    that:
+      - (monitoring_alloy_metrics_baseline.status | default(0)) == 200
+      - (monitoring_alloy_metrics.status | default(0)) == 200
+      - >-
+        ((monitoring_alloy_metrics.content | default('')
+          | regex_findall(alloy_dropped_samples_re)) | map('float') | sum)
+        <= (monitoring_alloy_dropped_samples_baseline | float)
+      - >-
+        ((monitoring_alloy_metrics.content | default('')
+          | regex_findall(alloy_dropped_entries_re)) | map('float') | sum)
+        <= (monitoring_alloy_dropped_entries_baseline | float)
+      - >-
+        (not (alloy_remote_write_active | bool))
+        or (((monitoring_alloy_metrics.content | default('')
+             | regex_findall(alloy_acked_push_re)) | map('float') | sum)
+            > (monitoring_alloy_ack_baseline | float))
+    fail_msg: >-
+      monitoring.alloy.verify_push is enabled, but Alloy did not confirm the
+      push within ~90s: no scraped sample was acknowledged at
+      {{ prometheus_remote_write_url }}/api/v1/write, or a sample was dropped
+      while the check ran. Check `docker logs alloy` and that the receiver
+      answers a POST there with 2xx from this host. Set verify_push back to
+      false when the receiver is expected to be unreachable at deploy time.
+  when:
+    - alloy_enabled | bool
+    - alloy_verify_push | bool
+    - not ansible_check_mode
 
 - name: "Monitoring | Retire the components that are disabled"
   ansible.builtin.include_tasks: cleanup.yml

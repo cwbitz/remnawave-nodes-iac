@@ -192,6 +192,54 @@
           - write_url_with_path.failed | default(false)
         quiet: true
 
+    - name: Set a local verification receiver
+      ansible.builtin.set_fact:
+        monitoring:
+          alloy:
+            verify_receiver:
+              mode: "ack"
+              port: 3100
+    - name: Assert the schema accepts a local verification receiver
+      ansible.builtin.assert:
+        that: "{{ operator_knob_nested['monitoring.alloy.verify_receiver.mode'] }}"
+        quiet: true
+
+    - name: Set a receiver mode outside the domain
+      ansible.builtin.set_fact:
+        monitoring:
+          alloy:
+            verify_receiver:
+              mode: "off"
+    - name: Evaluate the schema with a receiver mode outside the domain
+      ansible.builtin.assert:
+        that: "{{ operator_knob_nested['monitoring.alloy.verify_receiver.mode'] }}"
+        quiet: true
+      register: receiver_mode_outside_domain
+      ignore_errors: true
+    - name: Assert the schema rejects a receiver mode outside the domain
+      ansible.builtin.assert:
+        that:
+          - receiver_mode_outside_domain.failed | default(false)
+        quiet: true
+
+    - name: Set a receiver port outside the range
+      ansible.builtin.set_fact:
+        monitoring:
+          alloy:
+            verify_receiver:
+              port: 70000
+    - name: Evaluate the schema with a receiver port outside the range
+      ansible.builtin.assert:
+        that: "{{ operator_knob_nested['monitoring.alloy.verify_receiver.port'] }}"
+        quiet: true
+      register: receiver_port_outside_range
+      ignore_errors: true
+    - name: Assert the schema rejects a receiver port outside the range
+      ansible.builtin.assert:
+        that:
+          - receiver_port_outside_range.failed | default(false)
+        quiet: true
+
     - name: Set a boolean overlay toggle
       ansible.builtin.set_fact:
         netbird:

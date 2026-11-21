@@ -129,15 +129,32 @@ monitoring:
       extra_env: {}
   alloy:
     # Optionally ship host logs to a central Loki reachable over the overlay
-    # (alloy.enabled requires loki_push_url): an overlay IP, or preferably the
-    # central peer's NetBird name ("http://<peer>.netbird.selfhosted:3100"),
-    # which survives a re-enrolled central peer.
+    # (alloy.enabled requires loki_push_url), as a base URL: the role appends
+    # /loki/api/v1/push. An overlay IP, or preferably the central peer's NetBird
+    # name ("http://<peer>.netbird.selfhosted:3100"), which survives a
+    # re-enrolled central peer.
     enabled: false
     loki_push_url: ""
     # Central Prometheus remote-write receiver over the overlay (an overlay IP or
     # the peer's NetBird name), as a base URL: the role appends /api/v1/write.
     # Empty = metrics are not pushed; log shipping is unaffected.
     prometheus_remote_write_url: ""
+    # Opt-in check on the push itself: after the stack is up, read Alloy's own
+    # counters and fail when the remote-write receiver acknowledged no new
+    # scraped sample, or a write was dropped while the check ran. Leave it off
+    # when the receiver may be unreachable at deploy time;
+    # verify_receiver.mode: ack switches it on by itself.
+    verify_push: false
+    # Local self-check for a test node: deploy a loopback-only receiver that
+    # acknowledges both write paths, derive loki_push_url and
+    # prometheus_remote_write_url from verify_receiver.port, and verify the push
+    # without a real central stack. "disabled" (default) keeps Alloy pointed at
+    # the URLs above; "ack" (only while alloy is enabled) requires both of them
+    # to be empty and always runs the push check. Test nodes only: the data is
+    # acknowledged and discarded.
+    verify_receiver:
+      mode: "disabled"
+      port: 3100
     # Metric scrape cadence behind the remote-write push. It has to stay inside
     # the dashboards' 60s `rate()` window (1s-30s); a 60s cadence leaves every
     # `rate()` panel empty.
